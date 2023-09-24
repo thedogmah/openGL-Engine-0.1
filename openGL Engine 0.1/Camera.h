@@ -10,6 +10,7 @@ class Camera
 public:
 	Camera(GLFWwindow* window);
 
+	bool locked = false;
 	void update();
 	glm::mat4 getViewMatrix() const;
 	void setViewMatrix();

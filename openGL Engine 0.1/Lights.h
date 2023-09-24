@@ -16,7 +16,7 @@ namespace World {
 		float pad1{};
 		glm::vec3 startingPosition;
 		float pad2{};
-			};
+	};
 
 	struct Material {
 	public:
@@ -32,9 +32,12 @@ namespace World {
 
 		glm::mat4 modelMatrix;
 		glm::vec3 rotationPerFrame;
-		float padding{};
+		glm::uvec2 padding;
+		btRigidBody* rigidBody = nullptr;
+		//float padding[1];
+		
 		//glm::vec3 colour;
-		//float padding2{};
+	//	float padding2{};
 
 	};
 

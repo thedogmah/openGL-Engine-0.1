@@ -18,7 +18,7 @@ public:
 	void setCubeData(cubeData cubeData);
 	//function to set texture
 	void setTexture(GLuint textureID);
-
+	//void deleteRigidBody();
 
 	GLuint VAO, VBO, EBO;
 	std::vector <float> vertices;

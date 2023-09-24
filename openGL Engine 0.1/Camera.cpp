@@ -1,5 +1,5 @@
 #include "Camera.h"
-#include "globals.h"
+
 //#include <glm/glm.hpp>
 Camera::Camera(GLFWwindow* window)		: m_window(window),
 		mPosition(glm::vec3(0.0f, 0.5f, 3.0f)),
@@ -7,7 +7,7 @@ Camera::Camera(GLFWwindow* window)		: m_window(window),
 		mUp(glm::vec3(0.0f, 1.0f, 0.0f)),
 		mYaw(-90.0f),
 		mPitch(0.0f),
-		mMovementSpeed(0.2f),
+		mMovementSpeed(0.05f),
 		mMouseSensitivity(0.00013f),
 		mZoom(45.0f)
 {
@@ -16,9 +16,15 @@ Camera::Camera(GLFWwindow* window)		: m_window(window),
 }
 
 void Camera::Camera::update() {
-	updateOrientation();
-	updatePosition();
 	
+	if (glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_REPEAT)
+		if (locked)  locked = false;
+		else locked = true;
+
+	if (!locked) {
+		updateOrientation();
+		updatePosition();
+	}
 }
 
 glm::mat4 Camera::Camera::getViewMatrix() const {
@@ -85,57 +91,52 @@ void Camera::Camera::updatePosition() {
 	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
 
 	{
-		mPosition += glm::vec3(0.0, 0.01, 0.f);
-		
+		mPosition += glm::vec3(0.0, 0.03, 0.f);
+
 	}
 
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
 
 	{
-		mPosition -= glm::vec3(0.0, 0.01, 0.f);
+		mPosition -= glm::vec3(0.0, 0.03, 0.f);
 
 	}
 
 
 	if (lMouseClicked == true)
 	{
-			
+
 		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	}
 
 	else {
-	
+
 		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	}
 
 
 	if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_A) == GLFW_REPEAT)
-
 	{
-		mPosition.x -= 0.03;
-	
+		// Move the camera left (relative to its current orientation)
+		mPosition -= glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
 	}
 
 	if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_D) == GLFW_REPEAT)
-
 	{
-		mPosition.x += 0.03;
-
+		// Move the camera right (relative to its current orientation)
+		mPosition += glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
 	}
 
 	if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_W) == GLFW_REPEAT)
-
 	{
-		mPosition.z -= 0.02;
-
+		// Move the camera forward (in the direction it's currently facing)
+		mPosition += mFront * mMovementSpeed;
 	}
 
 	if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_S) == GLFW_REPEAT)
-
 	{
-		mPosition.z += 0.02;
-
+		// Move the camera backward (opposite direction of where it's facing)
+		mPosition -= mFront * mMovementSpeed;
 	}
-
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -152,11 +152,15 @@
     <ClCompile Include="..\..\..\..\Desktop\imgui-master\imgui_widgets.cpp" />
     <ClCompile Include="3D.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Character.cpp" />
     <ClCompile Include="Cube.cpp" />
     <ClCompile Include="cubeData.cpp" />
+    <ClCompile Include="Engine.cpp" />
     <ClCompile Include="libraries\include\glad\src\glad.c" />
     <ClCompile Include="Lights.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="openGLDrawable.cpp" />
+    <ClCompile Include="PhysDebug.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="SSBO.cpp" />
     <ClCompile Include="stb.cpp" />
@@ -174,13 +178,17 @@
     <ClInclude Include="..\..\..\..\Downloads\stb_image_write.h" />
     <ClInclude Include="3D.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Character.h" />
     <ClInclude Include="Cube.h" />
     <ClInclude Include="cubeData.h" />
+    <ClInclude Include="Engine.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="libraries\include\glad\glad.h" />
     <ClInclude Include="libraries\include\imconfig.h" />
     <ClInclude Include="libraries\include\imgui_impl_glfw.h" />
     <ClInclude Include="Lights.h" />
+    <ClInclude Include="openGLDrawable.h" />
+    <ClInclude Include="PhysDebug.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SSBO.h" />
     <ClInclude Include="worldObject.h" />
@@ -188,6 +196,8 @@
   <ItemGroup>
     <None Include="basic.frag" />
     <None Include="basic.vert" />
+    <None Include="PhysDebug.vert" />
+    <None Include="PhysDebut.frag" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg" />

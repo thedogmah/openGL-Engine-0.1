@@ -16,6 +16,9 @@
     <Filter Include="Header Files\Math Functions">
       <UniqueIdentifier>{46abe2ec-2477-47b1-b7c0-0b500a37f3ca}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Shaders">
+      <UniqueIdentifier>{c7ad9b84-dc56-45f4-9c1b-f70de47a5af0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -73,6 +76,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="libraries\include\glad\src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="openGLDrawable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysDebug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -137,10 +149,29 @@
     <ClInclude Include="..\..\..\..\Desktop\bullet3-master\src\btBulletDynamicsCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="openGLDrawable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysDebug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="basic.vert" />
-    <None Include="basic.frag" />
+    <None Include="basic.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="basic.vert">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="PhysDebug.vert">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="PhysDebut.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg">

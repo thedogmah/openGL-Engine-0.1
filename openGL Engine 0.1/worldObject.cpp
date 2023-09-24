@@ -26,3 +26,4 @@ unsigned int worldObject::returnID()
 {
     return ID;
 }
+
