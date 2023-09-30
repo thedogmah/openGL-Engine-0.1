@@ -177,6 +177,7 @@
     <ClInclude Include="..\..\..\..\Desktop\imgui-master\imstb_truetype.h" />
     <ClInclude Include="..\..\..\..\Downloads\stb_image_write.h" />
     <ClInclude Include="3D.h" />
+    <ClInclude Include="CallbackFunctions.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Character.h" />
     <ClInclude Include="Cube.h" />

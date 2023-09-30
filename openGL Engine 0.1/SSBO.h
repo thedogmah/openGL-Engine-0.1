@@ -1,6 +1,6 @@
 #pragma once
 
-#include "globals.h"
+
 
 #include <iostream>
 #include <glad/glad.h>
@@ -8,7 +8,7 @@
 class SSBO
 {
 public:
-
+	SSBO();
 	SSBO(GLuint bindingIndex, const void* data, size_t dataSize, GLenum useage);
 
 	void Unbind();

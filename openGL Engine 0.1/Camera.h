@@ -8,8 +8,8 @@
 class Camera
 {
 public:
-	Camera(GLFWwindow* window);
-
+	Camera();
+	bool cameraActive = true;
 	bool locked = false;
 	void update();
 	glm::mat4 getViewMatrix() const;

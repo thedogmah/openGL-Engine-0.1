@@ -1,5 +1,9 @@
 #include "SSBO.h"
 
+SSBO::SSBO()
+{
+}
+
 SSBO::SSBO(GLuint bindingIndex, const void* data, size_t dataSize, GLenum useage)
 {
 	bindIndex = bindingIndex;

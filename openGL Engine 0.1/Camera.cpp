@@ -1,27 +1,24 @@
 #include "Camera.h"
 
 //#include <glm/glm.hpp>
-Camera::Camera(GLFWwindow* window)		: m_window(window),
+Camera::Camera()	:
 		mPosition(glm::vec3(0.0f, 0.5f, 3.0f)),
 		mFront(glm::vec3(0.0f, 0.0f, -1.0f)),
 		mUp(glm::vec3(0.0f, 1.0f, 0.0f)),
 		mYaw(-90.0f),
 		mPitch(0.0f),
-		mMovementSpeed(0.05f),
+		mMovementSpeed(0.25f),
 		mMouseSensitivity(0.00013f),
 		mZoom(45.0f)
 {
-
-
+	
 }
 
 void Camera::Camera::update() {
 	
-	if (glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_REPEAT)
-		if (locked)  locked = false;
-		else locked = true;
+	
 
-	if (!locked) {
+	 {
 		updateOrientation();
 		updatePosition();
 	}
@@ -87,56 +84,72 @@ void Camera::Camera::updatePosition() {
 
 
 	//Switch Mouse Clicked on spacekey
+	if (cameraActive) {
+		if (glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_REPEAT)
+		{
+			this->mMouseSensitivity = 0.0;
 
-	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
-
-	{
-		mPosition += glm::vec3(0.0, 0.03, 0.f);
-
-	}
-
-	if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
-
-	{
-		mPosition -= glm::vec3(0.0, 0.03, 0.f);
-
-	}
+			this->mMovementSpeed = 0.0;
+		}
 
 
-	if (lMouseClicked == true)
-	{
-
-		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-	}
-
-	else {
-
-		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	}
+		if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_REPEAT)
+		{
+			this->mMovementSpeed = 0.35f,
+				this->mMouseSensitivity = 0.00033f;
+		}
 
 
-	if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_A) == GLFW_REPEAT)
-	{
-		// Move the camera left (relative to its current orientation)
-		mPosition -= glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
-	}
+		if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
 
-	if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_D) == GLFW_REPEAT)
-	{
-		// Move the camera right (relative to its current orientation)
-		mPosition += glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
-	}
+		{
+			mPosition += glm::vec3(0.0, 0.1, 0.f);
 
-	if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_W) == GLFW_REPEAT)
-	{
-		// Move the camera forward (in the direction it's currently facing)
-		mPosition += mFront * mMovementSpeed;
-	}
+		}
 
-	if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_S) == GLFW_REPEAT)
-	{
-		// Move the camera backward (opposite direction of where it's facing)
-		mPosition -= mFront * mMovementSpeed;
+		if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_REPEAT)
+
+		{
+			mPosition -= glm::vec3(0.0, 0.1, 0.f);
+
+		}
+
+
+		if (lMouseClicked == true)
+		{
+
+			glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+		}
+
+		else {
+
+			glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+
+
+		if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_A) == GLFW_REPEAT)
+		{
+			// Move the camera left (relative to its current orientation)
+			mPosition -= glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
+		}
+
+		if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_D) == GLFW_REPEAT)
+		{
+			// Move the camera right (relative to its current orientation)
+			mPosition += glm::normalize(glm::cross(mFront, glm::vec3(0.0f, 1.0f, 0.0f))) * mMovementSpeed;
+		}
+
+		if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_W) == GLFW_REPEAT)
+		{
+			// Move the camera forward (in the direction it's currently facing)
+			mPosition += mFront * mMovementSpeed;
+		}
+
+		if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_S) == GLFW_REPEAT)
+		{
+			// Move the camera backward (opposite direction of where it's facing)
+			mPosition -= mFront * mMovementSpeed;
+		}
 	}
 }

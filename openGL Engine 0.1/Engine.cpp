@@ -21,7 +21,30 @@ void Terrain::render()
 	double currentTime = glfwGetTime();
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
+	renderTextureLoader();
+	ImGui::Begin("Terrain Settings");
 
+
+	// Create input fields for the values
+	ImGui::InputInt("Iterations", &terrainIterations);
+	ImGui::InputFloat("Height", &terrainHeight);
+	ImGui::InputFloat("Min Delta", &terrainMinDelta);
+	ImGui::InputFloat("Max Delta", &terrainMaxDelta);
+	ImGui::InputInt("Smooth Iterations", &numIterations);
+	ImGui::InputFloat("Kernal Size", &kernelPoint);
+	ImGui::Checkbox("Fractalise Terrain", &boolFractalTerrain);
+	ImGui::Checkbox("Voxelate Terrain", &boolVoxelateTerrain);
+	ImGui::Checkbox("FIR Erosion Terrain", &boolFIRErosion);
+	ImGui::Checkbox("Trim Terrain Edges", &boolTrimEdges);
+	if (ImGui::Button("Generate Terrain")) {
+		// Call terrain generation function with the updated values
+		//
+		//GenerateFractalTerrain(vertices, terrainIterations, terrainHeight, terrainMinDelta, terrainMaxDelta);
+		dynamicsWorldUniversalPtr->removeCollisionObject(this->getTerrainMesh());
+
+		createTerrainMesh();
+	}
+	ImGui::End();
 
 	glUseProgram(*this->shaderPtr);
 	GLint timeLocation = glGetUniformLocation(*this->shaderPtr, "time");
@@ -30,35 +53,95 @@ void Terrain::render()
 	GLint grassColorLocation = glGetUniformLocation(*this->shaderPtr, "grassColor");
 	GLint rockyColorLocation = glGetUniformLocation(*this->shaderPtr, "rockyColor");
 	GLint snowColorLocation = glGetUniformLocation(*this->shaderPtr, "snowColor");
+	GLint diffuseColorLocation = glGetUniformLocation(*this->shaderPtr, "diffuseColor");
 
+	GLint smoothStepLocation = glGetUniformLocation(*this->shaderPtr, "smoothStepFactor");
 	GLint waterThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterThreshold");
 	GLint grassThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassThreshold");
 	GLint rockyThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyThreshold");
 	GLint snowThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowThreshold");
+	GLint peakThresholdLocation = glGetUniformLocation(*this->shaderPtr, "peakThreshold");
 	GLint ambientColorLocation = glGetUniformLocation(*this->shaderPtr, "ambientColor");
 
 	GLint waterStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterStopThreshold");
 	GLint grassStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassStopThreshold");
 	GLint rockyStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyStopThreshold");
 	GLint snowStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowStopThreshold");
+	GLint shininessLocation = glGetUniformLocation(*this->shaderPtr, "shininess");
+	GLint specularColorLocation = glGetUniformLocation(*this->shaderPtr, "specularColor");
+
+	GLint lightDirectionLocation = glGetUniformLocation(*this->shaderPtr, "lightDirection");
 
 	//render UI
 	ImGui::Begin("Shader Controls");
 	// Water Color
+	float lowestY = -1;  // Start with a very high value
+	float highestY = 1; // Start with a very low value
 
-	if (ImGui::SliderFloat("Water Stop Threshold", &waterStopThreshold, -20.0f, 70.0f)) {
+	// Iterate through the Y-coordinates of 'vertices'
+	for (int i = 1; i < vertices.size(); i += 3) {
+		float y = vertices[i]; // Y-coordinate for this vertex
+
+		// Update lowest and highest Y-values
+		if (y < lowestY) {
+			lowestY = y;
+		}
+		if (y > highestY) {
+			highestY = y;
+		}
+	}
+
+	// Use ImGui to display the lowest and highest Y-values as text labels
+	ImGui::Text("Lowest Y: %.2f", lowestY);
+	ImGui::Text("Highest Y: %.2f", highestY);
+	if (ImGui::SliderFloat("Water Stop Threshold", &waterStopThreshold, -220.0f, 570.0f)) {
 		glUniform1f(waterStopThresholdLocation, waterStopThreshold);
 	}
 
-	if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, -20.0f,70.0f)) {
+	if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, -220.0f,570.0f)) {
 		glUniform1f(grassStopThresholdLocation, grassStopThreshold);
 	}
 
-	if (ImGui::SliderFloat("Rocky Stop Threshold", &rockyStopThreshold, -20.0f, 70.0f)) {
+	if (ImGui::SliderFloat("Rocky Stop Threshold", &rockyStopThreshold, -220.0f, 570.0f)) {
 		glUniform1f(rockyStopThresholdLocation, rockyStopThreshold);
 	}
-	if (ImGui::SliderFloat("Snow Stop Threshold", &snowStopThreshold, -20.0f, 70.0f)) {
+	if (ImGui::SliderFloat("Snow Stop Threshold", &snowStopThreshold, -220.0f, 570.0f)) {
 		glUniform1f(snowStopThresholdLocation, snowStopThreshold);
+	}
+
+	/*if (ImGui::InputFloat3("- Light Direction - ", &lightDirection.x)) {
+		glUniform3fv(lightDirectionLocation, 1, &lightDirection.x);
+	}*/
+
+	if (ImGui::ColorEdit3("- Light Colour - ", &diffuseColor.x)) {
+		glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
+	}
+
+	if (ImGui::SliderFloat("Shininess", &shininess, 1.0f, 1500.0f)) {
+		glUniform1f(shininessLocation, shininess);
+
+	}
+	
+
+	if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
+		// Update the sun's position whenever the time of day changes
+		// You can use this callback to trigger any other time-dependent effects
+		 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+		 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+
+		sunPosition = glm::vec3(sunX, -sunY, 0.0f);
+		glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
+
+	}
+	ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
+
+	//need to make ambience white at midday and black at midnight.
+	//shininess needs to go a lot higher
+
+	
+	// Color picker for specularColor
+	if(ImGui::ColorEdit3("Specular Color", &specularColor.x))
+	{   glUniform3fv(specularColorLocation, 1, &specularColor.x);
 	}
 
 		if (ImGui::ColorEdit3("Water Color", &waterColor.x)) {
@@ -81,20 +164,27 @@ void Terrain::render()
 		glUniform3fv(ambientColorLocation, 1, &ambientColor.x);
 	}
 	// Height Thresholds
-	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, -20.0f, 30.0f)) {
+	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, -500., 750.0f)) {
 		glUniform1f(waterThresholdLocation, waterThreshold);
 	}
 
-	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, -20.0f, 40.0f)) {
+	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, -500., 750.0f)) {
 		glUniform1f(grassThresholdLocation, grassThreshold);
 	}
 
-	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, -20.0f, 40.0f)) {
+	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, -500.,750.0f)) {
 		glUniform1f(rockyThresholdLocation, rockyThreshold);
 	}
 
-	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, -20.0f, 40.0f)) {
+	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, -500.0f, 750.0f)) {
 		glUniform1f(rockyThresholdLocation, snowThreshold);
+	}
+	if (ImGui::SliderFloat("Peak Threshold", &peakThreshold, -500.0f, 1050.0f)) {
+		glUniform1f(peakThresholdLocation, peakThreshold);
+	}
+	
+	if (ImGui::SliderFloat("!Smooth Step", &smoothStep, 0.0f, 150.0f)) {
+		glUniform1f(smoothStepLocation, smoothStep);
 	}
 
 	ImGui::End();
@@ -103,7 +193,7 @@ void Terrain::render()
 
 	// Input fields for X, Y, and Z coordinates
 	GLint applyModelTransform = glGetUniformLocation(*this->shaderPtr, "applyModelTransform");
-	glUniform1i(applyModelTransform, 1);
+	glUniform1i(applyModelTransform, 1);//this variable tells shader its terain
 	ImGui::InputFloat("Translate X", &translationX);
 	ImGui::InputFloat("Translate Y", &translationY);
 	ImGui::InputFloat("Translate Z", &translationZ);
@@ -152,10 +242,61 @@ void Terrain::render()
 		// Pass the updated model matrix to the shader
 
 	}
-	
+
+	if (ImGui::Button("Center Terrain")) {
+		glUniform1i(applyModelTransform, 1);
+		glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			center.x += vertices[i];
+			center.y += vertices[i + 1];
+			center.z += vertices[i + 2];
+		}
+		center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
+
+		// Calculate the translation needed to move the center to the local origin
+		float translationX = -center.x;
+		float translationY = -center.y;
+		float translationZ = -center.z;
+
+		// Apply the translation to all the vertices
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			vertices[i] += translationX;
+			vertices[i + 1] += translationY;
+			vertices[i + 2] += translationZ;
+		}
+		modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+
+		btTransform currentTransform = terrainMeshRigidBody->getWorldTransform();
+
+		// Calculate the new position by adding the translations
+		btVector3 currentPosition = currentTransform.getOrigin();
+		btVector3 newPosition = btVector3(currentPosition.x() + translationX, currentPosition.y() + translationY, currentPosition.z() + translationZ);
+
+		// Set the new position in the transformation
+		currentTransform.setOrigin(newPosition);
+
+		// Update the rigid body's world transform
+		terrainMeshRigidBody->setWorldTransform(currentTransform);
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		translationX = 0.0;
+
+		translationY = 0.0;
+
+		translationZ = 0.0;
+	}
 	if (ImGui::Button("Reset ")) {
 		// Update the model matrix with the typed-in values
 		  // Identity matrix, no initial transformation
+
+
+	
+
+	
 		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0, 0.0, 0.0));
 
 		glUniform1i(applyModelTransform, 1);
@@ -183,6 +324,7 @@ void Terrain::render()
 		//	glBindVertexArray(VAO); // Bind the VAO
 		glBindVertexArray(0); // Unbind the VAO
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 
@@ -197,7 +339,78 @@ void Terrain::initalise()
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
+	glGenBuffers(1, &uvVBO);
 	init = true;
+	rockyColor = glm::vec3(0.5, 0.5, 0.5);      // Gray color
+	ambientColor = glm::vec3(0.2, 0.2, 0.2);    // Subtle grayish ambient light
+	diffuseColor = glm::vec3(1.0, 1.0, 1.0);    // White diffuse light
+	specularColor = glm::vec3(1.0, 1.0, 1.0);   // White specular light
+	waterColor = glm::vec3(0.0, 0.2, 0.8);      // Blue water color
+	snowColor = glm::vec3(1.0, 1.0, 1.0);       // White snow color
+	grassColor = glm::vec3(0.1, 0.75, 0.1);     // Green grass color
+	GLint waterColorLocation = glGetUniformLocation(*this->shaderPtr, "waterColor");
+	GLint grassColorLocation = glGetUniformLocation(*this->shaderPtr, "grassColor");
+	GLint rockyColorLocation = glGetUniformLocation(*this->shaderPtr, "rockyColor");
+	GLint snowColorLocation = glGetUniformLocation(*this->shaderPtr, "snowColor");
+	GLint diffuseColorLocation = glGetUniformLocation(*this->shaderPtr, "diffuseColor");
+
+
+	GLint waterThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterThreshold");
+	GLint grassThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassThreshold");
+	GLint rockyThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyThreshold");
+	GLint snowThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowThreshold");
+	GLint ambientColorLocation = glGetUniformLocation(*this->shaderPtr, "ambientColor");
+
+	GLint waterStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterStopThreshold");
+	GLint grassStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassStopThreshold");
+	GLint rockyStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyStopThreshold");
+	GLint snowStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowStopThreshold");
+	GLint shininessLocation = glGetUniformLocation(*this->shaderPtr, "shininess");
+	GLint specularColorLocation = glGetUniformLocation(*this->shaderPtr, "specularColor");
+
+	GLint lightDirectionLocation = glGetUniformLocation(*this->shaderPtr, "lightDirection");
+
+
+	if (ImGui::ColorEdit3("Specular Color", &specularColor.x))
+	{
+		glUniform3fv(specularColorLocation, 1, &specularColor.x);
+	}
+
+	if (ImGui::ColorEdit3("Water Color", &waterColor.x)) {
+		glUniform3fv(waterColorLocation, 1, &waterColor.x);
+	}
+
+	if (ImGui::ColorEdit3("Grass Color", &grassColor.x)) {
+		glUniform3fv(grassColorLocation, 1, &grassColor.x);
+	}
+
+	if (ImGui::ColorEdit3("Rocky Color", &rockyColor.x)) {
+		glUniform3fv(rockyColorLocation, 1, &rockyColor.x);
+	}
+
+	if (ImGui::ColorEdit3("Snow Color", &snowColor.x)) {
+		glUniform3fv(snowColorLocation, 1, &snowColor.x);
+	}
+
+	if (ImGui::ColorEdit3("Ambient Color", &ambientColor.x)) {
+		glUniform3fv(ambientColorLocation, 1, &ambientColor.x);
+	}
+	// Height Thresholds
+	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, -20.0f, 30.0f)) {
+		glUniform1f(waterThresholdLocation, waterThreshold);
+	}
+
+	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, -20.0f, 40.0f)) {
+		glUniform1f(grassThresholdLocation, grassThreshold);
+	}
+
+	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, -20.0f, 40.0f)) {
+		glUniform1f(rockyThresholdLocation, rockyThreshold);
+	}
+
+	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, -20.0f, 40.0f)) {
+		glUniform1f(rockyThresholdLocation, snowThreshold);
+	}
 }
 
 
@@ -399,6 +612,10 @@ bool Terrain::createTerrainMesh()
 		}
 	}
 
+	fractalTerrain();
+	voxelateTerrain();
+	firSmoothTerrain();
+
 	std::cout << "min Height was: "<< minHeight;
 	std::cout << "\nmax height was: " << maxHeight;
 	for (int z = 0; z < this->size - 1; ++z) {
@@ -447,14 +664,38 @@ bool Terrain::createTerrainMesh()
 	}
 
 		
+
+	glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
+	for (size_t i = 0; i < vertices.size(); i += 3) {
+		center.x += vertices[i];
+		center.y += vertices[i + 1];
+		center.z += vertices[i + 2];
+	}
+	center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
+
+	// Calculate the translation needed to move the center to the local origin
+	float translationX = -center.x;
+	float translationY = -center.y;
+	float translationZ = -center.z;
+
+	// Apply the translation to all the vertices
+	for (size_t i = 0; i < vertices.size(); i += 3) {
+		vertices[i] += translationX;
+		vertices[i + 1] += translationY;
+		vertices[i + 2] += translationZ;
+	}
 		// Create OpenGL buffers
 	
-		glBindVertexArray(VAO);
+
+	createUVs();
+
+	glBindVertexArray(VAO);
+
 		
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
 
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		// Specify vertex attribute pointers
@@ -472,9 +713,17 @@ bool Terrain::createTerrainMesh()
 		glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
 		glBufferData(GL_ARRAY_BUFFER, Normals.size() * sizeof(glm::vec3), Normals.data(), GL_STATIC_DRAW);
 
+
 		glEnableVertexAttribArray(2);
 		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (GLvoid*)0);
-	
+
+		glGenBuffers(1, &uvVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, uvVBO);
+		glBufferData(GL_ARRAY_BUFFER, uvs.size() * sizeof(glm::vec2), uvs.data(), GL_STATIC_DRAW);
+
+		glEnableVertexAttribArray(3);
+		glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (GLvoid*)0);
+
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -541,6 +790,12 @@ bool Terrain::createTerrainMesh()
 		// Create the btRigidBody as before
 		 terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
 		 dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
+		 if (terrainMeshRigidBody == nullptr)
+		 {
+			 std::cout << "\nRemoved rigid body from dynamics world to generate new terrain and RB";
+			 dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
+		 }
+		
 		// Set any additional properties for the terrainRigidBody if needed
 
 		// Mark your terrain as ready
@@ -602,8 +857,46 @@ void Terrain::generateHeightMap()
 
 		std::cout << "Begin terrain generation in generate Height Map Function\n";
 
+
 	}
 
+void Terrain::createUVs()
+{
+	// Initialize variables to store minimum and maximum vertex positions for UV calculation
+	   // Initialize variables to store minimum and maximum vertex positions
+	
+	uvs.clear();
+	// Calculate the minimum and maximum values of the x and z coordinates
+	float minX = std::numeric_limits<float>::max();
+	float maxX = std::numeric_limits<float>::min();
+	float minZ = std::numeric_limits<float>::max();
+	float maxZ = std::numeric_limits<float>::min();
+
+	for (size_t i = 0; i < vertices.size(); i += 3) {
+		float x = vertices[i + 0]; // Access x component
+		float y = vertices[i + 1]; // Access y component
+		float z = vertices[i + 2]; // Access z component
+
+		if (x < minX) minX = x;
+		if (x > maxX) maxX = x;
+		if (z < minZ) minZ = z;
+		if (z > maxZ) maxZ = z;
+	}
+
+	
+	for (int i = 0; i < vertices.size(); i += 3) {
+		// The vertex data layout assumes [x, y, z, x, y, z, ...]
+		float x = vertices[i];
+		float z = vertices[i + 2];
+
+		// Calculate UVs based on the vertex position
+		float u = (x - minX) / ((maxX - minX) / repeatFactor);
+		float v = (z - minZ) / ((maxZ - minZ) / repeatFactor);
+
+		// Store the UV coordinates
+		uvs.push_back(glm::vec2(u, v));
+	}
+}
 
 
 btRigidBody* Terrain::getTerrainRigidBody()
@@ -641,140 +934,495 @@ glm::vec3 Terrain::calculateSurfaceNormal(const glm::vec3& v1, const glm::vec3& 
 	return normal;
 }
 
+void Terrain::fractalTerrain()
+{
+	if (boolFractalTerrain) {
+	
+		vertices = GenerateFractalTerrain(vertices, terrainIterations, terrainHeight, terrainMinDelta, terrainMaxDelta);
+	}
+}
 
-//
-//// Define your TerrainData and HeightMapData structures
-//struct HeightMapData {
-//	int size;
-//	std::vector<float> heights;
-//};
-//
-//struct TerrainData {
-//	int size;
-//	float frequency;
-//	float amplitude;
-//	HeightMapData heightmapData;
-//};
-//
-//TerrainData terrain;
-//
-//// GLFW window and input callback functions
-//GLFWwindow* window;
-//
-//void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-//	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-//		glfwSetWindowShouldClose(window, GLFW_TRUE);
-//	}
-//}
-//
-//// OpenGL shader programs and rendering functions
-//GLuint shaderProgram;
-//GLuint VAO, VBO, EBO;
-//
-//void createTerrainMesh() {
-//	// Create vertex and index data based on the heightmap
-//	// This code assumes a regular grid of vertices based on terrain.size
-//
-//	std::vector<GLfloat> vertices;
-//	std::vector<GLuint> indices;
-//
-//	for (int z = 0; z < terrain.size; ++z) {
-//		for (int x = 0; x < terrain.size; ++x) {
-//			float xPos = static_cast<float>(x);
-//			float zPos = static_cast<float>(z);
-//			float yPos = terrain.heightmapData.heights[x + z * terrain.size];
-//
-//			vertices.push_back(xPos);
-//			vertices.push_back(yPos);
-//			vertices.push_back(zPos);
-//		}
-//	}
-//
-//	for (int z = 0; z < terrain.size - 1; ++z) {
-//		for (int x = 0; x < terrain.size - 1; ++x) {
-//			int topLeft = x + z * terrain.size;
-//			int topRight = (x + 1) + z * terrain.size;
-//			int bottomLeft = x + (z + 1) * terrain.size;
-//			int bottomRight = (x + 1) + (z + 1) * terrain.size;
-//
-//			indices.push_back(topLeft);
-//			indices.push_back(topRight);
-//			indices.push_back(bottomLeft);
-//			indices.push_back(topRight);
-//			indices.push_back(bottomRight);
-//			indices.push_back(bottomLeft);
-//		}
-//	}
-//
-//	// Create OpenGL buffers
-//	glGenVertexArrays(1, &VAO);
-//	glBindVertexArray(VAO);
-//
-//	glGenBuffers(1, &VBO);
-//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-//	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-//
-//	glGenBuffers(1, &EBO);
-//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-//	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-//
-//	// Specify vertex attribute pointers
-//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-//	glEnableVertexAttribArray(0);
-//
-//	glBindVertexArray(0);
-//}
-//
-//void initShaders() {
-//	// Vertex shader source code
-//	const char* vertexShaderSource = R"(
-//        #version 330 core
-//        layout (location = 0) in vec3 position;
-//        uniform mat4 model;
-//        uniform mat4 view;
-//        uniform mat4 projection;
-//        void main() {
-//            gl_Position = projection * view * model * vec4(position, 1.0);
-//        }
-//    )";
-//
-//	// Fragment shader source code
-//	const char* fragmentShaderSource = R"(
-//        #version 330 core
-//        out vec4 color;
-//        void main() {
-//            color = vec4(0.0, 1.0, 0.0, 1.0); // Green color for terrain (you can change this)
-//        }
-//    )";
-//
-//	// Compile shaders
-//	GLuint vertexShader, fragmentShader;
-//	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-//	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-//	glCompileShader(vertexShader);
-//
-//	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-//	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-//	glCompileShader(fragmentShader);
-//
-//	// Create shader program
-//	shaderProgram = glCreateProgram();
-//	glAttachShader(shaderProgram, vertexShader);
-//	glAttachShader(shaderProgram, fragmentShader);
-//	glLinkProgram(shaderProgram);
-//
-//	// Delete shaders (we don't need them anymore after linking)
-//	glDeleteShader(vertexShader);
-//	glDeleteShader(fragmentShader);
-//}
-//
-//void renderTerrain(glm::mat4 model, glm::mat4 view, glm::mat4 projection) {
-//	glUseProgram(shaderProgram);
-//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-//
-//	glBindVertexArray(VAO);
-//	glDrawElements(GL_TRIANGLES, (terrain.size - 1) * (terrain.size - 1) * 6, GL_UNSIGNED_INT, 0);
-//	glBindVertexArray(0);
-//}
+void Terrain::voxelateTerrain()
+{
+	if (boolVoxelateTerrain)
+	{
+		const int gridWidth = size;
+		const int gridHeight = size;
+		const int gridDepth = size;
+		const float voxelSize = 0.1;
+
+		// Create an empty voxel grid
+		std::vector<std::vector<std::vector<Voxel>>> voxelGrid(
+			gridWidth, std::vector<std::vector<Voxel>>(
+				gridHeight, std::vector<Voxel>(gridDepth, { false }) // Initialize all voxels as not occupied
+			)
+		);
+
+		// Example terrain vertices (replace this with your terrain data)
+	//	std::vector<std::vector<std::vector<float>>> vertices;
+
+		// Loop through terrain vertices and voxelize
+		for (size_t i = 0; i < vertices.size(); i += 3) {
+			float x = vertices[i];
+			float y = vertices[i + 1];
+			float z = vertices[i + 2];
+
+			// Calculate voxel indices for the current vertex
+			int voxelX = static_cast<int>(x / voxelSize);
+			int voxelY = static_cast<int>(y / voxelSize);
+			int voxelZ = static_cast<int>(z / voxelSize);
+
+			// Mark the voxel as occupied (part of the terrain)
+			if (voxelX >= 0 && voxelX < gridWidth &&
+				voxelY >= 0 && voxelY < gridHeight &&
+				voxelZ >= 0 && voxelZ < gridDepth) {
+				voxelGrid[voxelX][voxelY][voxelZ].isOccupied = true;
+			}
+		}
+	}
+}
+
+void Terrain::firSmoothTerrain()
+{
+	if (boolFIRErosion) {
+		std::vector<float> verticesBackup;
+		verticesBackup = vertices;
+		if (boolFIRErosion) {
+			// FIR SMOOTHING
+			int terrainSizeX = size /* Width of your terrain */;
+			int terrainSizeY = size /* Height of your terrain */;
+
+			// Define a simple 3x3 FIR smoothing kernel
+			float kernel[3][3] = {
+				{1.0f / 9.0f, 1.0f / 9.0f, 1.0f / 9.0f},
+				{1.0f / 9.0f, 1.0f / 9.0, 1.0f / 9.0f},
+				{1.0f / 9.0f, 1.0f / 9.0f, 1.0f / 9.0f}
+			};
+
+			// Iterate through all vertices and apply smoothing twice (forward and backward)
+			for (int iteration = 0; iteration < numIterations; ++iteration) {
+				// Forward smoothing pass (left to right, top to bottom)
+				for (int y = 0; y < terrainSizeY-3; ++y) {
+					for (int x = 0; x < terrainSizeX-3; ++x) {
+						int currentIndex = (y * terrainSizeX + x) * 3;
+						float sum = 0.0f;
+
+						// Apply the filter to the vertex using the kernel
+						for (int ky = -1; ky <= 1; ++ky) {
+							for (int kx = -1; kx <= 1; ++kx) {
+								int nx = x + kx;
+								int ny = y + ky;
+
+								// Ensure boundary conditions are met
+								if (nx >= 0 && nx < terrainSizeX && ny >= 0 && ny < terrainSizeY) {
+									int neighborIndex = ((ny * terrainSizeX + nx) * 3) + 1; // Assuming 3 components per vertex (XYZ), and targeting the Y-component
+									sum += vertices[neighborIndex] * kernel[ky + 1][kx + 1];
+								}
+							}
+						}
+
+						// Update the Y-component of the current vertex with the smoothed value
+						vertices[currentIndex + 1] = sum;
+					}
+				}
+
+				// Backward smoothing pass (right to left, bottom to top)
+				for (int y = terrainSizeY - 3; y >= 0; --y) {
+					for (int x = terrainSizeX -3; x >= 0; --x) {
+						int currentIndex = (y * terrainSizeX + x) * 3;
+						float sum = 0.0f;
+
+						// Apply the filter to the vertex using the kernel
+						for (int ky = -1; ky <= 1; ++ky) {
+							for (int kx = -1; kx <= 1; ++kx) {
+								int nx = x + kx;
+								int ny = y + ky;
+
+								// Ensure boundary conditions are met
+								if (nx >= 0 && nx < terrainSizeX && ny >= 0 && ny < terrainSizeY) {
+									int neighborIndex = ((ny * terrainSizeX + nx) * 3) + 1; // Assuming 3 components per vertex (XYZ), and targeting the Y-component
+									sum += vertices[neighborIndex] * kernel[ky + 1][kx + 1];
+								}
+							}
+						}
+
+						// Update the Y-component of the current vertex with the smoothed value
+						vertices[currentIndex + 1] = sum;
+					}
+				}
+			}
+
+			// Ensure boundary vertices stay unchanged (comment out if not needed)
+			// Ensure boundary vertices stay unchanged (comment out if not needed)
+		// Ensure boundary vertices stay unchanged (comment out if not needed)
+		
+			if (boolTrimEdges) {
+
+				for (int x = 0; x < terrainSizeX; ++x) {
+					int rowIndex = x * 3;  // Calculate the index for the Y-value in the current row
+					vertices[rowIndex + 1] = 0.0f;  // Set the Y-value to zero
+				}
+				//for (int x = 0; x < terrainSizeX; ++x) {
+				//	int topBoundaryIndex = x * 3; // Top boundary vertex
+				//	int bottomBoundaryIndex = ((terrainSizeY - 1) * terrainSizeX + x) * 3; // Bottom boundary vertex
+
+				//	vertices[topBoundaryIndex + 1] = verticesBackup[topBoundaryIndex + 1];
+				//	vertices[bottomBoundaryIndex + 1] = verticesBackup[bottomBoundaryIndex + 1];
+				//}
+
+				//for (int y = 0; y < terrainSizeY; ++y) {
+				//	int leftBoundaryIndex = (y * terrainSizeX) * 3; // Left boundary vertex
+				//	int rightBoundaryIndex = ((y * terrainSizeX) + (terrainSizeX - 1)) * 3; // Right boundary vertex
+
+				//	vertices[leftBoundaryIndex + 1] = verticesBackup[leftBoundaryIndex + 1];
+				//	vertices[rightBoundaryIndex + 1] = verticesBackup[rightBoundaryIndex + 1];
+				//}
+
+				//// Now, restore the vertices at the very edge of all four sides
+				//int topLeftCornerIndex = 0; // Top-left corner vertex
+				//int topRightCornerIndex = (terrainSizeX - 1) * 3; // Top-right corner vertex
+				//int bottomLeftCornerIndex = ((terrainSizeY - 1) * terrainSizeX) * 3; // Bottom-left corner vertex
+				//int bottomRightCornerIndex = ((terrainSizeY - 1) * terrainSizeX + terrainSizeX - 1) * 3; // Bottom-right corner vertex
+
+				//vertices[topLeftCornerIndex + 1] = verticesBackup[topLeftCornerIndex + 1];
+				//vertices[topRightCornerIndex + 1] = verticesBackup[topRightCornerIndex + 1];
+				//vertices[bottomLeftCornerIndex + 1] = verticesBackup[bottomLeftCornerIndex + 1];
+				//vertices[bottomRightCornerIndex + 1] = verticesBackup[bottomRightCornerIndex + 1];
+			}
+		}
+	}
+
+
+	
+
+
+	
+}
+
+void Terrain::renderTextureLoader()
+{
+
+	ImGui::Begin("Texture Manager");
+	
+	// Load Texture button
+	ImGui::InputText("File Name", fileNameBuffer, sizeof(fileNameBuffer));
+	printf("File Name Buffer Contents: %s\n", fileNameBuffer);
+	// Load Texture button
+	if (ImGui::Button("Load Texture")) {
+		// Get the file name from the input field
+		const char* texturePath = fileNameBuffer;
+
+		if (strlen(texturePath) > 0) {
+			GLuint newTexture = loadTexture(texturePath);
+			if (newTexture != 0 && boolTextureLoadSuccess) {
+				textureIDs.push_back(newTexture);
+				textureNames.push_back(texturePath);
+				selectedTextureIndex = textureIDs.size() - 1;
+			}
+		}
+	}
+
+	if (ImGui::Button("Clear Texture")) { textureIDs.clear(); textureNames.clear(); }
+
+	// List of currently loaded textures
+	for (int i = 0; i < textureIDs.size(); i++) {
+		ImGui::Separator();
+		ImGui::Text("Texture %d: %s", i, textureNames[i].c_str());
+
+		// Display a thumbnail (you need to implement this part)
+		// You can use ImGui::Image to display thumbnails here
+
+		// Checkbox to select the texture
+		bool isSelected = (i == selectedTextureIndex);
+		if (ImGui::Checkbox(("Select##" + std::to_string(i)).c_str(), &isSelected)) {
+			if (isSelected) {
+				selectedTextureIndex = i;
+			}
+			else if (selectedTextureIndex == i) {
+				selectedTextureIndex = -1; // Deselect the texture
+			}
+		}
+	}
+
+	if (textureIDs.size() > 0) {
+		if (textureIDs.size() > 0 && textureIDs[0] != 0) {
+			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txGrass");
+			glActiveTexture(GL_TEXTURE2); // Texture unit 0
+			glBindTexture(GL_TEXTURE_2D, textureIDs[0]);
+			glUniform1i(uniformTexture, 2);
+		}
+
+		if (textureIDs.size() > 1 && textureIDs[1] != 0) {
+			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighGrass");
+			glActiveTexture(GL_TEXTURE3); // Texture unit 1
+			glBindTexture(GL_TEXTURE_2D, textureIDs[1]);
+			glUniform1i(uniformTexture, 3);
+		}
+
+		if (textureIDs.size() > 2 && textureIDs[2] != 0) {
+			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txRock");
+			glActiveTexture(GL_TEXTURE4); // Texture unit 2
+			glBindTexture(GL_TEXTURE_2D, textureIDs[2]);
+			glUniform1i(uniformTexture, 4);
+		}
+
+		if (textureIDs.size() > 3 && textureIDs[3] != 0) {
+			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighRock");
+			glActiveTexture(GL_TEXTURE5); // Texture unit 3
+			glBindTexture(GL_TEXTURE_2D, textureIDs[3]);
+			glUniform1i(uniformTexture,5);
+		}
+
+		if (textureIDs.size() > 4 && textureIDs[4] != 0) {
+			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txPeak");
+			glActiveTexture(GL_TEXTURE6); // Texture unit 4
+			glBindTexture(GL_TEXTURE_2D, textureIDs[4]);
+			glUniform1i(uniformTexture, 6);
+		}
+	}
+
+	ImGui::End(); // Texture Manager window
+
+}
+
+GLuint Terrain::loadTexture(const char* path)
+{
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	int width, height, numChannels;
+
+	unsigned char* data = stbi_load(path, &width, &height, &numChannels, 0);
+	if (data) {
+	//if Texture loaded
+		GLenum format = (numChannels == 3) ? GL_RGB : GL_RGBA;
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		//Set Texture Wrapping and Filtering options
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+		boolTextureLoadSuccess = true;
+	}
+
+	else {
+		std::cout << "Failed to load texture:" << path << std::endl;
+		stbi_image_free(data);
+		boolTextureLoadSuccess = false;
+	}
+	return textureID;
+}
+
+	std::vector<GLfloat> Terrain::GenerateFractalTerrain(std::vector<GLfloat>& Vertices,
+		int iIterations,
+		float iHeight,
+		float iMinDelta,
+		float iMaxDelta) {
+		// Create a copy of Vertices to store the fractal terrain
+
+		float deltaHeight = iMaxDelta - iMinDelta;
+		std::vector<GLfloat> FractalVertices = Vertices;
+
+
+		//find the range
+		float minY = FLT_MAX;
+		float maxY = -FLT_MAX;
+		for (int i = 1; i < Vertices.size(); i += 3) {
+			float y = Vertices[i];
+			if (y < minY) {
+				minY = y;
+			}
+			if (y > maxY) {
+				maxY = y;
+			}
+		}
+
+		// Loop through all vertices and normalize the Y-values
+		for (int i = 1; i < FractalVertices.size(); i += 3) {
+			float y = FractalVertices[i];
+
+			// Normalize the Y-value to fall within the [0, 1] range based on the original data range
+			FractalVertices[i] = (y - minY) / (maxY - minY);
+		}
+
+		// Loop through the specified number of iterations
+		for (int iteration = 0; iteration < iIterations; iteration++) {
+			
+			
+			float iterRatio = ((float)iteration / (float)iIterations);
+			iMaxDelta= iHeight - iterRatio * deltaHeight;	
+
+
+
+			// Randomly select two points (iRandX1, iRandZ1) and (iRandX2, iRandZ2)
+			float iRandX1 = rand() % this->size;  // Width is the width of your terrain grid
+			float iRandZ1 = rand() % this->size; // Length is the length of your terrain grid
+			float iRandX2 = rand() % this->size;
+			float iRandZ2 = rand() % this->size;
+
+			// Loop through all vertices (grouped as XYZ elements)
+			for (int i = 0; i < FractalVertices.size(); i += 3) {
+				float xPos = FractalVertices[i];
+				float yPos = FractalVertices[i + 1];
+				float zPos = FractalVertices[i + 2];
+
+				// Calculate the side of the fault line based on cross product
+				float side = (iRandX2 - iRandX1) * (zPos - iRandZ1) - (xPos - iRandX1) * (iRandZ2 - iRandZ1);
+
+				// If the point is on one side of the line, adjust its height (Y-axis)
+				if (side > 0) {
+					FractalVertices[i + 1] += iMaxDelta;
+				}
+			}
+
+			// Adjust iHeight for the next iteration if desired
+			//iMaxDelta *= 0.95;
+		}
+
+	
+		
+	return FractalVertices;
+}
+
+
+	//
+	//// Define your TerrainData and HeightMapData structures
+	//struct HeightMapData {
+	//	int size;
+	//	std::vector<float> heights;
+	//};
+	//
+	//struct TerrainData {
+	//	int size;
+	//	float frequency;
+	//	float amplitude;
+	//	HeightMapData heightmapData;
+	//};
+	//
+	//TerrainData terrain;
+	//
+	//// GLFW window and input callback functions
+	//GLFWwindow* window;
+	//
+	//void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	//	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+	//		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	//	}
+	//}
+	//
+	//// OpenGL shader programs and rendering functions
+	//GLuint shaderProgram;
+	//GLuint VAO, VBO, EBO;
+	//
+	//void createTerrainMesh() {
+	//	// Create vertex and index data based on the heightmap
+	//	// This code assumes a regular grid of vertices based on terrain.size
+	//
+	//	std::vector<GLfloat> vertices;
+	//	std::vector<GLuint> indices;
+	//
+	//	for (int z = 0; z < terrain.size; ++z) {
+	//		for (int x = 0; x < terrain.size; ++x) {
+	//			float xPos = static_cast<float>(x);
+	//			float zPos = static_cast<float>(z);
+	//			float yPos = terrain.heightmapData.heights[x + z * terrain.size];
+	//
+	//			vertices.push_back(xPos);
+	//			vertices.push_back(yPos);
+	//			vertices.push_back(zPos);
+	//		}
+	//	}
+	//
+	//	for (int z = 0; z < terrain.size - 1; ++z) {
+	//		for (int x = 0; x < terrain.size - 1; ++x) {
+	//			int topLeft = x + z * terrain.size;
+	//			int topRight = (x + 1) + z * terrain.size;
+	//			int bottomLeft = x + (z + 1) * terrain.size;
+	//			int bottomRight = (x + 1) + (z + 1) * terrain.size;
+	//
+	//			indices.push_back(topLeft);
+	//			indices.push_back(topRight);
+	//			indices.push_back(bottomLeft);
+	//			indices.push_back(topRight);
+	//			indices.push_back(bottomRight);
+	//			indices.push_back(bottomLeft);
+	//		}
+	//	}
+	//
+	//	// Create OpenGL buffers
+	//	glGenVertexArrays(1, &VAO);
+	//	glBindVertexArray(VAO);
+	//
+	//	glGenBuffers(1, &VBO);
+	//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+	//
+	//	glGenBuffers(1, &EBO);
+	//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	//	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+	//
+	//	// Specify vertex attribute pointers
+	//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+	//	glEnableVertexAttribArray(0);
+	//
+	//	glBindVertexArray(0);
+	//}
+	//
+	//void initShaders() {
+	//	// Vertex shader source code
+	//	const char* vertexShaderSource = R"(
+	//        #version 330 core
+	//        layout (location = 0) in vec3 position;
+	//        uniform mat4 model;
+	//        uniform mat4 view;
+	//        uniform mat4 projection;
+	//        void main() {
+	//            gl_Position = projection * view * model * vec4(position, 1.0);
+	//        }
+	//    )";
+	//
+	//	// Fragment shader source code
+	//	const char* fragmentShaderSource = R"(
+	//        #version 330 core
+	//        out vec4 color;
+	//        void main() {
+	//            color = vec4(0.0, 1.0, 0.0, 1.0); // Green color for terrain (you can change this)
+	//        }
+	//    )";
+	//
+	//	// Compile shaders
+	//	GLuint vertexShader, fragmentShader;
+	//	vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	//	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+	//	glCompileShader(vertexShader);
+	//
+	//	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	//	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+	//	glCompileShader(fragmentShader);
+	//
+	//	// Create shader program
+	//	shaderProgram = glCreateProgram();
+	//	glAttachShader(shaderProgram, vertexShader);
+	//	glAttachShader(shaderProgram, fragmentShader);
+	//	glLinkProgram(shaderProgram);
+	//
+	//	// Delete shaders (we don't need them anymore after linking)
+	//	glDeleteShader(vertexShader);
+	//	glDeleteShader(fragmentShader);
+	//}
+	//
+	//void renderTerrain(glm::mat4 model, glm::mat4 view, glm::mat4 projection) {
+	//	glUseProgram(shaderProgram);
+	//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+	//	glUniformMatrix4fv(glGetUniformLocaton(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+	//
+	//	glBindVertexArray(VAO);
+	//	glDrawElements(GL_TRIANGLES, (terrain.size - 1) * (terrain.size - 1) * 6, GL_UNSIGNED_INT, 0);
+	//	glBindVertexArray(0);
+	//}}

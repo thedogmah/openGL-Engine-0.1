@@ -8,6 +8,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "globals.h"
+#include "CallbackFunctions.h"
 #include <random>
 #include <iostream>
 #include <istream>
@@ -34,11 +35,33 @@
 #include "openGLDrawable.h"
 #include "PhysDebug.h"
 #include "Engine.h"
+#include "Character.h"
+
+// Declare and define the global variables
+glm::mat4 cubeModelMatrix;
+glm::mat4 model = glm::mat4(1.0f);
+glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+GLuint* defaultShaderProgramPtr = new GLuint;
+btRigidBody* groundBody;
+int modelLoc;
+int viewLoc;
+int projectionLoc;
+SSBO cubeSSBO;
+std::vector<btRigidBody*> rigidBodies;
+btAlignedObjectArray<btCollisionShape*> collisionShapes;
+bool lMouseClicked = false;
+Camera camera;
+GLuint modelMatrixLocation = 0;
+Character* character = nullptr;
 
 
-
+//forward declarations
+void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
+
+void update();//Update character and world data / Also main function for other update functions
 
 struct Mesh {
 	GLuint VAO;
@@ -48,7 +71,6 @@ struct Mesh {
 
 //pointer to dynamics world and a vector containing rigid bodies to keep track of
 // keep in mind dynamicsWorld also stores the rigid body for the simulation
-btDiscreteDynamicsWorld* dynamicsWorldPtr = NULL;
 std::vector<btRigidBody*>* rigidBodyVectorPtr = nullptr;
 std::vector<Cube> instVector;
 
@@ -57,7 +79,7 @@ Terrain terrain;
 //Must generate dynamicsworld ptr for terrain also
 glm::vec2 Grid(10, 10); //slider for grid visualisation size in imgui window 
 bool boolDrawHeightMap = true;
-float groundPositionY = 0.0f;
+float groundPositionY = 1.0f;
 std::vector<float> instCubeVertices = {
 	// front
 	-1.0, -1.0,  1.0,
@@ -100,12 +122,7 @@ std::vector<unsigned int> instCubeIndices = {
 	5, 4, 0
 };
 
-bool boolRigidBody = false;
-std::vector<World::cubeInstance> cubesSSBOVector;
- GLuint colorFBO;
-GLuint colorTexture;
-GLuint depthrenderBuffer;
- int rgbSelected[4];
+
 
 void drawUI();
 void instanceCubeFunction(GLuint VAO, GLuint VBO, GLuint EBO);
@@ -115,58 +132,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void addCubes(GLuint shader, Mesh mesh);
 Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes properties or ptr to cube
-int findCubeIndexByColour(const glm::vec3 color); //used to delete items from vector
-SSBO* cubeSSBOptr= nullptr;
+/*int findCubeIndexByColour(const glm::vec3 color);*/ //used to delete items from vector
+//SSBO* cubeSSBOptr= nullptr;
 int cubesToGenerate; //for IMGUI input
 glm::mat4 createCamera(glm::vec3& cameraPosition, glm::vec3& targetPosition, glm::vec3& upVector);
 
-
-//initialise debug openGL 4.3+ callback
-void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
-		unsigned int id,
-		GLenum severity,
-		GLsizei length,
-		const char* message,
-		const void* userParam)
-		{
-			// ignore non-significant error/warning codes
-			if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
-
-			std::cout << "---------------" << std::endl;
-			std::cout << "Debug message (" << id << "): " << message << std::endl;
-
-			switch (source)
-			{
-			case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
-			case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
-			case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
-			case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
-			case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
-			case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
-			} std::cout << std::endl;
-
-			switch (type)
-			{
-			case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
-			case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
-			case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
-			case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
-			case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
-			case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
-			case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
-			case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
-			case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
-			} std::cout << std::endl;
-
-			switch (severity)
-			{
-			case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
-			case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
-			case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
-			case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
-			} std::cout << std::endl;
-			std::cout << std::endl;
-}
 
 int main()
 {
@@ -197,10 +167,16 @@ int main()
 
 	//keep track of the shapes, we release memory at exit.
 	//make sure to re-use collision shapes among rigid bodies whenever possible!
-	btAlignedObjectArray<btCollisionShape*> collisionShapes;
-
+	
+	cubeModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.5, 0.5, 0.5));
 	///create a few basic rigid bodies
-	btRigidBody* groundBody;
+
+	// 	btAlignedObjectArray<btCollisionShape*> collisionShapes;
+	
+	 groundBody = nullptr;
+
+	// SSBO cubeSSBO;
+
 	//the ground is a cube of side 100 at position y = -56.
 	//the sphere will hit it at y = -6, with center at -5
 	{
@@ -612,7 +588,7 @@ int main()
 	}
 	stbi_set_flip_vertically_on_load(true);
 	int imgWidth, imgHeight, colChannels;
-	unsigned char* imgData = stbi_load("wall.jpg", &imgWidth, &imgHeight, &colChannels, 3);
+	unsigned char* imgData = stbi_load("me.jpg", &imgWidth, &imgHeight, &colChannels, 3);
 	////std::cout << imgData;
 
 	GLuint texture;
@@ -801,13 +777,14 @@ int main()
 	}
 	unsigned int shaderProgram;
 	shaderProgram = glCreateProgram();
+	
 	glAttachShader(shaderProgram, basicVertex);
 	glAttachShader(shaderProgram, basicFragment);
 	glLinkProgram(shaderProgram);
 
 
-	Camera camera(window);
 	glUseProgram(shaderProgram);
+	*defaultShaderProgramPtr = shaderProgram;
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error afterpolygon mode " << error << std::endl;
@@ -819,14 +796,7 @@ int main()
 		std::cout << "OpenGL Error after enabling depth test: " << error << std::endl;
 
 	}
-	glm::mat4 model = glm::mat4(1.0f);
-	glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 400.0f);
 
-
-	int modelLoc = glGetUniformLocation(shaderProgram, "model");
-	int viewLoc = glGetUniformLocation(shaderProgram, "view");
-	int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
 
 	int textureUniformLoc = glGetUniformLocation(shaderProgram, "texture1");
 	glUniform1i(textureUniformLoc, 0); // 0 corresponds to GL_TEXTURE0
@@ -937,7 +907,7 @@ int main()
 	}
 	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
 	SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
-	SSBO cubeSSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
+	 cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after binding ssbos: " << error << std::endl;
 		}
@@ -958,7 +928,7 @@ int main()
 	std::cout << "\nsize of GLM mat4:" << sizeof(glm::mat4);
 	std::cout << "\nsize of GLM vec3:" << sizeof(glm::vec3);
 	std::cout << "\nunsigned int:" << sizeof(unsigned int);
-	std::vector<btRigidBody*> rigidBodies;
+	
 	rigidBodyVectorPtr = &rigidBodies;
 	//for (int i = 0; i < 50; i++) {
 
@@ -1043,8 +1013,8 @@ int main()
 	/////cubesSSBOVector.push_back(cube);
 	//
 	//model matrix for unique ground cube to pass to vertex shader if statement
-	glm::mat4 cubeModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.5, 0.5, 0.5 ));
-	GLuint modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
+	
+	modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
 	GLuint isInstancedBool =  glGetUniformLocation(shaderProgram, "isInstanced");
 
 
@@ -1088,57 +1058,78 @@ int main()
 	}
 	cubeSSBOptr = &cubeSSBO;
 	float currentTime, deltaTime;
+
+	//initalise game / variables and start location
+
+	initialise(1.0, 2.0, 1.0, window);
 	while (!glfwWindowShouldClose(window))
 	{
+		
+		
 		//Get frame time
 		currentTime = glfwGetTime();
 		// Calculate the elapsed time since the start of the loop
 		deltaTime = currentTime - initialTime;
 		initialTime = currentTime;
-		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_E) == GLFW_REPEAT)
 
-		{
-			cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.01f, 0.0f));
-		}
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+	
+		update();
+		// Assuming you have the rigid body's position in 'rigidBodyPosition'
+		btVector3 rigidBodyPosition = character->getRigidBody()->getCenterOfMassPosition();
 
-		if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_C) == GLFW_REPEAT)
-
-		{
-			cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, -0.01f, 0.0f));
-		}
-		if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_V) == GLFW_REPEAT)
-
-		{
-			cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(1.0f),glm::vec3(1.0f, 0.0f, 0.0f));
-		}
-		if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_B) == GLFW_REPEAT)
-
-		{
-			cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(-1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		}
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "OpenGL Error at game loop start: " << error << std::endl;
-
-
-
-		}
-		if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_N) == GLFW_REPEAT)
-
-		{
-			cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(-1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-		//bullet
-		  glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-
-		///-----stepsimulation_start-----
+		// Calculate the view matrix to focus on the rigid body's position
+		glm::mat4 characterViewMatrix = glm::lookAt(glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z()),
+			glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z() + 3.0f),
+			glm::vec3(0.0f, 1.0f, 0.0f));
 		
-	
-	
+		//camera.mPosition = glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z() + 3.0f); // Offset the camera
+
+		// Calculate the view matrix
+		//camera.mViewMatrix = glm::lookAt(camera.mPosition, glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z()), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+
+		//Updates all update functions, including character
+		//if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_E) == GLFW_REPEAT)
+
+		//{
+		//	cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.01f, 0.0f));
+		//}
+
+		//if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_C) == GLFW_REPEAT)
+
+		//{
+		//	cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, -0.01f, 0.0f));
+		//}
+		//if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_V) == GLFW_REPEAT)
+
+		//{
+		//	cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(1.0f),glm::vec3(1.0f, 0.0f, 0.0f));
+		//}
+		//if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_B) == GLFW_REPEAT)
+
+		//{
+		//	cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(-1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		//}
+		//while ((error = glGetError()) != GL_NO_ERROR) {
+		//	std::cout << "OpenGL Error at game loop start: " << error << std::endl;
+
+
+
+		//}
+		//if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_N) == GLFW_REPEAT)
+
+		//{
+		//	cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(-1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		//}
+		////bullet
+		//  glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
 
 		
-		//ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-	
-	
+
 		GLenum error;
 		while ((error = glGetError()) != GL_NO_ERROR) {
 			std::cout << "OpenGL Error at game loop start: " << error << std::endl;
@@ -1197,7 +1188,7 @@ int main()
 		// Set up uniforms
 		//model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0, 1.0, 0.0));
 		//glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		//(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 		
 		// Bind the texture before drawing
@@ -1224,395 +1215,11 @@ int main()
 		//glfwGetWindowSize(window, &w, &h);
 
 		
-		// Create ImGui window
-		glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-		glViewport(0, 0, window_width, window_height);
-		GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-		if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
-			std::cout << "Framebuffer is not complete! Error code: " << framebufferStatus << std::endl;
-			// Handle the error as needed
-		}
-		
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: Bind framebuffer at gameloop";
-		}
-		ImGui::Begin("Cubes");
-		ImGui::Checkbox("View Physics Engine", &boolRigidBody);
-		if (ImGui::Button("Screenshot")) {
-			//GLubyte* pixels = new GLubyte[window_width * window_height* 4]; // 4 channels (RGBA)
-			//while ((error = glGetError()) != GL_NO_ERROR) {
-			//	std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
-			//}
-			//std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
-			//// Read the pixel data from the framebuffer
-			//glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-			//while ((error = glGetError()) != GL_NO_ERROR) {
-			//	std::cout << "\nopenGL Error at: read pixels for saving screenshot" <<error;
-			//}
-			//// Unbind the framebuffer
-			//
-		
-
-			//// Flip the pixel data vertically (OpenGL reads pixels from bottom to top)
-			//GLubyte* flippedPixels = new GLubyte[window_width * window_height * 4];
-
-			//for (int y = 0; y < window_height; ++y) {
-			//	for (int x = 0; x < window_width; ++x) {
-			//		int sourceIndex = (window_height - y - 1) * window_width + x;
-			//		int destIndex = y * window_width + x;
-
-			//		memcpy(flippedPixels + destIndex * 4, pixels + sourceIndex * 4, 4);
-			//	}
-			//}
-
-			//// Save the pixel data as an image using stb_image_write
-			//stbi_write_png("colorFBO.png", window_width, window_height, 4, flippedPixels, window_width * 4);
-
-			//
-
-
-			//// Clean up
-			//delete[] pixels;
-			//delete[] flippedPixels;
-		}
-		glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-		glViewport(0, 0, window_width, window_height);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 		// Input box for the number of cubes
 		
 
-			if (ImGui::SliderFloat("Ground Position Y", &groundPositionY, -25.5f, 16.5f)) {
-				
-				btCollisionObjectArray& collisionObjects = dynamicsWorld->getCollisionObjectArray();
-				
-				//digs out the first object in the dynamics world (the 
-				btCollisionObject* collisionObject = collisionObjects[0];
-				btRigidBody* backupGroundBody = btRigidBody::upcast(collisionObject);
-							
-
-				if (backupGroundBody) {
-				
-					btTransform groundTransform = backupGroundBody->getWorldTransform();
-					// Rest of your code
-				
-					groundTransform = backupGroundBody->getWorldTransform();
-					btVector3 currentPosition = groundTransform.getOrigin();
-					btScalar currentYBefore = currentPosition.getY();
-					std::cout << "Current Y Before Transform: " << currentYBefore << std::endl;
-
-					currentPosition = groundTransform.getOrigin();
-					currentPosition.setY(groundPositionY);
-					groundTransform.setOrigin(currentPosition);
-					groundBody->setWorldTransform(groundTransform);
-					//	dynamicsWorld->updateSingleAabb(backupGroundBody);
-					btScalar currentYAfter = groundPositionY;
-					std::cout << "New Y After Transform: " << currentYAfter << std::endl;
-					//	cubeModelMatrix = groundBody->getWorldTransform();
-
-
-
-						//Get data for physical representation
-					btTransform worldTransform = backupGroundBody->getWorldTransform();
-					btVector3 position = worldTransform.getOrigin();
-					btQuaternion rotation = worldTransform.getRotation();
-
-					cubeModelMatrix = glm::mat4(1.0f); // Initialize an identity matrix
-
-					// Set the translation component
-					cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(position.getX(), position.getY(), position.getZ()));
-
-					// Set the rotation component
-					glm::quat glmRotation(rotation.getW(), rotation.getX(), rotation.getY(), rotation.getZ());
-					cubeModelMatrix *= glm::mat4(glmRotation);
-				
-				}
-				else {
-				
-					// Handle the case where backupGroundBody is null
-				}
 			
-
-				// Print the current Y before the transform
-				
-
-			
-
-			}
-			glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-			ImGui::InputInt("Cube Number:", &cubesToGenerate);
-		// Button to generate cubes
-
-		
-		
-		if (ImGui::Button("Generate Cubes"))
-		{
-			// Clear the vector
-			int loop = 1;
-			if (rigidBodies.size() > 0) {
-				for (btRigidBody* rigidBody : rigidBodies) {
-					//std::cout << "iteration: "<< loop++ << "\n";
-					if (rigidBody->getCollisionShape() != nullptr ) {
-						delete rigidBody->getCollisionShape();
-					}
-					delete rigidBody->getMotionState();
-					
-					dynamicsWorld->removeRigidBody(rigidBody);
-					delete rigidBody;
-				}
-				rigidBodies.clear(); // Clear the rigid bodies vector
-			}
-			//std::cout << "\nSize of dynamicsWorld after delete iteration:" << dynamicsWorld->getNumCollisionObjects();
-
-			cubesSSBOVector.clear(); 
-			worldObject::nextID = 1;
-		/*	
-			for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i > 0; i--) {
-				btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
-				btRigidBody* body = btRigidBody::upcast(obj);
-				if (body) {
-					dynamicsWorld->removeRigidBody(body);
-					delete body->getMotionState();
-					if (body->getCollisionShape() != NULL)
-						delete body->getCollisionShape();
-					delete body;
-				}
-
-				else {
-					dynamicsWorld->removeCollisionObject(obj);
-				}
-				collisionShapes.clear();
-			}
-		*///	cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0])* cubesSSBOVector.size());
-
-			
-
-
-			btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(500.), btScalar(50.), btScalar(500.)));
-
-			btRigidBody* backupGroundBody = btRigidBody::upcast(groundBody);
-
-			collisionShapes.push_back(backupGroundBody->getCollisionShape());
-
-			btTransform groundTransform;
-			groundTransform.setIdentity();
-			groundTransform.setOrigin(btVector3(0, groundPositionY, 0));
-
-			btScalar mass(0.2);
-
-			//rigidbody is dynamic if and only if mass is non zero, otherwise static
-			bool isDynamic = (mass != 0.f);
-
-			btVector3 localInertia(0, 0, 0);
-			if (isDynamic)
-				groundShape->calculateLocalInertia(mass, localInertia);
-
-			//using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
-			btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
-			btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
-			btRigidBody* body = new btRigidBody(rbInfo);
-			//dynamicsWorld->addCollisionObject(body);
-
-			// Generate new cube instances
-			std::set<float> set1;
-			std::set<float> set2;
-			std::mt19937 rng(std::time(nullptr));
-			glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		
-			for (int i = 0; i < cubesToGenerate; i++) {
-				
-				btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
-				boxShapeInstance->setMargin(0.1f);
-
-				// Define random distribution for positions and velocities
-				//std::uniform_real_distribution<float> positionDist(minPos, maxPos); // Define minPos and maxPos as desired
-				std::uniform_real_distribution<float> velocityDist(0.1f, 5.0f); // Define minVel and maxVel as desired
-
-				float xVel = velocityDist(rng);
-				float yVel = velocityDist(rng);
-				float zVel = velocityDist(rng);
-
-
-				glm::vec3 instancePosition;
-				instancePosition.x	= glm::linearRand(-1.0f,147.0f);
-				instancePosition.y = glm::linearRand(55.0f, 86.0f);
-				instancePosition.z = glm::linearRand(-1.0f, 147.0f);
-				
-			//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
-				glm::vec3 instanceScale = glm::vec3(0.4f, 0.4f, 0.4f);
-				glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
-
-				// Apply scale
-				modelMatrix = glm::scale(modelMatrix, instanceScale);
-
-				// Apply translation
-				modelMatrix = glm::translate(modelMatrix, instancePosition);
-
-				// No rotation is applied in this version
-
-				World::cubeInstance cube;
-				cube.modelMatrix = modelMatrix;
-			//cube pushed back into vector after rigid body creation to pass ptr to body into same ssbo vector so each cube can
-				//access its RB
-
-				glm::vec3 cubePosition = instancePosition;
-				glm::vec3 scale = instanceScale;
-
-			
-
-				// Set initial position and orientation
-				btTransform startTransform;
-				startTransform.setIdentity();
-				startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
-				
-				// Create a rigid body
-				btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
-				btVector3 localInertia(0, 0, 0);
-				boxShapeInstance->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
-
-				btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, boxShapeInstance, localInertia);
-				btRigidBody* rigidBody = new btRigidBody(rbInfo);
-			
-				//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
-				btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
-				rigidBody->setAngularVelocity(angularVelocity);
-				// Add rigid body to the dynamics world
-				dynamicsWorld->addRigidBody(rigidBody);
-				cube.rigidBody = rigidBody;
-				rigidBodies.push_back(rigidBody);
-				cubesSSBOVector.push_back(cube);
-				collisionShapes.push_back(boxShapeInstance);
-
-			}
-			// add the body to the dynamics world
-
-	
-			// Update the SSBO with the new data
-			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-		
-		}
-
-		//if (ImGui::Button("Display Physics Data"))
-			ImGui::Begin("Physics Data");
-		
-			for (int i = 0; i < dynamicsWorld->getNumCollisionObjects(); i++) {
-				btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
-
-				// Check if it's a rigid body
-				btRigidBody* rigidBody = btRigidBody::upcast(obj);
-				if (rigidBody) {
-					// Print relevant data about the rigid body
-					btCollisionShape* shape = rigidBody->getCollisionShape();
-					btVector3 position = rigidBody->getCenterOfMassPosition();
-					btVector3 velocity = rigidBody->getLinearVelocity();
-					btVector3 angularVelocity = rigidBody->getAngularVelocity();
-
-					// Get the size of the collision shape (assuming it's a box shape)
-					btVector3 halfExtents;
-
-					if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
-						btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
-						halfExtents = boxShape->getHalfExtentsWithMargin();
-					}
-
-					else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
-						ImGui::Text("Rigid Body Sphere");
-					}
-					else {
-						// Handle other shape types here if needed
-						ImGui::Text("Unknown Collision Shape Type");
-						
-						continue; // Skip to the next collision object
-					}
-
-					btVector3 size = halfExtents * 2.0;
-
-					// Display data in ImGui window
-					ImGui::Text("Rigid Body %d", i);
-					if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
-						// When the button is clicked, set the camera's view matrix to look at the shape
-						// You'll need to adjust this part based on your camera setup
-						//glm::vec3 cameraPosition = /* Set your camera position here */;
-						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-						camera.mYaw = -90.0f;
-						camera.update();
-						view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() +3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
-						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-						camera.mYaw = -90.0f;
-						glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-						
-						glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-						camera.mViewMatrix = view;
-						camera.mPosition.x = position.x();
-						camera.mPosition.y = position.y();
-						camera.mPosition.z = (position.z() + 3.0f);
-					}
-					glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-					for (int row = 0; row < 4; ++row) {
-						ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
-					}
-				//	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-				//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-					ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
-						(std::numeric_limits<double>::max_digits10, position.y()),
-						(std::numeric_limits<double>::max_digits10, position.z()));
-					
-					ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
-					ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
-					ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-					ImGui::Text(" ");
-				}
-				else {
-					// It's not a rigid body, so it might be another type of collision object
-					// You can add handling for other types here if needed
-					ImGui::Text("Unknown Collision Object Type");
-					ImGui::Text("Other Body %d", i);
-					btCollisionShape* shape = obj->getCollisionShape();
-					btTransform worldtransform = obj->getWorldTransform();
-					btVector3 position = worldtransform.getOrigin();
-					btVector3 velocity = obj->getInterpolationLinearVelocity();
-					//btVector3 angularVelocity = obj->getAngularVelocity();
-					btSphereShape* sphereShape = static_cast<btSphereShape*>(shape);
-					int size;
-					//size = sphereShape->getRadius();
-					glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-					if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
-
-						
-
-
-						// When the button is clicked, set the camera's view matrix to look at the shape
-						// You'll need to adjust this part based on your camera setup
-						//glm::vec3 cameraPosition = /* Set your camera position here */;
-						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-						camera.mYaw = -90.0f;
-						camera.update();
-						view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
-						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-						camera.mYaw = -90.0f;
-						glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-						glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-						camera.mViewMatrix = view;
-						camera.mPosition.x = position.x();
-						camera.mPosition.y = position.y();
-						camera.mPosition.z = (position.z() + 3.0f);
-					}
-					for (int row = 0; row < 4; ++row) {
-						ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
-					}
-					ImGui::Text("Position: (%f, %f, %f)", position.x(), position.y(), position.z());
-					//ImGui::Text("Radius: (%f)", size);
-					ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
-					//ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-					ImGui::Text(" ");
-				}
-			}
-			//<< section hidden via tool bar on left near line numberr <<
-			ImGui::End();
 
 			ImGui::Begin("Camera Location");
 			if (ImGui::Button("Snap to World Origin")) {
@@ -1946,6 +1553,10 @@ int main()
 			}
 			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
 		}
+
+
+
+		
 		// Render ImGui UI
 		debugger.SetMatrices(camera.getViewMatrix(), projection);
 		if (boolRigidBody) { dynamicsWorld->debugDrawWorld(); }// If to draw the physics debug wireframes
@@ -2119,9 +1730,6 @@ void drawUI()
 
 {
 
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
 
 	ImGui::Begin("Render Shapes");
 	ImGui::Checkbox("Wireframe", &wireframe);
@@ -2141,7 +1749,59 @@ void drawUI()
 	
 	ImGui::End();
 
+	// Create ImGui window
+	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
+	glViewport(0, 0, window_width, window_height);
+	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Framebuffer is not complete! Error code: " << framebufferStatus << std::endl;
+		// Handle the error as needed
+	}
 	
+	//create screenshot im gui and tidy up after
+	GLenum error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "\nopenGL Error at: Bind framebuffer at gameloop";
+	}
+	ImGui::Begin("Cubes");
+	ImGui::Checkbox("View Physics Engine", &boolRigidBody);
+	if (ImGui::Button("Screenshot")) {
+		GLubyte* pixels = new GLubyte[window_width * window_height * 4]; // 4 channels (RGBA)
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
+		}
+		std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
+		// Read the pixel data from the framebuffer
+		glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
+		}
+		// Unbind the framebuffer
+
+		// Flip the pixel data vertically (OpenGL reads pixels from bottom to top)
+		GLubyte* flippedPixels = new GLubyte[window_width * window_height * 4];
+
+		for (int y = 0; y < window_height; ++y) {
+			for (int x = 0; x < window_width; ++x) {
+				int sourceIndex = (window_height - y - 1) * window_width + x;
+				int destIndex = y * window_width + x;
+
+				memcpy(flippedPixels + destIndex * 4, pixels + sourceIndex * 4, 4);
+			}
+		}
+
+		// Save the pixel data as an image using stb_image_write
+		stbi_write_png("colorFBO.png", window_width, window_height, 4, flippedPixels, window_width * 4);
+
+		// Clean up
+		delete[] pixels;
+		delete[] flippedPixels;
+	}
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
 		ImGui::Begin("Heightmap Editor");//ImGui::Begin("Heightmap Editor", &showUI);
 
 		// Create a button to generate the heightmap
@@ -2177,22 +1837,23 @@ void drawUI()
 				if (terrain.terrainMeshRigidBody != nullptr) {
 					//btCollisionShape* collisionShape = terrain.getTerrainCollionShape();
 					dynamicsWorldPtr->removeCollisionObject(terrain.getTerrainMesh());
-					//delete collisionShape;
+					terrain.terrainMeshRigidBody = nullptr;
+						//delete collisionShape;
 				}
 				terrain.createTerrainMesh();
 			
 				
 			}
-			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 5.0f))
+			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 25.0f))
 			{
 				terrain.generateHeightMap();
 			}
 
-			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 0.1f, 50.0f))
+			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 1.f, 100.0f))
 			{
 				terrain.generateHeightMap();
 			}
-			if (ImGui::SliderInt("Size", &terrain.size, 0.1f, 512.0f)) {
+			if (ImGui::SliderInt("Size", &terrain.size, 1.f, 1024.0f)) {
 				terrain.heightmapData.size = terrain.size;
 
 				terrain.generateHeightMap();
@@ -2205,49 +1866,390 @@ void drawUI()
 				terrain.generateHeightMap();
 			}
 			if (terrain.size > 0 && terrain.heightmapData.heights.size() > 0) {
-				for (int y = 0; y < terrain.heightmapData.size; ++y) {
-					ImGui::BeginGroup(); // Begin a row
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	ImGui::BeginGroup(); // Begin a row
 
-					for (int x = 0; x < terrain.heightmapData.size; ++x) {
-						int index = x + y * terrain.heightmapData.size;
-						float heightValue = terrain.heightmapData.heights[index];
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		float heightValue = terrain.heightmapData.heights[index];
 
-						// Map height value to grayscale color
-						ImVec4 color(heightValue, heightValue, heightValue, 1.0f);
+				//		// Map height value to grayscale color
+				//		ImVec4 color(heightValue, heightValue, heightValue, 1.0f);
 
-						// Display color as a square
+				//		// Display color as a square
 
-						ImGui::ColorButton("##ColorButton", color, ImGuiColorEditFlags_NoTooltip, ImVec2(Grid.x, Grid.y));
+				//		ImGui::ColorButton("##ColorButton", color, ImGuiColorEditFlags_NoTooltip, ImVec2(Grid.x, Grid.y));
 
-						ImGui::SameLine(); // Display the next color in the same row
-					}
+				//		ImGui::SameLine(); // Display the next color in the same row
+				//	}
 
-					ImGui::EndGroup(); // End the row
-				}
+				//	ImGui::EndGroup(); // End the row
+				//}
 
-				ImGui::Text("Heightmap Grid:");
-				for (int y = 0; y < terrain.heightmapData.size; ++y) {
-					for (int x = 0; x < terrain.heightmapData.size; ++x) {
-						int index = x + y * terrain.heightmapData.size;
-						ImGui::Text("%.2f", terrain.heightmapData.heights[index]);
-						ImGui::SameLine();
-					}
-					ImGui::NewLine();
-				}
+				//ImGui::Text("Heightmap Grid:");
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		ImGui::Text("%.2f", terrain.heightmapData.heights[index]);
+				//		ImGui::SameLine();
+				//	}
+				//	ImGui::NewLine();
+				//}
 
-				// Create a grid for editing height values
-				for (int y = 0; y < terrain.heightmapData.size; ++y) {
-					for (int x = 0; x < terrain.heightmapData.size; ++x) {
-						int index = x + y * terrain.heightmapData.size;
-						ImGui::InputFloat(("Height##" + std::to_string(index)).c_str(), &terrain.heightmapData.heights[index]);
-					}
-				}
+				//// Create a grid for editing height values
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		ImGui::InputFloat(("Height##" + std::to_string(index)).c_str(), &terrain.heightmapData.heights[index]);
+				//	}
+				//}
 
 			}
 		}
 		ImGui::End();
 	
+
+
+		//Generate new cube IMGUI and their physics body
+
+		if (ImGui::SliderFloat("Ground Position Y", &groundPositionY, -25.5f, 16.5f)) {
+
+			btCollisionObjectArray& collisionObjects = dynamicsWorldPtr->getCollisionObjectArray();
+
+			//digs out the first object in the dynamics world (the 
+			btCollisionObject* collisionObject = collisionObjects[0];
+			btRigidBody* backupGroundBody = btRigidBody::upcast(collisionObject);
+
+
+			if (backupGroundBody) {
+
+				btTransform groundTransform = backupGroundBody->getWorldTransform();
+				// Rest of your code
+
+				groundTransform = backupGroundBody->getWorldTransform();
+				btVector3 currentPosition = groundTransform.getOrigin();
+				btScalar currentYBefore = currentPosition.getY();
+				std::cout << "Current Y Before Transform: " << currentYBefore << std::endl;
+
+				currentPosition = groundTransform.getOrigin();
+				currentPosition.setY(groundPositionY);
+				groundTransform.setOrigin(currentPosition);
+				groundBody->setWorldTransform(groundTransform);
+				//	dynamicsWorld->updateSingleAabb(backupGroundBody);
+				btScalar currentYAfter = groundPositionY;
+				std::cout << "New Y After Transform: " << currentYAfter << std::endl;
+				//	cubeModelMatrix = groundBody->getWorldTransform();
+
+
+
+					//Get data for physical representation
+				btTransform worldTransform = backupGroundBody->getWorldTransform();
+				btVector3 position = worldTransform.getOrigin();
+				btQuaternion rotation = worldTransform.getRotation();
+
+				cubeModelMatrix = glm::mat4(1.0f); // Initialize an identity matrix
+
+				// Set the translation component
+				cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(position.getX(), position.getY(), position.getZ()));
+
+				// Set the rotation component
+				glm::quat glmRotation(rotation.getW(), rotation.getX(), rotation.getY(), rotation.getZ());
+				cubeModelMatrix *= glm::mat4(glmRotation);
+
+			}
+			else {
+
+				// Handle the case where backupGroundBody is null
+			}
+
+
+			// Print the current Y before the transform
+
+
+
+
+		}
+		glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
+		ImGui::InputInt("Cube Number:", &cubesToGenerate);
+		// Button to generate cubes
+
+
+
+		if (ImGui::Button("Generate Cubes"))
+		{
+			// Clear the vector
+			int loop = 1;
+			if (rigidBodies.size() > 0) {
+				for (btRigidBody* rigidBody : rigidBodies) {
+					//std::cout << "iteration: "<< loop++ << "\n";
+					if (rigidBody->getCollisionShape() != nullptr) {
+						delete rigidBody->getCollisionShape();
+					}
+					delete rigidBody->getMotionState();
+
+					dynamicsWorldPtr->removeRigidBody(rigidBody);
+					delete rigidBody;
+				}
+				rigidBodies.clear(); // Clear the rigid bodies vector
+			}
+			//std::cout << "\nSize of dynamicsWorld after delete iteration:" << dynamicsWorld->getNumCollisionObjects();
+
+			cubesSSBOVector.clear();
+			worldObject::nextID = 1;
+			/*
+				for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i > 0; i--) {
+					btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
+					btRigidBody* body = btRigidBody::upcast(obj);
+					if (body) {
+						dynamicsWorld->removeRigidBody(body);
+						delete body->getMotionState();
+						if (body->getCollisionShape() != NULL)
+							delete body->getCollisionShape();
+						delete body;
+					}
+
+					else {
+						dynamicsWorld->removeCollisionObject(obj);
+					}
+					collisionShapes.clear();
+				}
+			*///	cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0])* cubesSSBOVector.size());
+
+
+
+
+			btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(500.), btScalar(50.), btScalar(500.)));
+
+			btRigidBody* backupGroundBody = btRigidBody::upcast(groundBody);
+
+			collisionShapes.push_back(backupGroundBody->getCollisionShape());
+
+			btTransform groundTransform;
+			groundTransform.setIdentity();
+			groundTransform.setOrigin(btVector3(0, groundPositionY, 0));
+
+			btScalar mass(0.2);
+
+			//rigidbody is dynamic if and only if mass is non zero, otherwise static
+			bool isDynamic = (mass != 0.f);
+
+			btVector3 localInertia(0, 0, 0);
+			if (isDynamic)
+				groundShape->calculateLocalInertia(mass, localInertia);
+
+			//using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
+			btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
+			btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
+			btRigidBody* body = new btRigidBody(rbInfo);
+			//dynamicsWorld->addCollisionObject(body);
+
+			// Generate new cube instances
+			std::set<float> set1;
+			std::set<float> set2;
+			std::mt19937 rng(std::time(nullptr));
+			glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+
+			for (int i = 0; i < cubesToGenerate; i++) {
+
+				btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+				boxShapeInstance->setMargin(0.1f);
+
+				// Define random distribution for positions and velocities
+				//std::uniform_real_distribution<float> positionDist(minPos, maxPos); // Define minPos and maxPos as desired
+				std::uniform_real_distribution<float> velocityDist(0.1f, 5.0f); // Define minVel and maxVel as desired
+
+				float xVel = velocityDist(rng);
+				float yVel = velocityDist(rng);
+				float zVel = velocityDist(rng);
+
+
+				glm::vec3 instancePosition;
+				instancePosition.x = glm::linearRand(-1.0f, 147.0f);
+				instancePosition.y = glm::linearRand(55.0f, 86.0f);
+				instancePosition.z = glm::linearRand(-1.0f, 147.0f);
+
+				//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
+				glm::vec3 instanceScale = glm::vec3(0.4f, 0.4f, 0.4f);
+				glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
+
+				// Apply scale
+				modelMatrix = glm::scale(modelMatrix, instanceScale);
+
+				// Apply translation
+				modelMatrix = glm::translate(modelMatrix, instancePosition);
+
+				// No rotation is applied in this version
+
+				World::cubeInstance cube;
+				cube.modelMatrix = modelMatrix;
+				//cube pushed back into vector after rigid body creation to pass ptr to body into same ssbo vector so each cube can
+					//access its RB
+
+				glm::vec3 cubePosition = instancePosition;
+				glm::vec3 scale = instanceScale;
+
+
+
+				// Set initial position and orientation
+				btTransform startTransform;
+				startTransform.setIdentity();
+				startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
+
+				// Create a rigid body
+				btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
+				btVector3 localInertia(0, 0, 0);
+				boxShapeInstance->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
+
+				btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, boxShapeInstance, localInertia);
+				btRigidBody* rigidBody = new btRigidBody(rbInfo);
+
+				//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
+				btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
+				rigidBody->setAngularVelocity(angularVelocity);
+				// Add rigid body to the dynamics world
+				dynamicsWorldPtr->addRigidBody(rigidBody);
+				cube.rigidBody = rigidBody;
+				rigidBodies.push_back(rigidBody);
+				cubesSSBOVector.push_back(cube);
+				collisionShapes.push_back(boxShapeInstance);
+
+			}
+			// add the body to the dynamics world
+
+
+			// Update the SSBO with the new data
+			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+
+		}
+
+		//if (ImGui::Button("Display Physics Data"))
+		ImGui::Begin("Physics Data");
+
+		for (int i = 0; i < dynamicsWorldPtr->getNumCollisionObjects(); i++) {
+			btCollisionObject* obj = dynamicsWorldPtr->getCollisionObjectArray()[i];
+
+			// Check if it's a rigid body
+			btRigidBody* rigidBody = btRigidBody::upcast(obj);
+			if (rigidBody) {
+				// Print relevant data about the rigid body
+				btCollisionShape* shape = rigidBody->getCollisionShape();
+				btVector3 position = rigidBody->getCenterOfMassPosition();
+				btVector3 velocity = rigidBody->getLinearVelocity();
+				btVector3 angularVelocity = rigidBody->getAngularVelocity();
+
+				// Get the size of the collision shape (assuming it's a box shape)
+				btVector3 halfExtents;
+
+				if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
+					btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
+					halfExtents = boxShape->getHalfExtentsWithMargin();
+				}
+
+				else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
+					ImGui::Text("Rigid Body Sphere");
+				}
+				else {
+					// Handle other shape types here if needed
+					ImGui::Text("Unknown Collision Shape Type");
+
+					continue; // Skip to the next collision object
+				}
+
+				btVector3 size = halfExtents * 2.0;
+
+				// Display data in ImGui window
+				ImGui::Text("Rigid Body %d", i);
+				if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+					// When the button is clicked, set the camera's view matrix to look at the shape
+					// You'll need to adjust this part based on your camera setup
+					//glm::vec3 cameraPosition = /* Set your camera position here */;
+					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					camera.mYaw = -90.0f;
+					camera.update();
+					view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					camera.mYaw = -90.0f;
+					glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+					camera.mViewMatrix = view;
+					camera.mPosition.x = position.x();
+					camera.mPosition.y = position.y();
+					camera.mPosition.z = (position.z() + 3.0f);
+				}
+				glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				for (int row = 0; row < 4; ++row) {
+					ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+				}
+				glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+				//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+				ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
+					(std::numeric_limits<double>::max_digits10, position.y()),
+					(std::numeric_limits<double>::max_digits10, position.z()));
+
+				ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
+				ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
+				ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+				ImGui::Text(" ");
+			}
+			else {
+				// It's not a rigid body, so it might be another type of collision object
+				// You can add handling for other types here if needed
+				ImGui::Text("Unknown Collision Object Type");
+				ImGui::Text("Other Body %d", i);
+				btCollisionShape* shape = obj->getCollisionShape();
+				btTransform worldtransform = obj->getWorldTransform();
+				btVector3 position = worldtransform.getOrigin();
+				btVector3 velocity = obj->getInterpolationLinearVelocity();
+				//btVector3 angularVelocity = obj->getAngularVelocity();
+				btSphereShape* sphereShape = static_cast<btSphereShape*>(shape);
+				int size;
+				//size = sphereShape->getRadius();
+				glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+
+
+
+
+					// When the button is clicked, set the camera's view matrix to look at the shape
+					// You'll need to adjust this part based on your camera setup
+					//glm::vec3 cameraPosition = /* Set your camera position here */;
+					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					camera.mYaw = -90.0f;
+					camera.update();
+					view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					camera.mYaw = -90.0f;
+					glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+					camera.mViewMatrix = view;
+					camera.mPosition.x = position.x();
+					camera.mPosition.y = position.y();
+					camera.mPosition.z = (position.z() + 3.0f);
+				}
+				for (int row = 0; row < 4; ++row) {
+					ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+				}
+				ImGui::Text("Position: (%f, %f, %f)", position.x(), position.y(), position.z());
+				//ImGui::Text("Radius: (%f)", size);
+				ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
+				//ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+				ImGui::Text(" ");
+			}
+		}
+		//<< section hidden via tool bar on left near line numberr <<
+		ImGui::End();
+
+
 }
+
+
+
+
 
 
 void addCubes(GLuint shader, Mesh mesh) {
@@ -2271,137 +2273,137 @@ void addCubes(GLuint shader, Mesh mesh) {
 
 }
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-
-
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ) {
-		
-
-		lMouseClicked = true;
-		
-		double xpos, ypos;
-		int width, height;
-		
-		glfwGetFramebufferSize(window, &width, &height);
-		glfwGetCursorPos(window, &xpos, &ypos);
-		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
-		int glX = static_cast<int>(xpos);
-		int glY = height - static_cast<int>(ypos) - 1;
-
-		GLubyte pixelColor[4];
-				
-		GLint currentFramebuffer;
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-		GLenum error;
-		if (currentFramebuffer == colorFBO) {
-			// The colorFBO is currently bound as the framebuffer. You can safely call glReadPixels here
-			
-			glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind framebuffer
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-
-
-
-			}
-			//std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
-			std::cout << "\n" << static_cast<int>(pixelColor[0]) << "," << static_cast<int>(pixelColor[1]) << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
-			rgbSelected[0] = pixelColor[0];
-			rgbSelected[1] = pixelColor[1];
-			rgbSelected[2] = pixelColor[2];
-			rgbSelected[3] = pixelColor[3];
-			std::cout << "\nRGB seleted: " <<rgbSelected[0] << ", " << rgbSelected[1] << ", " << rgbSelected[2];
-			glm::vec3 colour;
-			colour.r = rgbSelected[0];
-
-			colour.g = rgbSelected[1];
-			colour.b = rgbSelected[2];
-			int deleteVector = -1;
-			deleteVector = (findCubeIndexByColour(glm::vec3(pixelColor[0], pixelColor[1], pixelColor[2])));
-				if (deleteVector != -1 && cubesSSBOVector.size()>0) {
-				
-				//dynamicsWorldPtr->removeRigidBody(
-				std::cout << "\nVector index to delete: " << deleteVector;
-				std::cout << "\ncube ID: " << cubesSSBOVector[deleteVector].ID;
-				dynamicsWorldPtr->removeRigidBody(cubesSSBOVector[deleteVector].rigidBody);
-				cubesSSBOVector.erase(cubesSSBOVector.begin() + (deleteVector));
-				cubeSSBOptr->updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-
-				//for (int i = dynamicsWorldPtr->getNumCollisionObjects() - 1; i >= 0; i--) {
-				//	btCollisionObject* obj = dynamicsWorldPtr->getCollisionObjectArray()[i];
-				//	btRigidBody* rigidBody = btRigidBody::upcast(obj);
-
-				//	if (rigidBody && rigidBody->getUserPointer() == reinterpret_cast<void*>(deleteVector)) {
-				//		std::cout << "\nUser Pointer value of click cube: " << (int)rigidBody->getUserPointer();
-				//		// Found the rigid body with the matching user data (ID)
-				//		
-
-
-				//		std::cout << "\nRigid Body Vector Size: "<<rigidBodyVectorPtr->size();
-				//		
-				//		std::cout << "\nRigid Body Vector Size: " << rigidBodyVectorPtr->size();
-
-				//		std::cout << "\nNumber of collision objects" << dynamicsWorldPtr->getNumCollisionObjects();
-				//		
-				//		dynamicsWorldPtr->removeRigidBody(rigidBody);
-				//		
-				//		delete rigidBody->getMotionState();
-				//		delete rigidBody->getCollisionShape();
-				//		
-				//		delete rigidBody;
-				//		std::cout << "\nNumber of collision objects:" << dynamicsWorldPtr->getNumCollisionObjects();
-
-				//		break; // Assuming each ID is unique, you can break out of the loop once you find a match.
-				//	}
-				//	rigidBodyVectorPtr->erase(rigidBodyVectorPtr->begin() + deleteVector);
-				//}
-				
-
-				
-
-			}
-		}
-		else {
-			std::cout << "\nColor buffer not bound";
-			glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				//	std::cout << "OpenGL Error: " << error << std::endl;
-				glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
-				//	std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
-			}
-		}
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//std::cout << static_cast<int>(pixelColor[0]) << "," << static_cast<int>(pixelColor[1]) << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
-		//rgbSelected[0] = pixelColor[0];
-		//rgbSelected[1] = pixelColor[1];
-		//rgbSelected[2] = pixelColor[2];
-		//rgbSelected[3] = pixelColor[3];
-		//glm::vec3 colour;
-		//colour.r = rgbSelected[0];
-
-		//colour.g = rgbSelected[1];
-		//colour.b = rgbSelected[2];
-		//int deleteVector = (findCubeIndexByColour(glm::vec3(pixelColor[0], pixelColor[1], pixelColor[2])));
-		//if (deleteVector != -1) {
-		//	std::cout << "vector idnex to delete: " << deleteVector;
-		//	cubesSSBOVector.erase(cubesSSBOVector.begin() + deleteVector);
-		//	cubeSSBOptr->updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-		//	deleteVector = 0;
-		//	
-		//	}
-
-
-
-	}
-	else {
-		//Left Mouse Button is not clicked
-		lMouseClicked = false;
-
-	}
-
-
-}
+//void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+//	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
+//
+//
+//	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ) {
+//		
+//
+//		lMouseClicked = true;
+//		
+//		double xpos, ypos;
+//		int width, height;
+//		
+//		glfwGetFramebufferSize(window, &width, &height);
+//		glfwGetCursorPos(window, &xpos, &ypos);
+//		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
+//		int glX = static_cast<int>(xpos);
+//		int glY = height - static_cast<int>(ypos) - 1;
+//
+//		GLubyte pixelColor[4];
+//				
+//		GLint currentFramebuffer;
+//		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+//		GLenum error;
+//		if (currentFramebuffer == colorFBO) {
+//			// The colorFBO is currently bound as the framebuffer. You can safely call glReadPixels here
+//			
+//			glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
+//			glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind framebuffer
+//			while ((error = glGetError()) != GL_NO_ERROR) {
+//				std::cout << "OpenGL Error: " << error << std::endl;
+//
+//
+//
+//			}
+//			//std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
+//			std::cout << "\n" << static_cast<int>(pixelColor[0]) << "," << static_cast<int>(pixelColor[1]) << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
+//			rgbSelected[0] = pixelColor[0];
+//			rgbSelected[1] = pixelColor[1];
+//			rgbSelected[2] = pixelColor[2];
+//			rgbSelected[3] = pixelColor[3];
+//			std::cout << "\nRGB seleted: " <<rgbSelected[0] << ", " << rgbSelected[1] << ", " << rgbSelected[2];
+//			glm::vec3 colour;
+//			colour.r = rgbSelected[0];
+//
+//			colour.g = rgbSelected[1];
+//			colour.b = rgbSelected[2];
+//			int deleteVector = -1;
+//			deleteVector = (findCubeIndexByColour(glm::vec3(pixelColor[0], pixelColor[1], pixelColor[2])));
+//				if (deleteVector != -1 && cubesSSBOVector.size()>0) {
+//				
+//				//dynamicsWorldPtr->removeRigidBody(
+//				std::cout << "\nVector index to delete: " << deleteVector;
+//				std::cout << "\ncube ID: " << cubesSSBOVector[deleteVector].ID;
+//				dynamicsWorldPtr->removeRigidBody(cubesSSBOVector[deleteVector].rigidBody);
+//				cubesSSBOVector.erase(cubesSSBOVector.begin() + (deleteVector));
+//				cubeSSBOptr->updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+//
+//				//for (int i = dynamicsWorldPtr->getNumCollisionObjects() - 1; i >= 0; i--) {
+//				//	btCollisionObject* obj = dynamicsWorldPtr->getCollisionObjectArray()[i];
+//				//	btRigidBody* rigidBody = btRigidBody::upcast(obj);
+//
+//				//	if (rigidBody && rigidBody->getUserPointer() == reinterpret_cast<void*>(deleteVector)) {
+//				//		std::cout << "\nUser Pointer value of click cube: " << (int)rigidBody->getUserPointer();
+//				//		// Found the rigid body with the matching user data (ID)
+//				//		
+//
+//
+//				//		std::cout << "\nRigid Body Vector Size: "<<rigidBodyVectorPtr->size();
+//				//		
+//				//		std::cout << "\nRigid Body Vector Size: " << rigidBodyVectorPtr->size();
+//
+//				//		std::cout << "\nNumber of collision objects" << dynamicsWorldPtr->getNumCollisionObjects();
+//				//		
+//				//		dynamicsWorldPtr->removeRigidBody(rigidBody);
+//				//		
+//				//		delete rigidBody->getMotionState();
+//				//		delete rigidBody->getCollisionShape();
+//				//		
+//				//		delete rigidBody;
+//				//		std::cout << "\nNumber of collision objects:" << dynamicsWorldPtr->getNumCollisionObjects();
+//
+//				//		break; // Assuming each ID is unique, you can break out of the loop once you find a match.
+//				//	}
+//				//	rigidBodyVectorPtr->erase(rigidBodyVectorPtr->begin() + deleteVector);
+//				//}
+//				
+//
+//				
+//
+//			}
+//		}
+//		else {
+//			std::cout << "\nColor buffer not bound";
+//			glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
+//			while ((error = glGetError()) != GL_NO_ERROR) {
+//				//	std::cout << "OpenGL Error: " << error << std::endl;
+//				glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixelColor);
+//				//	std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
+//			}
+//		}
+//		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//		//std::cout << static_cast<int>(pixelColor[0]) << "," << static_cast<int>(pixelColor[1]) << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
+//		//rgbSelected[0] = pixelColor[0];
+//		//rgbSelected[1] = pixelColor[1];
+//		//rgbSelected[2] = pixelColor[2];
+//		//rgbSelected[3] = pixelColor[3];
+//		//glm::vec3 colour;
+//		//colour.r = rgbSelected[0];
+//
+//		//colour.g = rgbSelected[1];
+//		//colour.b = rgbSelected[2];
+//		//int deleteVector = (findCubeIndexByColour(glm::vec3(pixelColor[0], pixelColor[1], pixelColor[2])));
+//		//if (deleteVector != -1) {
+//		//	std::cout << "vector idnex to delete: " << deleteVector;
+//		//	cubesSSBOVector.erase(cubesSSBOVector.begin() + deleteVector);
+//		//	cubeSSBOptr->updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+//		//	deleteVector = 0;
+//		//	
+//		//	}
+//
+//
+//
+//	}
+//	else {
+//		//Left Mouse Button is not clicked
+//		lMouseClicked = false;
+//
+//	}
+//
+//
+//}
 
 Cube* findCubeByColour(const glm::vec3 color) {
 
@@ -2513,3 +2515,31 @@ std::string GetShapeTypeString(int shapeType) {
 }
 
 // Example usage:
+
+
+void initialise(float x, float y, float z, GLFWwindow* window) {
+	//xyz are for character parameters
+	character = new Character(dynamicsWorldPtr, x, y, z, window );
+	camera.m_window = window;
+
+
+	//setup matrices
+
+	 modelLoc = glGetUniformLocation(*defaultShaderProgramPtr, "model");
+	 viewLoc = glGetUniformLocation(*defaultShaderProgramPtr, "view");
+	 projectionLoc = glGetUniformLocation(*defaultShaderProgramPtr, "projection");
+
+
+	 glm::mat4  model = glm::mat4(1.0f);
+	 glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	 glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+
+	  cubeModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.5, 0.5, 0.5));
+	
+}
+
+void update() {
+	character->update();
+}
+
+
