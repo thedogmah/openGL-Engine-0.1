@@ -9,41 +9,58 @@ Character::Character(btDynamicsWorld* world, float initialX, float initialY, flo
 	transform.setOrigin(btVector3(initialX, initialY, initialZ));
 
 	//create mass for character
-	btScalar mass = 0.1;
+	btScalar mass = 2;
 	btVector3 localInertia(0, 0, 0);
 	characterShape->calculateLocalInertia(mass, localInertia);
 	btDefaultMotionState* motionState = new btDefaultMotionState(transform);
 	btRigidBody::btRigidBodyConstructionInfo CI(mass, motionState, characterShape, localInertia);
 	rigidBody = new btRigidBody(CI);
 	rigidBody->forceActivationState(ACTIVE_TAG);
-	rigidBody->setAngularFactor(btVector3(0.0f, 1.0f, 0.0f));
+	rigidBody->setAngularFactor(btVector3(0.0f, 0.0f, 0.0f));
 	world->addRigidBody(rigidBody);
+
+	
+
+	// Update linear and angular damping each frame
+	rigidBody->setDamping(linearDamping, angularDamping);
+
+
 }
 
 void Character::handleInput()
 {
+	glm::vec3 cameraDirection = camera.mFront; // Use the camera's facing direction
+
 	if (characterActive) {
-		rigidBody->forceActivationState(ACTIVE_TAG);
-		if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_T) == GLFW_REPEAT) {
-			//moveForward();
-			force += btVector3(0.0, 0.0, -1.0);
+		// Apply input to the character's velocity (force)
+		if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+			// Move forward in the camera's direction
+			rigidBody->forceActivationState(ACTIVE_TAG);
+			force += cameraDirection;
 		}
 		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-			//	moveBackward();
-			force += btVector3(0.0, 0.0, 1.0);
+			// Move backward (opposite direction of the camera's view)
+			rigidBody->forceActivationState(ACTIVE_TAG);
+			force -= cameraDirection;
 		}
 		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-			// Increment the leftward force (to the left of the character's forward direction)
-			force += btVector3(-1.0, 0.0, 0.0);
+			// Calculate a leftward direction relative to the camera's view
+			rigidBody->forceActivationState(ACTIVE_TAG);
+			glm::vec3 leftDirection = glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), cameraDirection);
+			force += leftDirection;
 		}
-
 		if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
-			// Increment the rightward force (to the right of the character's forward direction)
-			force += btVector3(1.0, 0.0, 0.0);
+			// Calculate a rightward direction relative to the camera's view
+			rigidBody->forceActivationState(ACTIVE_TAG);
+			glm::vec3 rightDirection = glm::cross(cameraDirection, glm::vec3(0.0f, 1.0f, 0.0f));
+			force += rightDirection;
 		}
+		else {
+		
+		}
+		// Normalize the force vector to maintain consistent movement speed
+		//force = glm::normalize(force);
 	}
-
-
 }
 
 void Character::update()
@@ -63,11 +80,16 @@ void Character::debug()
 		{
 			this->rigidBody->setFriction(frictionValue);
 		}
-		
+		if(ImGui::SliderFloat("Linear Damping", &linearDamping, 0.01f, 5.0f)) {
+			rigidBody->setDamping(linearDamping, angularDamping);
+		}
+		if (ImGui::SliderFloat("Angular Damping", &angularDamping, 0.01f, 5.0f)) {
+			rigidBody->setDamping(linearDamping, angularDamping);
+		}
 		// Apply the updated friction value to the character's rigid body
 	
 		ImGui::SliderFloat("Force Factor", &forceFactor, 0.1f, 50.0f); // Adjust the range as needed
-		ImGui::Text("Force: %.2f, %.2f, %.2f", force.x(), force.y(), force.z());
+		ImGui::Text("Force: %.2f, %.2f, %.2f", force.x, force.y, force.z);
 		
 		if (!rigidBody->isActive()) {
 			// Print a message to the console
@@ -89,14 +111,14 @@ btRigidBody* Character::getRigidBody()
 
 void Character::applyMovement()
 {
-
+	rigidBody->forceActivationState(ACTIVE_TAG);
 	//Factor force
 	force *= forceFactor;
 	if (characterActive)
 	{
-		rigidBody->applyCentralForce(force);
+		rigidBody->applyCentralForce(btVector3(force.x, force.y, force.z));
 		//Debug to console
-		//std::cout << "\t" << force.x() << ", " << force.y() << ", " << force.z();
-		force = btVector3(0.0, 0.0, 0.0);
+		//std::cout << "\tForce vec3: " << force.x << ", " << force.y << ", " << force.z;
+		force = glm::vec3(0.0, 0.0, 0.0);
 	}
 }

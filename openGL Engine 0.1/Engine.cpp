@@ -9,13 +9,15 @@ Terrain::Terrain()
 	
 //	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//vertices.reserve(size * size);
-	this->size = 16; //set a default terrain size.
+	this->size = 256; //set a default terrain size.
 	this->heightmapData.size =16;
 }
 
 void Terrain::render()
 {
-
+	// Define a random number generator and initialize it with a seed
+	
+	//rng.seed(123);     // Set a fixed seed for repeatability (change this for variability)
 	//set time for shader functions
 	static double previousTime = glfwGetTime();
 	double currentTime = glfwGetTime();
@@ -24,7 +26,23 @@ void Terrain::render()
 	renderTextureLoader();
 	ImGui::Begin("Terrain Settings");
 
+	
+	ImGui::Begin("Scale");
+	if (ImGui::SliderFloat("Y Scale", &yScale, 0.5f, 10.0f)) {
+	
+		for (int i = 1; i < vertices.size(); i += 3) {
+			// Update the Y-coordinate by scaling it
+			vertices[i] *= yScale;
 
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		}
+	}		// Update the Y-axis scale factor when the slider changes
+
+	ImGui::End();
+	
 	// Create input fields for the values
 	ImGui::InputInt("Iterations", &terrainIterations);
 	ImGui::InputFloat("Height", &terrainHeight);
@@ -36,6 +54,8 @@ void Terrain::render()
 	ImGui::Checkbox("Voxelate Terrain", &boolVoxelateTerrain);
 	ImGui::Checkbox("FIR Erosion Terrain", &boolFIRErosion);
 	ImGui::Checkbox("Trim Terrain Edges", &boolTrimEdges);
+	ImGui::SliderFloat("Mountain Scaling", &mountain_scaling, 0.0, 100);  // Adjust to control mountain height
+	
 	if (ImGui::Button("Generate Terrain")) {
 		// Call terrain generation function with the updated values
 		//
@@ -69,6 +89,7 @@ void Terrain::render()
 	GLint snowStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowStopThreshold");
 	GLint shininessLocation = glGetUniformLocation(*this->shaderPtr, "shininess");
 	GLint specularColorLocation = glGetUniformLocation(*this->shaderPtr, "specularColor");
+	GLint sunBrightnessLocation = glGetUniformLocation(*this->shaderPtr, "sunBrightness");
 
 	GLint lightDirectionLocation = glGetUniformLocation(*this->shaderPtr, "lightDirection");
 
@@ -78,18 +99,18 @@ void Terrain::render()
 	float lowestY = -1;  // Start with a very high value
 	float highestY = 1; // Start with a very low value
 
-	// Iterate through the Y-coordinates of 'vertices'
-	for (int i = 1; i < vertices.size(); i += 3) {
-		float y = vertices[i]; // Y-coordinate for this vertex
+	//// Iterate through the Y-coordinates of 'vertices'
+	//for (int i = 1; i < vertices.size(); i += 3) {
+	//	float y = vertices[i]; // Y-coordinate for this vertex
 
-		// Update lowest and highest Y-values
-		if (y < lowestY) {
-			lowestY = y;
-		}
-		if (y > highestY) {
-			highestY = y;
-		}
-	}
+	//	// Update lowest and highest Y-values
+	//	if (y < lowestY) {
+	//		lowestY = y;
+	//	}
+	//	if (y > highestY) {
+	//		highestY = y;
+	//	}
+	//}
 
 	// Use ImGui to display the lowest and highest Y-values as text labels
 	ImGui::Text("Lowest Y: %.2f", lowestY);
@@ -117,20 +138,29 @@ void Terrain::render()
 		glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
 	}
 
-	if (ImGui::SliderFloat("Shininess", &shininess, 1.0f, 1500.0f)) {
+	if (ImGui::SliderFloat("Shininess", &shininess, 0.2f, 100.0f)) {
 		glUniform1f(shininessLocation, shininess);
 
 	}
+	if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 2.0f )) {
+		glUniform1f(sunBrightnessLocation, sunBrightness);
+
+	}
+
+	//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
+	//	// Update the sun's position whenever the time of day changes
+	//	// You can use this callback to trigger any other time-dependent effects
+	//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+	//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+
+	//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
+	//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
+
+	//}
+
+	if (ImGui::SliderFloat("Time", &timeOfDay, 0.0f, 24.0f)) {
 	
-
-	if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
-		// Update the sun's position whenever the time of day changes
-		// You can use this callback to trigger any other time-dependent effects
-		 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-		 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-
-		sunPosition = glm::vec3(sunX, -sunY, 0.0f);
-		glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
+		glUniform1f(timeLocation, timeOfDay);
 
 	}
 	ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
@@ -164,22 +194,22 @@ void Terrain::render()
 		glUniform3fv(ambientColorLocation, 1, &ambientColor.x);
 	}
 	// Height Thresholds
-	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, -500., 750.0f)) {
+	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, terrainBottom, terrainTop)) {
 		glUniform1f(waterThresholdLocation, waterThreshold);
 	}
 
-	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, -500., 750.0f)) {
+	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, terrainBottom, terrainTop)) {
 		glUniform1f(grassThresholdLocation, grassThreshold);
 	}
 
-	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, -500.,750.0f)) {
+	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, terrainBottom, terrainTop)) {
 		glUniform1f(rockyThresholdLocation, rockyThreshold);
 	}
 
-	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, -500.0f, 750.0f)) {
-		glUniform1f(rockyThresholdLocation, snowThreshold);
+	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, terrainBottom, terrainTop)) {
+		glUniform1f(snowThresholdLocation, snowThreshold);
 	}
-	if (ImGui::SliderFloat("Peak Threshold", &peakThreshold, -500.0f, 1050.0f)) {
+	if (ImGui::SliderFloat("Peak Threshold", &peakThreshold, terrainBottom, terrainTop)) {
 		glUniform1f(peakThresholdLocation, peakThreshold);
 	}
 	
@@ -612,10 +642,12 @@ bool Terrain::createTerrainMesh()
 		}
 	}
 
+	
+
 	fractalTerrain();
 	voxelateTerrain();
 	firSmoothTerrain();
-
+	mountainsTerrain();
 	std::cout << "min Height was: "<< minHeight;
 	std::cout << "\nmax height was: " << maxHeight;
 	for (int z = 0; z < this->size - 1; ++z) {
@@ -684,10 +716,28 @@ bool Terrain::createTerrainMesh()
 		vertices[i + 1] += translationY;
 		vertices[i + 2] += translationZ;
 	}
-		// Create OpenGL buffers
-	
+
+
+	glm::vec3 transformedVertex = glm::vec3(modelMatrix * glm::vec4(vertices[0], vertices[1], vertices[2], 1.0f));
+
+	terrainBottom = transformedVertex.y;
+	terrainTop = transformedVertex.y;
+
+	for (int i = 0; i + 2 < vertices.size(); i += 3)
+	{
+		// Transform the vertex using the model matrix
+		transformedVertex = modelMatrix * glm::vec4(vertices[i], vertices[i + 1], vertices[i + 2], 1.0f);
+
+		if (transformedVertex.y < terrainBottom)
+			terrainBottom = transformedVertex.y;
+		else if (transformedVertex.y > terrainTop)
+			terrainTop = transformedVertex.y;
+	}
+
 
 	createUVs();
+
+
 
 	glBindVertexArray(VAO);
 
@@ -835,30 +885,37 @@ void Terrain::generateHeightMap()
 		heightmapData.heights.resize(heightmapData.size * heightmapData.size);
 	}*/
 
-	this->heightmapData.heights.clear();
-	this->heightmapData.heights.resize(this->size * this->size);
-	std::cout << "\nSize of heightmap is: " << this->heightmapData.heights.size();
-	// frequency = 0.1f; // Adjust this to control the scale of details
-	 //amplitude = 1.0f; // Adjust this to control the overall height range
-	std::cout << "Begin terrain generation in generate Height Map Function\n";
-		for (int y = 0; y < size; ++y) {
-			for (int x = 0; x < size; ++x) {
-				int index = x + y * size;
-				float u = static_cast<float>(x) / static_cast<float>(size - 1);
-				float v = static_cast<float>(y) / static_cast<float>(size - 1);
+	
+	std::vector<float> octaveAmplitudes(numOctaves);
+	std::vector<float> octaveFrequencies(numOctaves);
 
-				// Generate height using Perlin noise
-			  // Generate height using Perlin noise with adjusted parameters
-				float height = glm::simplex(glm::vec2(u * frequency, v * frequency)) * amplitude;
+	for (int i = 0; i < numOctaves; ++i) {
+		octaveAmplitudes[i] = pow(persistance, -i); // Persistance Decreasing amplitude with each octave
+		octaveFrequencies[i] = pow(lacunarity, i); // Lacunarity Increasing frequency with each octave 
 
-				this->heightmapData.heights[index] = height;
-			}
-		}
-
-		std::cout << "Begin terrain generation in generate Height Map Function\n";
-
-
+	/*	octaveAmplitudes[i] = std::uniform_real_distribution<float>(0.0f, 1.0f)(rng);
+		octaveFrequencies[i] = std::uniform_real_distribution<float>(1.0f, 5.0f)(rng);*/ // Adjust the frequency range
 	}
+
+	this->heightmapData.heights.clear();
+	this->heightmapData.heights.resize(this->size * this->size, 0.0f);
+
+	for (int y = 0; y < size; ++y) {
+		for (int x = 0; x < size; ++x) {
+			int index = x + y * size;
+			float u = static_cast<float>(x) / static_cast<float>(size - 1);
+			float v = static_cast<float>(y) / static_cast<float>(size - 1);
+			float height = 0.0f; // Initialize height to zero
+
+			for (int i = 0; i < numOctaves; ++i) {
+				height += glm::simplex(glm::vec2(u * octaveFrequencies[i], v * octaveFrequencies[i])) * octaveAmplitudes[i];
+			}
+
+			this->heightmapData.heights[index] = height * amplitude;
+		}
+	}
+//Consider having noise in the range of -1 to 1 (result *  2 - 1)
+}
 
 void Terrain::createUVs()
 {
@@ -1099,14 +1156,35 @@ void Terrain::firSmoothTerrain()
 	
 }
 
+void Terrain::mountainsTerrain()
+{
+	for (int i = 0; i < vertices.size(); i += 3) {
+		float x = vertices[i];
+		float z = vertices[i + 2];
+
+		// Generate mountain noise at the current (x, z) position
+		float u = static_cast<float>(x) / static_cast<float>(size - 1);
+		float v = static_cast<float>(z) / static_cast<float>(size - 1);
+		float mountain_noise = glm::simplex(glm::vec2(u * frequency, v * frequency));
+
+		// Scale the mountain noise to control mountain height
+		float mountain_height = mountain_noise * mountain_scaling;
+
+		// Add mountains to the terrain by modifying the y-coordinate
+		vertices[i + 1] += mountain_height;
+	}
+}
+
 void Terrain::renderTextureLoader()
 {
+
+
 
 	ImGui::Begin("Texture Manager");
 	
 	// Load Texture button
 	ImGui::InputText("File Name", fileNameBuffer, sizeof(fileNameBuffer));
-	printf("File Name Buffer Contents: %s\n", fileNameBuffer);
+	//printf("File Name Buffer Contents: %s\n", fileNameBuffer);
 	// Load Texture button
 	if (ImGui::Button("Load Texture")) {
 		// Get the file name from the input field
@@ -1281,7 +1359,7 @@ GLuint Terrain::loadTexture(const char* path)
 			}
 
 			// Adjust iHeight for the next iteration if desired
-			//iMaxDelta *= 0.95;
+			iMaxDelta *= 0.95;
 		}
 
 	

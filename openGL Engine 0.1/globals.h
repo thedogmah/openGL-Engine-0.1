@@ -2,18 +2,31 @@
 //#include <glm/glm.hpp> // Include any necessary headers for the variables
 
 #define BT_USE_DOUBLE_PRECISION
+#define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a)/sizeof(a[0])) //first element must always exist to use this
+#define ASSIMP_LOAD_FLAG (aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
+
+
+
 #include "Cube.h"
 #include <set>
-
+#include <vector>
 #include "btBulletDynamicsCommon.h"
 
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include <LinearMath/btVector3.h>
+#include "Texture.h"
+#include "Mesh.h"
 
+class Texture;
 
+extern bool boolShowGLErrors;
+extern bool boolDrawUI; //bool for drawing main UI in main.cpp (left Alt key on and off)
 extern bool lMouseClicked;
 //Create the game character
 class Character;
+extern float characterCameraXOffset;
+extern float characterCameraYOffset;
+extern float characterCameraZOffset;
 class Camera;
 extern Camera camera;
 class SSBO;
@@ -23,9 +36,7 @@ extern glm::mat4 model;
 extern glm::mat4 view;// = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 extern glm::mat4 projection;// = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 400.0f);
 
-
-
-
+class Mesh;
 extern GLuint* defaultShaderProgramPtr;
 extern int modelLoc ;
 extern int viewLoc ;
@@ -47,15 +58,19 @@ struct Vertex {
     float r, g, b, a ;
   
 };
+static std::vector<Mesh> meshVector;//for importing multiple meshes
 
-inline extern Character* character;
+
+extern Character* character;
 
 
 //OpenGL varaibles - also used by callback functions in callbackfunctions.h
 
 //#endif // GLOBALS_H
 
-
+//extern ImVec4 bgColor = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);     // Default background color
+//extern ImVec4 buttonColor = ImVec4(0.4f, 0.4f, 0.4f, 1.0f); // Default button color
+//
 //Ground Object.
 
 //physics.

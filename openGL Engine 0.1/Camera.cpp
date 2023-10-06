@@ -7,7 +7,7 @@ Camera::Camera()	:
 		mUp(glm::vec3(0.0f, 1.0f, 0.0f)),
 		mYaw(-90.0f),
 		mPitch(0.0f),
-		mMovementSpeed(0.25f),
+		mMovementSpeed(0.35f),
 		mMouseSensitivity(0.00013f),
 		mZoom(45.0f)
 {
@@ -37,7 +37,7 @@ void Camera::setViewMatrix()
 
 void Camera::Camera::updateOrientation() {
 
-	if (lMouseClicked)
+	if (lMouseClicked)//debug bool for if camera is activated (not clicked) 
 
 	{
 		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -59,6 +59,8 @@ void Camera::Camera::updateOrientation() {
 		// Update yaw and pitch angles based on mouse movement
 		mYaw += xOffset;
 		mPitch += yOffset;
+
+
 		
 		// Clamp pitch to avoid flipping the camera upside down
 		if (mPitch > 89.0f)
@@ -71,25 +73,47 @@ void Camera::Camera::updateOrientation() {
 		front.y = sin(glm::radians(mPitch));
 		front.z = sin(glm::radians(mYaw)) * cos(glm::radians(mPitch));
 		mFront = glm::normalize(front);
-	
+		//glfwSetCursorPos(m_window, window_width / 2, window_height / 2);
+
 	
 	}
+	///glfwGetWindowSize(m_window, window_width, window_height);
+	
+}
 
+float Camera::getYaw()
+{
+	return this->mYaw;
+}
 
+float Camera::getPitch()
+{
+	return this->mPitch;
 }
 
 
 
 void Camera::Camera::updatePosition() {
 
+	if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_REPEAT)
 
+	{
+		character->characterActive = false;
+
+	}
 	//Switch Mouse Clicked on spacekey
-	if (cameraActive) {
+	if (true) {
 		if (glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS || glfwGetKey(m_window, GLFW_KEY_CAPS_LOCK) == GLFW_REPEAT)
 		{
 			this->mMouseSensitivity = 0.0;
 
 			this->mMovementSpeed = 0.0;
+			if (this->cameraActive)
+				this->cameraActive = false;
+			if (this->cameraActive)
+				this->cameraActive = true;
+			if (lMouseClicked == true) { lMouseClicked = false; }
+			if (lMouseClicked == false) { lMouseClicked = true; }
 		}
 
 

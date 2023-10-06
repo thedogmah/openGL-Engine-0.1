@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "globals.h"
+#include "Character.h"
 class Camera
 {
 public:
@@ -18,7 +19,8 @@ public:
 
 	void updatePosition();
 	void updateOrientation();
-
+	float getYaw();
+	float getPitch();
 	GLFWwindow* m_window;
 	glm::vec3 mPosition;
 	glm::vec3 mFront; 
@@ -30,6 +32,6 @@ public:
 	float mMovementSpeed;
 	float mMouseSensitivity; 
 	float mZoom;
-
+	Character* character = nullptr;
 };
 

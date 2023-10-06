@@ -16,6 +16,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/noise.hpp>
+#include <random>
 
 #include <vector>
 
@@ -30,7 +31,7 @@ class Engine
 struct heightmap {
 
 	char* heightData;// height data
-	int size; //the height size, must be power of two*
+	int size = 256; //the height size, must be power of two*
 	std::vector<float> heights;
 };
 
@@ -43,14 +44,14 @@ public:
 	std::fstream fstreamObj;
 
 	//height map values;
-	float frequency = 0.1f; // Adjust this to control the scale of details
-	float amplitude = 1.0f;
+	float frequency = 3.0f; // Adjust this to control the scale of details
+	float amplitude = 12.0f;
 public:
 	
 	Terrain();
 	unsigned int* shaderPtr = nullptr;
 	//Do I need destructor for parent class?
-	int size =0; //must be a power of two
+	int size =256; //must be a power of two
 	struct Vertex {
 		glm::vec3 position; // x, y, z
 		glm::vec3 color;    // r, g, b (optional)
@@ -62,6 +63,8 @@ public:
 	bool saveHeightMap(char* filename);
 	bool unloadHeightMap();
 	void generateHeightMap();
+	std::mt19937 rng;  // Mersenne Twister PRNG
+	int numOctaves = 5; // for heightmap
 	void createUVs();
 	std::vector<GLfloat> GenerateFractalTerrain(std::vector<GLfloat>& Vertices,
 	int iIterations,
@@ -72,17 +75,21 @@ public:
 	btCollisionShape* getTerrainCollionShape();
 	btRigidBody* getTerrainMesh();
 	glm::vec3 calculateSurfaceNormal(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3);
-
+	float lacunarity = 2.0;
+	float persistance = 2.0;
 	//terrain customisations functions
 	void fractalTerrain();
 	void voxelateTerrain();
 	void firSmoothTerrain();
+	float mountain_scaling = 4.0f;  // Adjust to control mountain height
+
+	void mountainsTerrain();
 	void renderTextureLoader();
 	GLuint loadTexture(const char* path);
 	std::vector<GLuint> textureIDs;
 	std::vector<std::string> textureNames;
-	float repeatFactor = 20.0f;//Higher number is more repetition sooner in texturing (create uv function)
-
+	float repeatFactor = 8.0f;//Higher number is more repetition sooner in texturing (create uv function)
+	float terrainBottom = 0, terrainTop = 0;
 	int selectedTextureIndex = -1;
 	char fileNameBuffer[256] = ""; // Assuming a reasonable file name length// for loadig texture filename. So it stays in scope
 	bool boolTextureLoadSuccess = false; //Bool is true when most recent attempt to load texture was successful, and so the new texture name is added to the imgui explorer
@@ -137,6 +144,7 @@ public:
 	float snowStopThreshold = 0.9f;
 	float currentTime = 0.0f;
 	float shininess = 0.3;
+	float sunBrightness = 1.0;
 	float timeOfDay = 12.0f;
 	float sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
 	float sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
@@ -161,6 +169,7 @@ public:
 	 float translationX = 0.0f;
 	 float translationY = 0.0f;
 	 float translationZ = 0.0f;
+	 float yScale = 1.0f; // Initialize the Y-axis scale factor
 	 btDiscreteDynamicsWorld* dynamicsWorldUniversalPtr = NULL;
 	 bool init = false;
 	 int numIterations = 3;

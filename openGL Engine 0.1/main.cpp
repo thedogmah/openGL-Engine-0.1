@@ -12,8 +12,12 @@
 #include <random>
 #include <iostream>
 #include <istream>
+#include <assimp/config.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include "btBulletDynamicsCommon.h"
-
+#include "ImGuiVariables.h"
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -36,7 +40,14 @@
 #include "PhysDebug.h"
 #include "Engine.h"
 #include "Character.h"
-
+#include <filesystem>
+#include "Mesh.h"
+#include "Texture.h"
+Mesh mesh;
+ ImVec4 bgColor = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);     // Default background color
+ ImVec4 buttonColor = ImVec4(0.4f, 0.4f, 0.4f, 1.0f); // Default button color
+ bool boolDrawUI=true; //globals.h (left alt  - hot path was in UI! drawimgui)
+ bool boolShowGLErrors = false ;
 // Declare and define the global variables
 glm::mat4 cubeModelMatrix;
 glm::mat4 model = glm::mat4(1.0f);
@@ -50,24 +61,22 @@ int projectionLoc;
 SSBO cubeSSBO;
 std::vector<btRigidBody*> rigidBodies;
 btAlignedObjectArray<btCollisionShape*> collisionShapes;
-bool lMouseClicked = false;
+bool lMouseClicked = true;
 Camera camera;
 GLuint modelMatrixLocation = 0;
 Character* character = nullptr;
-
+ float characterCameraXOffset = 0.0;
+ float characterCameraYOffset = 5.0;
+ float characterCameraZOffset = 0.0;
 
 //forward declarations
 void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
-
+void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor);
 void update();//Update character and world data / Also main function for other update functions
 
-struct Mesh {
-	GLuint VAO;
-	GLuint VBO;
-	GLuint EBO;
-};
+ 
 
 //pointer to dynamics world and a vector containing rigid bodies to keep track of
 // keep in mind dynamicsWorld also stores the rigid body for the simulation
@@ -136,33 +145,39 @@ Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes proper
 //SSBO* cubeSSBOptr= nullptr;
 int cubesToGenerate; //for IMGUI input
 glm::mat4 createCamera(glm::vec3& cameraPosition, glm::vec3& targetPosition, glm::vec3& upVector);
-
+using namespace Assimp;
 
 int main()
 {
+// Replace with your model file path
+	//const aiScene* scene = aiImportFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
 
-	
+	// Load the 3D model
+	//const aiScene* scene = importer.ReadFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
+
 	int i;
 	///-----initialization_start-----
 
-	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
 	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
-
-	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
 	btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
 
-	///btDbvtBroadphase is a good general purpose broadphase. You can also try out btAxis3Sweep.
+	// Create a broadphase interface (as before)
 	btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
 
-	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+	// Create a constraint solver (as before)
 	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
 
+	// Create the dynamics world with islands enabled
 	btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
-	dynamicsWorldPtr = dynamicsWorld;
-	
+	// Enable islands
+	dynamicsWorld->getDispatchInfo().m_enableSPU = true; // Enable SPU processing if available
+	dynamicsWorld->getSolverInfo().m_numIterations = 10; // Increase the number of solver iterations (adjust as needed)
+
+	// Set gravity
 	dynamicsWorld->setGravity(btVector3(0, -8.81, 0));
 
+	dynamicsWorldPtr = dynamicsWorld;
 	///-----initialization_end-----
 
 	//keep track of the shapes, we release memory at exit.
@@ -203,7 +218,7 @@ int main()
 		btRigidBody* body = new btRigidBody(rbInfo);
 		groundBody = body;
 		//add the body to the dynamics world
-		dynamicsWorld->addRigidBody(body);
+		//dynamicsWorld->addRigidBody(body);
 	}
 	
 	{
@@ -321,7 +336,9 @@ int main()
 	//ImGuiIO& io = ImGui::GetIO();
 	io.DisplaySize.x = static_cast<float>(window_width);
 	io.DisplaySize.y = static_cast<float>(window_height);
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
+	;
 	//ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 460");
@@ -1017,44 +1034,41 @@ int main()
 	modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
 	GLuint isInstancedBool =  glGetUniformLocation(shaderProgram, "isInstanced");
 
+	if (boolShowGLErrors) {
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "before terrain " << error << std::endl;
 
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "before terrain " << error << std::endl;
 
 
-
+		}
 	}
-
 
 	
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at game loop start: " << error << std::endl;
-
-
-
-	}
+	
 	//char mapFile[] = "256.raw";
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
-
-
-	}
 	char map[] = "map.raw";
 	terrain.loadHeightMap(map, 16);
 	terrain.generateHeightMap();
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at game loop start: " << error << std::endl;
+	if (boolShowGLErrors) {
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
 
 
+		}
 	}
 	cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at game loop start: " << error << std::endl;
+	if (boolShowGLErrors) {
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
 
 
+		}
 	}
 	cubeSSBOptr = &cubeSSBO;
 	float currentTime, deltaTime;
@@ -1062,20 +1076,48 @@ int main()
 	//initalise game / variables and start location
 
 	initialise(1.0, 2.0, 1.0, window);
+
+		//fps details
+	
+	static std::vector<double> frameTimes;
+	
+	mesh.loadMesh("Lowpoly_tree.obj");
+
 	while (!glfwWindowShouldClose(window))
 	{
-		
-		
+
+
 		//Get frame time
 		currentTime = glfwGetTime();
 		// Calculate the elapsed time since the start of the loop
 		deltaTime = currentTime - initialTime;
 		initialTime = currentTime;
+		frameTimes.push_back(deltaTime);
+		while (frameTimes.size() > 100) {
+			frameTimes.erase(frameTimes.begin());
+		}
 
+		// Calculate FPS
+		double fps = 1.0 / deltaTime;
+
+		// Calculate the lowest 1% frame time over the last 10 seconds
+		double lowest1PercentFrameTime = 0.0;
+
+		if (frameTimes.size() >= 10) {
+			// Sort frame times in ascending order
+			std::vector<double> sortedFrameTimes = frameTimes;
+			std::sort(sortedFrameTimes.begin(), sortedFrameTimes.end());
+
+			// Calculate the index that corresponds to the lowest 1% frame time
+			int index = static_cast<int>(sortedFrameTimes.size() * 0.01);
+
+			// Get the lowest 1% frame time
+			lowest1PercentFrameTime = sortedFrameTimes[index];
+		}
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-	
+
 		update();
 		// Assuming you have the rigid body's position in 'rigidBodyPosition'
 		btVector3 rigidBodyPosition = character->getRigidBody()->getCenterOfMassPosition();
@@ -1084,20 +1126,25 @@ int main()
 		glm::mat4 characterViewMatrix = glm::lookAt(glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z()),
 			glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z() + 3.0f),
 			glm::vec3(0.0f, 1.0f, 0.0f));
-		
-		//camera.mPosition = glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z() + 3.0f); // Offset the camera
+		if (character->characterActive)
+	{
+			camera.mPosition = glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y() + characterCameraYOffset, rigidBodyPosition.z() + 3.0f); // Offset the camera
 
-		// Calculate the view matrix
-		//camera.mViewMatrix = glm::lookAt(camera.mPosition, glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z()), glm::vec3(0.0f, 1.0f, 0.0f));
+			// Calculate the view matrix
+			camera.mViewMatrix = glm::lookAt(camera.mPosition, glm::vec3(rigidBodyPosition.x(), rigidBodyPosition.y(), rigidBodyPosition.z()), glm::vec3(0.0f, 1.0f, 0.0f));
 
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-
+			glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		}
+		// 
+		// 
 		//Updates all update functions, including character
-		//if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_E) == GLFW_REPEAT)
+		if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_REPEAT)
 
-		//{
-		//	cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.01f, 0.0f));
-		//}
+		{
+		if(boolDrawUI)	boolDrawUI = false;
+		else if (!boolDrawUI)	boolDrawUI = true;
+
+		}
 
 		//if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_C) == GLFW_REPEAT)
 
@@ -1129,15 +1176,15 @@ int main()
 		//  glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
 
 		
+		if (boolShowGLErrors) {
+			GLenum error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
-		GLenum error;
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
 
-
+			}
 		}
-
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, window_width, window_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1208,8 +1255,10 @@ int main()
 		// Render the UI on top of the scene
 
 		//create variable names for new light object
+		if (boolDrawUI) {
+			 drawUI();
+		}
 
-		drawUI();
 		int w, h;
 
 		//glfwGetWindowSize(window, &w, &h);
@@ -1217,14 +1266,73 @@ int main()
 		
 	
 		// Input box for the number of cubes
-		
+		double totalTimeLast10Seconds = 0.0;
+		for (double frameTime : frameTimes) {
+			totalTimeLast10Seconds += frameTime;
+		}
 
-			
+		// Calculate the average FPS for the last 10 seconds
+		double averageFPSLast10Seconds = frameTimes.size() / totalTimeLast10Seconds;
+		glm::vec3 caveCenter(10.0f, 5.0f, 10.0f); // Example cave center
+		float caveRadius = 125.0f; // Example cave radius
+		float caveDepth = 253.0f;
+		ImGui::Begin("Cave");
+		if (ImGui::Button("Generate Cave")) {
+			// Code to create the cave directly within the button press
+			for (size_t i = 0; i < terrain.vertices.size(); i += 3) {
+				GLfloat x = terrain.vertices[i];
+				GLfloat y = terrain.vertices[i + 1];
+				GLfloat z = terrain.vertices[i + 2];
+
+				glm::vec3 vertex(x, y, z);
+				float distanceToCave = glm::length(vertex - caveCenter);
+
+				if (distanceToCave < caveRadius) {
+					float depth = caveDepth * (1.0f - (distanceToCave / caveRadius));
+					vertex.y -= depth;
+				}
+
+				terrain.vertices[i] = vertex.x;
+				terrain.vertices[i + 1] = vertex.y;
+				terrain.vertices[i + 2] = vertex.z;
+			}
+			glBindBuffer(GL_ARRAY_BUFFER, terrain.VBO);
+			glBufferData(GL_ARRAY_BUFFER, terrain.vertices.size() * sizeof(GLfloat), terrain.vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		}
+		ImGui::End();
+		ImGui::Begin("Frame Info");
+
+		ImGui::Text("Frame Time: %.4f ms", deltaTime * 1000.0);
+		ImGui::Text("Average FPS (Last 10s): %.1f", averageFPSLast10Seconds);
+		ImGui::Text("FPS: %.1f", fps);
+		ImGui::Text("Lowest 1%% Frame Time (Last 10s): %.4f ms", lowest1PercentFrameTime * 1000.0);
+		ImGui::Text("Lowest 1%% Frame Time (Last 10s) FPS: %.1f", 1.0 / lowest1PercentFrameTime);
+
+		ImGui::End();
+
 
 			ImGui::Begin("Camera Location");
 			if (ImGui::Button("Snap to World Origin")) {
 				glm::mat4 worldOrigin = glm::mat4(1.0f); // Identity matrix
+				btRigidBody* player1 = character->getRigidBody();
+				btVector3 newPosition(0.0f, 15.0f, 0.0f);
+				
+				// Set the new position for the player character's rigid body
+				player1->getWorldTransform().setOrigin(newPosition);
+				btVector3 newLinearVelocity(0.0f, 0.0f, 0.0f);
+				player1->setLinearVelocity(newLinearVelocity);
+				if (!player1->isActive()) {
+					// Print a message to the console
+					ImGui::Text("RigidBody is not active!");
 
+				}
+				else
+				{
+					ImGui::Text("Character Rigid Body Is Active")
+						;
+				}
 				// Set the camera's view matrix to look at the world center (0, 0, 0)
 				glm::vec3 worldCenter(0.0f, 0.0f, 0.0f); // Replace with your desired world center
 
@@ -1241,7 +1349,18 @@ int main()
 				glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 				glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 			}
+			ImGui::InputFloat("Camera Offset for Player", &characterCameraYOffset, 0.0, 150);
 			// Get the view matrix from your camera
+			 
+				btTransform transform;
+			btRigidBody* charr = character->getRigidBody();
+				transform = charr->getWorldTransform();
+				// Get the character's current position
+				btVector3 position = transform.getOrigin();
+
+				// Display the character's position
+				ImGui::Text("Character Position: %.2f, %.2f, %.2f", position.getX(), position.getY(), position.getZ());
+			
 			glm::mat4 viewMatrix = camera.getViewMatrix();
 
 			// Extract the camera's position from the view matrix
@@ -1474,6 +1593,7 @@ int main()
 		dynamicsWorld->updateAabbs();
 		dynamicsWorld->stepSimulation(deltaTime, 1);
 		//std::cout << "\n\tFrame time: " << deltaTime << "\n\t";
+		//ImGui::Begin("Chaos");
 		if (ImGui::Button("Chaos")) {
 			std::random_device rd;
 			std::mt19937 gen(rd());
@@ -1516,9 +1636,10 @@ int main()
 
 		// Update cube positions based on physics simulation
 	//	if (cubesSSBOVector.size() > 0)
-		{
-			if (cubesSSBOVector.size()>0)
-			for (int i = 0; i < cubesSSBOVector.size(); i++) {
+		{size_t numCubes = cubesSSBOVector.size();
+		// Declare it once outside the loop
+			if (numCubes >0)
+			for (int i = 0; i < numCubes; i++) {
 				btTransform trans;
 				cubesSSBOVector[i].rigidBody->getMotionState()->getWorldTransform(trans);
 
@@ -1572,9 +1693,11 @@ int main()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glUniform1i(isInstancedBool, 1);
 	glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, 5000);
+	if (boolShowGLErrors) {
 		while ((error = glGetError()) != GL_NO_ERROR) {
 			std::cout << "\nopenGL Error at: first draw call (picking) " << error;
 		}
+	}
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 		glUniform1i(isInstancedBool,0);
@@ -1591,16 +1714,40 @@ int main()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glUniform1i(isInstancedBool, 1);
 		glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, 5000);
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: second draw call" << error;
+		if (boolShowGLErrors) {
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nopenGL Error at: second draw call" << error;
+			}
+			//std::cout << "\nMain shader program name: " << shaderProgram;
 		}
-		//std::cout << "\nMain shader program name: " << shaderProgram;
-
 		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 		glUniform1i(isInstancedBool, 0);
-		cubeTest.draw();
+		//cubeTest.draw();
+
+	
+		for (auto& mesh : meshVector) {
+			glm::mat4 modelMatrix(1.0f); // Identity matrix
+
+			// Apply rotation (for example, a 45-degree rotation around the Y-axis)
+			modelMatrix = glm::rotate(modelMatrix, glm::radians(45.0f), glm::vec3(0, 1, 0));
+
+			// Apply translation
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 3, 0));
+
+			// Apply scale
+			modelMatrix = glm::scale(modelMatrix, glm::vec3(0.1, 10.1, 0.1));
+
+			// Set the model matrix in your shader
+			modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
+			std::cout << shaderProgram;
+			glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+			
+		//	mesh.SetWorldTransform(modelMatrix);
+			mesh.Render(shaderProgram);
+		}
+		mesh.Render(*defaultShaderProgramPtr);
 		glBindVertexArray(VAO);
 		
 		
@@ -1623,12 +1770,16 @@ int main()
 
 		// Swap buffers
 		glfwSwapBuffers(window);
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: before poll events";
+		if (boolShowGLErrors) {
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nopenGL Error at: before poll events";
+			}
 		}
 		glfwPollEvents();
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: after poll events";
+		if (boolShowGLErrors) {
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nopenGL Error at: after poll events";
+			}
 		}
 		//clear colour buffer
 	
@@ -1673,23 +1824,27 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width,height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); // Update your global height
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
 	std::cout << "\n\ncolorTexture  buffer ID is: " << colorTexture << "\n";
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at fbo callback glteximage2D: " << error << std::endl;
-		std::cout << "OpenGL Error at fbo callback glteximage2D: " << error << std::endl;
-		
-	
+	if (boolShowGLErrors) {
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at fbo callback glteximage2D: " << error << std::endl;
+			std::cout << "OpenGL Error at fbo callback glteximage2D: " << error << std::endl;
 
+
+
+		}
 	}
 	// Update the depth renderbuffer attachment
 	glBindRenderbuffer(GL_RENDERBUFFER, depthrenderBuffer);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderBuffer);
 	std::cout << "\nDepth render buffer ID is: "<< depthrenderBuffer << "\n";
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at fbo callback at renderbufferstorage depth buffer: " << error << std::endl;
-		std::cout << "OpenGL Error at fbo callback at renderbufferstorage depth buffer: " << error << std::endl;
-	
+	if (boolShowGLErrors) {
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at fbo callback at renderbufferstorage depth buffer: " << error << std::endl;
+			std::cout << "OpenGL Error at fbo callback at renderbufferstorage depth buffer: " << error << std::endl;
 
+
+		}
 	}
 	// Check framebuffer completeness (for debugging)
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -1700,12 +1855,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error at fbo callback fbo callback bind to default: " << error << std::endl;
-		std::cout << "OpenGL Error at fbo callback fbo callback bind to default: " << error << std::endl;
-	
+	if (boolShowGLErrors) {
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at fbo callback fbo callback bind to default: " << error << std::endl;
+			std::cout << "OpenGL Error at fbo callback fbo callback bind to default: " << error << std::endl;
 
 
+
+		}
 	}
 }
 
@@ -1731,7 +1888,170 @@ void drawUI()
 {
 
 
+	// Assuming 'mesh.scene' is the Assimp root node
+
+	ImGui::Begin("Assimp Scene Information");
+	//char file = fileNameBuffer[0];
+	//char meshName = meshNameBuffer[0];
+	ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
+	ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
+
+	if (ImGui::Button("Load Model")  &&!fileNameBuffer2.empty() && !meshNameBuffer.empty()) {
+		Mesh newMesh;
+		newMesh.meshName = meshNameBuffer; // Set the mesh name
+		newMesh.loadMesh(fileNameBuffer2);//if name is wrong causes errors.
+		meshVector.push_back(newMesh);
+
+		// Clear the input fields after loading
+
+		// Update the meshNames vector
+		Mesh::meshNames.push_back(meshNameBuffer); // Use emplace_back to construct the string directly
+
+
+	}
+
+	if (!mesh.scenePtr) {
+		std::cout << "Assimp scene is not loaded." << std::endl;
+		ImGui::Text("Assimp scene is not loaded.");
+
+	}
+	else {
+		const aiScene* scene = mesh.scenePtr;
+
+		bool hasTextures = scene->HasTextures();
+		bool hasMaterials = scene->HasMaterials();
+
+		if (hasTextures) {
+			std::cout << "Scene has textures." << std::endl;
+			ImGui::Text("Scene has textures.");
+		}
+		else {
+			std::cout << "Scene does not have textures." << std::endl;
+			ImGui::Text("Scene does not have textures.");
+		}
+
+		if (hasMaterials) {
+			std::cout << "Scene has materials." << std::endl;
+			ImGui::Text("Scene has materials.");
+		}
+		else {
+			std::cout << "Scene does not have materials." << std::endl;
+			ImGui::Text("Scene does not have materials.");
+		}
+
+		int numModels = scene->mNumMeshes;
+		std::cout << "Number of Models/Meshes: " << numModels << std::endl;
+		ImGui::Text("Number of Models/Meshes: %d", numModels);
+
+		for (int i = 0; i < numModels; ++i) {
+			const aiMesh* paiMesh = scene->mMeshes[i];
+
+			if (!paiMesh) {
+				std::cout << "Invalid mesh at index: " << i << std::endl;
+				ImGui::Text("Invalid mesh at index: %d", i);
+				continue;
+			}
+
+			ImGui::Separator();
+			ImGui::Text("Model %d", i + 1);
+
+			ImGui::Text("Number of Vertices: %d", paiMesh->mNumVertices);
+			//ImGui::Text("Base Vertex: %d", paiMesh->mBaseVertex);
+		}
+	}
+	ImGui::End();
+
+	ImGui::Begin("Mesh Properties");
+
+	if (meshVector.size() > 0) {
+		// Dropdown for selecting a mesh
+		if (ImGui::BeginCombo("Select Mesh", Mesh::meshNames[selectedMeshIndex].c_str())) {
+			for (int i = 0; i < Mesh::meshNames.size(); ++i) {
+				bool isSelected = (i == selectedMeshIndex);
+				if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
+					selectedMeshIndex = i;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus(); // Set the default selection
+				}
+			}
+			ImGui::EndCombo();
+		}
+	
+
+		if (ImGui::Button("Reset Transformations")) {
+			// Reset transformations to identity matrix
+			meshVector[selectedMeshIndex].SetScale(glm::vec3(1.0f));
+			meshVector[selectedMeshIndex].SetRotation(glm::vec3(0.0f));
+			meshVector[selectedMeshIndex].SetTranslation(glm::vec3(0.0f));
+		}
+
+		if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex].scale.x, 1.f, 10.0f)) {
+			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+		}
+
+		if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex].scale.y, 1.f, 10.0f)) {
+			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+		}
+
+		if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex].scale.z, 1.f, 10.0f)) {
+			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+		}
+
+		// For SetRotation
+		if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex].rotation.x, -180.0f, 180.0f)) {
+			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+		}
+
+		if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex].rotation.y, -180.0f, 180.0f)) {
+			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+		}
+
+		if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex].rotation.z, -180.0f, 180.0f)) {
+			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+		}
+
+		// For SetTranslation
+		if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex].translation.x)) {
+			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+		}
+
+		if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex].translation.y)) {
+			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+		}
+
+		if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex].translation.z)) {
+			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+		}
+	}
+
+		ImGui::End();
+	
+	ImGui::Begin("Style Settings");
+
+	// Background color slider
+	ImGui::Text("Background Color:");
+	ImGui::ColorEdit4("##bgColor", (float*)&bgColor);
+
+	// Button color slider
+	ImGui::Text("Button Color:");
+	ImGui::ColorEdit4("##buttonColor", (float*)&buttonColor);
+
+	// Apply button
+	if (ImGui::Button("Apply")) {
+		SetImGuiStyleColors(bgColor, buttonColor);
+	}
+
+	ImGui::End();
+
 	ImGui::Begin("Render Shapes");
+	ImGui::Checkbox("Follow Character", &character->characterActive);
+	if (character->characterActive)
+	{
+		lMouseClicked = true;
+		ImGui::Text("TFGH to contrrl character (as WASD)");
+	}
+	//else { lMouseClicked = false; }
 	ImGui::Checkbox("Wireframe", &wireframe);
 
 	if (wireframe) {
@@ -1759,22 +2079,30 @@ void drawUI()
 	}
 	
 	//create screenshot im gui and tidy up after
-	GLenum error;
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "\nopenGL Error at: Bind framebuffer at gameloop";
+	if (boolShowGLErrors) {
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "\nopenGL Error at: Bind framebuffer at gameloop";
+		}
 	}
 	ImGui::Begin("Cubes");
 	ImGui::Checkbox("View Physics Engine", &boolRigidBody);
 	if (ImGui::Button("Screenshot")) {
 		GLubyte* pixels = new GLubyte[window_width * window_height * 4]; // 4 channels (RGBA)
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
+		if (boolShowGLErrors) {
+			GLenum error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
+			}
 		}
 		std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
 		// Read the pixel data from the framebuffer
 		glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
+		if (boolShowGLErrors) {
+			GLenum error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
+			}
 		}
 		// Unbind the framebuffer
 
@@ -1842,24 +2170,62 @@ void drawUI()
 				}
 				terrain.createTerrainMesh();
 			
-				
+				dynamicsWorldPtr->updateAabbs();
 			}
-			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 25.0f))
+
+
+			if (ImGui::SliderInt("Number of Octaves", &terrain.numOctaves, 1, 10)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Persistance", &terrain.persistance, 0.5, 5)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Lacunarity", &terrain.lacunarity, 0.3, 5)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 100.0f))
 			{
 				terrain.generateHeightMap();
 			}
 
-			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 1.f, 100.0f))
+			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 0.01f, 100.0f))
 			{
 				terrain.generateHeightMap();
 			}
-			if (ImGui::SliderInt("Size", &terrain.size, 1.f, 1024.0f)) {
+			if (ImGui::SliderInt("Size", &terrain.size, 128.f, 2048.0f)) {
 				terrain.heightmapData.size = terrain.size;
 
-				terrain.generateHeightMap();
+			//	terrain.generateHeightMap();
 			}
 
+			if (ImGui::Button("Medium")) {
+				terrain.heightmapData.size = 512; 
+				terrain.size = 512;
+				terrain.amplitude	= 50;
+				terrain.frequency = 25;
+			}
+			if (ImGui::Button("Large")) { 
+			terrain.heightmapData.size = 768; 
+			terrain.size = 768;
+			terrain.frequency = 25;
+			terrain.amplitude = 50;
+			}
 
+			if (ImGui::Button("Medium Bumpy")) {
+				terrain.heightmapData.size = 512;
+				terrain.size = 512;
+				terrain.amplitude= 75;
+				terrain.frequency = 50;
+			}
+			if (ImGui::Button("Large Bumpy")) {
+			terrain.size = 768;
+			terrain.heightmapData.size = 768;
+			terrain.amplitude = 75;
+			terrain.frequency = 50;
+			}
 			ImGui::SliderFloat2("Grid", &Grid.x, 2.0f, 30.0f);
 			// Button to generate the heightmap
 			if (ImGui::Button("Generate Heightmap")) {
@@ -1969,6 +2335,7 @@ void drawUI()
 
 
 		}
+
 		glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
 		ImGui::InputInt("Cube Number:", &cubesToGenerate);
 		// Button to generate cubes
@@ -1983,7 +2350,7 @@ void drawUI()
 				for (btRigidBody* rigidBody : rigidBodies) {
 					//std::cout << "iteration: "<< loop++ << "\n";
 					if (rigidBody->getCollisionShape() != nullptr) {
-						delete rigidBody->getCollisionShape();
+						//delete rigidBody->getCollisionShape();
 					}
 					delete rigidBody->getMotionState();
 
@@ -2044,15 +2411,15 @@ void drawUI()
 			//dynamicsWorld->addCollisionObject(body);
 
 			// Generate new cube instances
-			std::set<float> set1;
-			std::set<float> set2;
+			
 			std::mt19937 rng(std::time(nullptr));
 			glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-
+			btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+			sharedBoxShape->setMargin(0.1f);
 			for (int i = 0; i < cubesToGenerate; i++) {
 
-				btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
-				boxShapeInstance->setMargin(0.1f);
+			//	btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+				//boxShapeInstance->setMargin(0.1f);
 
 				// Define random distribution for positions and velocities
 				//std::uniform_real_distribution<float> positionDist(minPos, maxPos); // Define minPos and maxPos as desired
@@ -2064,12 +2431,16 @@ void drawUI()
 
 
 				glm::vec3 instancePosition;
-				instancePosition.x = glm::linearRand(-1.0f, 147.0f);
-				instancePosition.y = glm::linearRand(55.0f, 86.0f);
-				instancePosition.z = glm::linearRand(-1.0f, 147.0f);
+				instancePosition.x = glm::linearRand(-300.0f, 347.0f);
+				instancePosition.y = glm::linearRand(55.0f, 156.0f);
+				instancePosition.z = glm::linearRand(-300.0f, 347.0f);
 
 				//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
-				glm::vec3 instanceScale = glm::vec3(0.4f, 0.4f, 0.4f);
+				glm::vec3 instanceScale;
+instanceScale.x = glm::linearRand(0.1f, 1.0f);
+instanceScale.y = glm::linearRand(0.1f, 1.0f);
+instanceScale.z = glm::linearRand(0.1f, 1.0f);
+
 				glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
 
 				// Apply scale
@@ -2098,9 +2469,9 @@ void drawUI()
 				// Create a rigid body
 				btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
 				btVector3 localInertia(0, 0, 0);
-				boxShapeInstance->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
+				sharedBoxShape->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
 
-				btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, boxShapeInstance, localInertia);
+				btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, sharedBoxShape, localInertia);
 				btRigidBody* rigidBody = new btRigidBody(rbInfo);
 
 				//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
@@ -2111,11 +2482,11 @@ void drawUI()
 				cube.rigidBody = rigidBody;
 				rigidBodies.push_back(rigidBody);
 				cubesSSBOVector.push_back(cube);
-				collisionShapes.push_back(boxShapeInstance);
+				
 
 			}
 			// add the body to the dynamics world
-
+			collisionShapes.push_back(sharedBoxShape);
 
 			// Update the SSBO with the new data
 			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
@@ -2130,69 +2501,70 @@ void drawUI()
 
 			// Check if it's a rigid body
 			btRigidBody* rigidBody = btRigidBody::upcast(obj);
-			if (rigidBody) {
-				// Print relevant data about the rigid body
+			if (rigidBody) {			//	// Print relevant data about the rigid body
 				btCollisionShape* shape = rigidBody->getCollisionShape();
 				btVector3 position = rigidBody->getCenterOfMassPosition();
 				btVector3 velocity = rigidBody->getLinearVelocity();
 				btVector3 angularVelocity = rigidBody->getAngularVelocity();
 
-				// Get the size of the collision shape (assuming it's a box shape)
+			//	// Get the size of the collision shape (assuming it's a box shape)
 				btVector3 halfExtents;
 
-				if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
-					btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
-					halfExtents = boxShape->getHalfExtentsWithMargin();
-				}
+			//	if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
+			//		btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
+			//		halfExtents = boxShape->getHalfExtentsWithMargin();
+			//	}
 
-				else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
-					ImGui::Text("Rigid Body Sphere");
-				}
-				else {
-					// Handle other shape types here if needed
-					ImGui::Text("Unknown Collision Shape Type");
+			//	else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
+			//		ImGui::Text("Rigid Body Sphere");
+			//	}
+			//	else {
+			//		// Handle other shape types here if needed
+			//		ImGui::Text("Unknown Collision Shape Type");
 
-					continue; // Skip to the next collision object
-				}
+			//		continue; // Skip to the next collision object
+			//	}
 
-				btVector3 size = halfExtents * 2.0;
+			//	btVector3 size = halfExtents * 2.0;
 
-				// Display data in ImGui window
-				ImGui::Text("Rigid Body %d", i);
-				if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
-					// When the button is clicked, set the camera's view matrix to look at the shape
-					// You'll need to adjust this part based on your camera setup
-					//glm::vec3 cameraPosition = /* Set your camera position here */;
-					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-					camera.mYaw = -90.0f;
-					camera.update();
-					view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
-					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-					camera.mYaw = -90.0f;
-					glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+			//	// Display data in ImGui window
+			//	ImGui::Text("Rigid Body %d", i);
+			//	//if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+			//	//	// When the button is clicked, set the camera's view matrix to look at the shape
+			//	//	// You'll need to adjust this part based on your camera setup
+			//	//	//glm::vec3 cameraPosition = /* Set your camera position here */;
+			//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+			//	//	camera.mYaw = -90.0f;
+			//	//	camera.update();
+			//	//	view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+			//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+			//	//	camera.mYaw = -90.0f;
+			//	//	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
-					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-					camera.mViewMatrix = view;
-					camera.mPosition.x = position.x();
-					camera.mPosition.y = position.y();
-					camera.mPosition.z = (position.z() + 3.0f);
-				}
+			//	//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+			//	//	camera.mViewMatrix = view;
+			//	//	camera.mPosition.x = position.x();
+			//	//	camera.mPosition.y = position.y();
+			//	//	camera.mPosition.z = (position.z() + 3.0f);
+			//	//}
 				glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-				for (int row = 0; row < 4; ++row) {
-					ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
-				}
-				glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-				//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-				ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
-					(std::numeric_limits<double>::max_digits10, position.y()),
-					(std::numeric_limits<double>::max_digits10, position.z()));
+			//	//DEBUG view matrices data for all cubes in an imgui window 'physics data' (heavy on cpu use due to imgui text)
+			//	/*for (int row = 0; row < 4; ++row) {
+			//		ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+			//	}*/
+			glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-				ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
-				ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
-				ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-				ImGui::Text(" ");
+			//	ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
+			//		(std::numeric_limits<double>::max_digits10, position.y()),
+			//		(std::numeric_limits<double>::max_digits10, position.z()));
+
+			//	ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
+			//	ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
+			//	ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+			//	ImGui::Text(" ");
 			}
 			else {
 				// It's not a rigid body, so it might be another type of collision object
@@ -2521,7 +2893,7 @@ void initialise(float x, float y, float z, GLFWwindow* window) {
 	//xyz are for character parameters
 	character = new Character(dynamicsWorldPtr, x, y, z, window );
 	camera.m_window = window;
-
+	camera.character = character;
 
 	//setup matrices
 
@@ -2543,3 +2915,12 @@ void update() {
 }
 
 
+void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor) {
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	// Set background color
+	style.Colors[ImGuiCol_WindowBg] = bgColor;
+
+	// Set button color
+	style.Colors[ImGuiCol_Button] = buttonColor;
+}

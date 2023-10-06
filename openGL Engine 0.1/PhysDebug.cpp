@@ -80,6 +80,8 @@ PhysDebug::PhysDebug()
 
 		}
 		shaderPtr = &shaderProgram;
+		 viewLocation = glGetUniformLocation(shaderProgram, "view");
+		 projectionLocation = glGetUniformLocation(shaderProgram, "projection");
 	}
 
 	void PhysDebug::SetMatrices(glm::mat4 pViewMatrix, glm::mat4 pProjectionMatrix)
@@ -87,26 +89,29 @@ PhysDebug::PhysDebug()
 		
 		glUseProgram(shaderProgram);
 	//	std::cout << "\nDebugger shader program name: " << shaderProgram;
-		GLenum error;
-		while ((error = glGetError()) != GL_NO_ERROR) {
+	
+	
+	//DEBUG commented out to optomise. Variables moved to members and set in constructor.
+		/*	while ((error = glGetError()) != GL_NO_ERROR) {
 			std::cout << "OpenGL Error 1 at setMatrices program Phys Debug class " << error << std::endl;
 
 
 
-		}
-		
-
-		int viewLocation = glGetUniformLocation(shaderProgram, "view");
-		int projectionLocation= glGetUniformLocation(shaderProgram, "projection");
+		}*/
+	/*	int viewLocation = glGetUniformLocation(shaderProgram, "view");
+		int projectionLocation = glGetUniformLocation(shaderProgram, "projection");
+	*/ 
 		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(pViewMatrix));
 		glUniformMatrix4fv(projectionLocation,1, GL_FALSE, glm::value_ptr(pProjectionMatrix));
-		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "OpenGL Error 1 at setMatrices end program Phys Debug class " << error << std::endl;
+		if (boolShowGLErrors) {
+			GLenum error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error 1 at setMatrices end program Phys Debug class " << error << std::endl;
 
 
 
+			}
 		}
-		
 	}
 
 	void PhysDebug::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
@@ -117,39 +122,54 @@ PhysDebug::PhysDebug()
 		// Specify the vertices of the line directly in the shader
 		GLfloat points[12];
 		
-		points[0] = from.x();
-		points[1] = from.y();
-		points[2] = from.z();
-		points[3] = color.x();
-		points[4] = color.y();
-		points[5] = color.z();
+		btVector3 playerPosition = character->getRigidBody()->getWorldTransform().getOrigin();
 
-		points[6] = to.x();
-		points[7] = to.y();
-		points[8] = to.z();
-		points[9] = color.x();
-		points[10] = color.y();
-		points[11] = color.z();
+		// Calculate the distance between 'from' and 'to' points and the player's position
+		btScalar distanceFrom = (from - playerPosition).length();
+		btScalar distanceTo = (to - playerPosition).length();
 
-	
-//		std::cout << from.x() << ", " << from.y() << ", " << from.z() <<"\n";
+		// Specify your distance threshold here (e.g., 10 meters)
+		btScalar distanceThreshold = 10.0;
 
-		
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	
-		glBufferData(GL_ARRAY_BUFFER, sizeof(points), &points, GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
-	
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
-	//	glBindVertexArray(0);
+		// Check if either 'from' or 'to' points are within the distance threshold
+		if (distanceFrom <= distanceThreshold || distanceTo <= distanceThreshold) {
+			// Draw the line only if it's within the specified distance
+			// ... Your existing drawing code here ...
 
-	//	glBindVertexArray(VAO);
-		glDrawArrays(GL_LINES, 0, 2);
-		glBindVertexArray(0);
 
+			points[0] = from.x();
+			points[1] = from.y();
+			points[2] = from.z();
+			points[3] = color.x();
+			points[4] = color.y();
+			points[5] = color.z();
+
+			points[6] = to.x();
+			points[7] = to.y();
+			points[8] = to.z();
+			points[9] = 1.0;
+			points[10] = color.y();
+			points[11] = color.z();
+
+
+			//		std::cout << from.x() << ", " << from.y() << ", " << from.z() <<"\n";
+
+
+			glBindVertexArray(VAO);
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+			glBufferData(GL_ARRAY_BUFFER, sizeof(points), &points, GL_STATIC_DRAW);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
+
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
+			//	glBindVertexArray(0);
+
+			//	glBindVertexArray(VAO);
+			glDrawArrays(GL_LINES, 0, 2);
+			glBindVertexArray(0);
+		}
 		//setDrawLinePositions.insert(from);
 	//	setDrawLinePositions.insert(to);
 	//DEBUG LINE	std::cout << "\n\nMake sure you're setting the shader program back after claling this function\n(the Drawline function in the debug drawern\notherwise the wrong shader will be selected";

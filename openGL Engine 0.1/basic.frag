@@ -36,7 +36,7 @@ in vec3 Normal;
 in vec3 FragPosWorld;
 in vec3 FragColor; // receive color from vertex shader
 uniform sampler2D texture1;
-uniform vec3 viewPos; // Camera position
+uniform vec3 viewPos; // Camera position    
 uniform float exposure; // exposure for correcting HDR values
 uniform int mousePicking;
 in vec3 mouseColour; // comes from SSBO in vertex

@@ -8,9 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include "Shader.h"
-
-
-
+#include "character.h"
 
 
     class PhysDebug : public btIDebugDraw
@@ -49,6 +47,8 @@
 
         GLuint VAO, VBO;
     private:
+        int viewLocation =0;
+            int projectionLocation=0;//These were initially declared in the setMatrices (CPU optomisedation)
         int m_debugMode;
         const char* vertexShaderSource = R"(
  #version 330 core
@@ -104,10 +104,17 @@ uniform sampler2D txRock;
 uniform sampler2D txHighRock;
 uniform sampler2D txPeak;
 
+
+//WORLD UNIFORMS
+
+
+
 // Define light properties
 uniform vec3 lightDirection; // Sun direction (adjust as needed)
 uniform vec3 diffuseColor; // Diffuse light color
 uniform vec3 specularColor; // Specular light color (added)
+uniform float sunBrightness;
+
 
 // Define terrain height thresholds
 uniform float waterThreshold = 10;
@@ -130,38 +137,78 @@ void main()
 
 if (terrainHeight < waterThreshold) {
     sampledColor = texture(txGrass, uvsOut).rgb;
-} else if (terrainHeight >= waterThreshold && terrainHeight < grassThreshold) {
+    } 
+
+else if (terrainHeight >= waterThreshold && terrainHeight < grassThreshold) {
+    
     float blendFactor = smoothstep(waterThreshold, waterThreshold + smoothStepFactor, terrainHeight);
     sampledColor = mix(texture(txGrass, uvsOut).rgb, texture(txHighGrass, uvsOut).rgb, blendFactor);
-} else if (terrainHeight >= grassThreshold && terrainHeight < rockyThreshold) {
-    float blendFactor = smoothstep(grassThreshold, grassThreshold +smoothStepFactor, terrainHeight);
+} 
+
+else if (terrainHeight >= grassThreshold && terrainHeight < rockyThreshold) {
+   
+     float blendFactor = smoothstep(grassThreshold, grassThreshold +smoothStepFactor, terrainHeight);
     sampledColor = mix(texture(txHighGrass, uvsOut).rgb, texture(txRock, uvsOut).rgb, blendFactor);
-} else if (terrainHeight >= rockyThreshold && terrainHeight < snowThreshold) {
+}
+
+else if (terrainHeight >= rockyThreshold && terrainHeight < snowThreshold) {
+    
     float blendFactor = smoothstep(rockyThreshold, rockyThreshold + smoothStepFactor, terrainHeight);
     sampledColor = mix(texture(txRock, uvsOut).rgb, texture(txHighRock, uvsOut).rgb, blendFactor);
 }
+
 else if (terrainHeight >= snowThreshold && terrainHeight < peakThreshold) {
+    
     float blendFactor = smoothstep(snowThreshold, snowThreshold + smoothStepFactor, terrainHeight);
     sampledColor = mix(texture(txHighRock, uvsOut).rgb, texture(txPeak, uvsOut).rgb, blendFactor);
 }
-    
-    // Calculate the intensity of the diffuse light (Lambertian shading)
-    float diffuseIntensity = max(dot(Normal, lightDirection), 0.0f);
 
+else if (terrainHeight >= peakThreshold){
+
+    // No need for blending, just use the peak texture directly
+    sampledColor = texture(txPeak, uvsOut).rgb;
+
+   /*  float blendFactor = smoothstep(peakThreshold, peakThreshold + smoothStepFactor, terrainHeight);
+    sampledColor = mix(texture(txHighRock, uvsOut).rgb, texture(txPeak, uvsOut).rgb, blendFactor);*/
+}
+    
+
+// Calculate the sun's direction based on spherical coordinates and time
+float sunAltitude = radians(90.0 - ((time / 24.0) * 180.0)); // Normalize time to 0-1 and convert to degrees
+
+float sunAzimuth = radians(180.0); // You can adjust this based on your scene's orientation
+vec3 sunDirection = vec3(cos(sunAzimuth) * sin(sunAltitude), cos(sunAltitude), sin(sunAzimuth) * sin(sunAltitude));
+
+// Calculate the sun's color based on time of day
+vec3 sunColor =diffuseColor;// mix(vec3(1.0, 0.8, 0.6), vec3(1.0, 1.0, 1.0), abs(sunAltitude) / radians(45.0)); // Warm colors at sunrise/sunset, white at midday
+
+// Calculate the intensity of the sun's light
+float sunIntensity = max(dot(Normal, -sunDirection), 0.0); // Lambertian shading
+
+// Use lightDirection, diffuseColor, and diffuseIntensity for sun-related variables
+vec3 sunAmbient = (ambientColor * 0.5) * diffuseColor; // Keep diffuseColor for ambient lighting
+vec3 sunDiffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor instead of diffuseColor for sunlight
+
+   
     // Calculate the reflection vector for the specular component
     vec3 viewDirection = normalize(-fragPosition.xyz);
-    vec3 reflectDirection = reflect(-lightDirection, Normal);
+    vec3 reflectDirection = reflect(-sunDirection, Normal);
 
     // Calculate the specular intensity (Phong reflection model)
     float specularIntensity = pow(max(dot(viewDirection, reflectDirection), 0.0), shininess);
 
-    // Combine the sampled texture color with ambient, diffuse, and specular lighting
-    vec3 ambient = (ambientColor * 0.4) * sampledColor;
-    vec3 diffuse = (diffuseIntensity * 0.4) * diffuseColor * sampledColor;
-    vec3 specular = (specularIntensity * 0.05) * specularColor ; // Use specular color directly
+ // Combine the sun's color and intensity with your existing lighting model
+vec3 ambient = (ambientColor * 0.4) * sampledColor;
+vec3 diffuse = (sunIntensity * sunBrightness) * sunColor * sampledColor; // Use sunColor for sunlight and apply sampled texture color
+vec3 specular = (specularIntensity * 0.05) * specularColor; // Use specular color directly
+
+
 
     // Final color output
     vec3 finalColor = ambient + diffuse + specular;
+ 
+//untag for HRD range method - Reinhard method. (balances ultra bright colours
+// finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
 
     FragColor = vec4(finalColor, 1.0f);
 }

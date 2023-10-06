@@ -67,6 +67,7 @@ void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
 }
 
 bool boolRigidBody = false;
+
 std::vector<World::cubeInstance> cubesSSBOVector;
 GLuint colorFBO;
 GLuint colorTexture;
@@ -75,7 +76,6 @@ int rgbSelected[4];
 SSBO* cubeSSBOptr = nullptr;
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 
@@ -87,6 +87,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 		glfwGetFramebufferSize(window, &width, &height);
 		glfwGetCursorPos(window, &xpos, &ypos);
+		
+	/*	if (lastposX == xpox && lastposY == ypos )
+		{
+			lMouseClicked = true;
+		}*/
 		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
 		int glX = static_cast<int>(xpos);
 		int glY = height - static_cast<int>(ypos) - 1;
