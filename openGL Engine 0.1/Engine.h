@@ -81,7 +81,7 @@ public:
 	void fractalTerrain();
 	void voxelateTerrain();
 	void firSmoothTerrain();
-	float mountain_scaling = 4.0f;  // Adjust to control mountain height
+	float mountain_scaling = 1.5f;  // Adjust to control mountain height
 
 	void mountainsTerrain();
 	void renderTextureLoader();

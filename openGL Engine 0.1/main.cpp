@@ -1081,7 +1081,6 @@ int main()
 	
 	static std::vector<double> frameTimes;
 	
-	mesh.loadMesh("Lowpoly_tree.obj");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -1138,13 +1137,13 @@ int main()
 		// 
 		// 
 		//Updates all update functions, including character
-		if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_REPEAT)
+	/*	if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_REPEAT)
 
 		{
 		if(boolDrawUI)	boolDrawUI = false;
 		else if (!boolDrawUI)	boolDrawUI = true;
 
-		}
+		}*/
 
 		//if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_C) == GLFW_REPEAT)
 
@@ -1199,10 +1198,11 @@ int main()
 		glm::vec3 cameraPosition = camera.mPosition; // Change this to your camera's position
 		glUniform3fv(viewPosLocation, 1, glm::value_ptr(cameraPosition));
 
-		
-		glm::vec3 center(0.0f, 0.0f, 0.0f); // Center point of the circular motion
-		float radius = 7.0f; // Radius of the circular path
-		float rotationSpeed = 0.5f; // Rotation speed in radians per second
+		float time = glfwGetTime(); // Get current time in seconds
+
+		glm::vec3 center(0.0f, 5.0f, 0.0f); // Center point of the circular motion, adjusted to y-axis
+		float radius = 10.0f; // Increased radius of the circular path
+		float rotationSpeed = 1.0f; // Increased rotation speed in radians per second
 
 		for (int i = 0; i < sceneLights.size(); i++) {
 			glm::vec3 initialPosition = sceneLights[i].startingPosition;
@@ -1210,12 +1210,13 @@ int main()
 			float angle = rotationSpeed * time + i * (2.0f * glm::pi<float>() / sceneLights.size());
 
 			float x = center.x + radius * glm::cos(angle);
-			float y = center.y;
+			float y = center.y + radius * glm::sin(angle); // Using y-axis for movement
 			float z = center.z + radius * glm::sin(angle);
 
 			glm::vec3 newPosition(x, y, z);
 			sceneLights[i].position = newPosition;
 		}
+
 
 		//float currentTime = glfwGetTime(); // Get current time in seconds
 		//
@@ -1728,26 +1729,11 @@ int main()
 
 	
 		for (auto& mesh : meshVector) {
-			glm::mat4 modelMatrix(1.0f); // Identity matrix
-
-			// Apply rotation (for example, a 45-degree rotation around the Y-axis)
-			modelMatrix = glm::rotate(modelMatrix, glm::radians(45.0f), glm::vec3(0, 1, 0));
-
-			// Apply translation
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 3, 0));
-
-			// Apply scale
-			modelMatrix = glm::scale(modelMatrix, glm::vec3(0.1, 10.1, 0.1));
-
-			// Set the model matrix in your shader
-			modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
-			std::cout << shaderProgram;
-			glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-			
+		
 		//	mesh.SetWorldTransform(modelMatrix);
 			mesh.Render(shaderProgram);
 		}
-		mesh.Render(*defaultShaderProgramPtr);
+	//	mesh.Render(*defaultShaderProgramPtr);
 		glBindVertexArray(VAO);
 		
 		
@@ -1896,12 +1882,13 @@ void drawUI()
 	ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
 	ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
 
-	if (ImGui::Button("Load Model")  &&!fileNameBuffer2.empty() && !meshNameBuffer.empty()) {
+	if (ImGui::Button("Load Model") && !fileNameBuffer2.empty() && !meshNameBuffer.empty()) {
 		Mesh newMesh;
 		newMesh.meshName = meshNameBuffer; // Set the mesh name
-		newMesh.loadMesh(fileNameBuffer2);//if name is wrong causes errors.
+		newMesh.loadMesh(fileNameBuffer2, *defaultShaderProgramPtr);//if name is wrong causes errors.
 		meshVector.push_back(newMesh);
-
+		if (selectedMeshIndex == -1)
+			selectedMeshIndex = 0; //when all meshes are deleted it is set to -1, when we load a new one here, it should be set to the first
 		// Clear the input fields after loading
 
 		// Update the meshNames vector
@@ -1909,7 +1896,10 @@ void drawUI()
 
 
 	}
-
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
+	}
 	if (!mesh.scenePtr) {
 		std::cout << "Assimp scene is not loaded." << std::endl;
 		ImGui::Text("Assimp scene is not loaded.");
@@ -1964,67 +1954,106 @@ void drawUI()
 	ImGui::Begin("Mesh Properties");
 
 	if (meshVector.size() > 0) {
-		// Dropdown for selecting a mesh
-		if (ImGui::BeginCombo("Select Mesh", Mesh::meshNames[selectedMeshIndex].c_str())) {
-			for (int i = 0; i < Mesh::meshNames.size(); ++i) {
-				bool isSelected = (i == selectedMeshIndex);
-				if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
-					selectedMeshIndex = i;
-				}
-				if (isSelected) {
-					ImGui::SetItemDefaultFocus(); // Set the default selection
+
+		// Rebuild the mesh names vector
+		Mesh::meshNames.clear();
+		for (const auto& mesh : meshVector) {
+			Mesh::meshNames.push_back(mesh.meshName);
+		}
+		std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before Delete\n";
+		ImGui::Text("Selected Mesh Index numer is: %d", selectedMeshIndex);
+		if (ImGui::Button("Delete Mesh")) {
+			std::cout << "pressed delete\n";
+			if (!meshVector.empty()) {
+				std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before if2\n";
+				if (selectedMeshIndex >= 0 && selectedMeshIndex < meshVector.size()) {
+					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before erase\n";
+					meshVector.erase(meshVector.begin() + selectedMeshIndex);
+					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after .erase\n";
+					if (selectedMeshIndex >= meshVector.size()) {
+						selectedMeshIndex = meshVector.empty() ? -1 : meshVector.size() - 1;
+					}
 				}
 			}
-			ImGui::EndCombo();
+		}
+		
+		if (meshVector.size() > 0) {
+			std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after selectedmesh if\n";
+			// Dropdown for selecting a mesh
+			if (ImGui::BeginCombo("Select Mesh", selectedMeshIndex >= 0 ? Mesh::meshNames[selectedMeshIndex].c_str() : "-")) {
+				for (int i = 0; i < Mesh::meshNames.size(); ++i) {
+					bool isSelected = (i == selectedMeshIndex);
+					if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
+						selectedMeshIndex = i;
+					}
+					if (isSelected) {
+						ImGui::SetItemDefaultFocus(); // Set the default selection
+					}
+				}
+				ImGui::EndCombo();
+
+			}
+
+				if (ImGui::Button("Reset Transformations")) {
+					// Reset transformations to identity matrix
+					meshVector[selectedMeshIndex].SetScale(glm::vec3(1.0f));
+					meshVector[selectedMeshIndex].SetRotation(glm::vec3(0.0f));
+					meshVector[selectedMeshIndex].SetTranslation(glm::vec3(0.0f));
+				}
+
+				if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex].scale.x, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				}
+
+				if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex].scale.y, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				}
+
+				if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex].scale.z, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				}
+
+				// For SetRotation
+				if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex].rotation.x, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				}
+
+				if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex].rotation.y, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				}
+
+				if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex].rotation.z, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				}
+
+				// For SetTranslation
+				if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex].translation.x)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+
+				if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex].translation.y)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+
+				if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex].translation.z)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+				if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex].translation.x, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+
+				if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex].translation.y, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+
+				if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex].translation.z, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				}
+
+			
 		}
 	
-
-		if (ImGui::Button("Reset Transformations")) {
-			// Reset transformations to identity matrix
-			meshVector[selectedMeshIndex].SetScale(glm::vec3(1.0f));
-			meshVector[selectedMeshIndex].SetRotation(glm::vec3(0.0f));
-			meshVector[selectedMeshIndex].SetTranslation(glm::vec3(0.0f));
-		}
-
-		if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex].scale.x, 1.f, 10.0f)) {
-			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
-		}
-
-		if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex].scale.y, 1.f, 10.0f)) {
-			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
-		}
-
-		if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex].scale.z, 1.f, 10.0f)) {
-			meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
-		}
-
-		// For SetRotation
-		if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex].rotation.x, -180.0f, 180.0f)) {
-			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
-		}
-
-		if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex].rotation.y, -180.0f, 180.0f)) {
-			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
-		}
-
-		if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex].rotation.z, -180.0f, 180.0f)) {
-			meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
-		}
-
-		// For SetTranslation
-		if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex].translation.x)) {
-			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
-		}
-
-		if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex].translation.y)) {
-			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
-		}
-
-		if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex].translation.z)) {
-			meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
-		}
 	}
-
 		ImGui::End();
 	
 	ImGui::Begin("Style Settings");

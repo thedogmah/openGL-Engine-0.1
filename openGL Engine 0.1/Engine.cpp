@@ -1256,6 +1256,7 @@ void Terrain::renderTextureLoader()
 			glActiveTexture(GL_TEXTURE6); // Texture unit 4
 			glBindTexture(GL_TEXTURE_2D, textureIDs[4]);
 			glUniform1i(uniformTexture, 6);
+
 		}
 	}
 

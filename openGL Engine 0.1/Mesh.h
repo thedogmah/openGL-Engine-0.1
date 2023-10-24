@@ -2,7 +2,7 @@
 #define POSITION_LOCATION 0
 #define TEXTURE_LOCATION 1
 #define NORMAL_LOCATION 2
-#define COLOUR_TEXTURE_UNIT 9
+#define COLOUR_TEXTURE_UNIT 3
 
 #include <vector>
 #include <iostream>
@@ -28,7 +28,7 @@ public:
    // Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
     Mesh() { this->worldTransform = glm::mat4(1.0f); };
     void Render(unsigned int shader);
-    void loadMesh(const std::string filenane);
+    void loadMesh(const std::string filenane, GLuint shader);
     void Render(unsigned int numInstances, const glm::mat4 WVPmatrix, const glm::mat4 worldMatrix);
     void populateBuffers();
     glm::mat4 getWorldTransform() { return worldTransform; }

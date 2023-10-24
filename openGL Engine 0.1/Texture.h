@@ -14,13 +14,14 @@ class Texture {
     public:
         Texture(const std::string& filePath, GLenum textureType);
       
-
+        bool Load();
         void Bind(GLenum textureUnit) const;
         void Unbind() const;
 
     private:
         GLuint textureID; // OpenGL texture ID
         GLenum type;     // Texture type (e.g., GL_TEXTURE_2D)
+        std::string filePath;
   };
 
 

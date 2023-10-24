@@ -2,18 +2,62 @@
 std::vector<std::string> Mesh::meshNames;
 void Mesh::Render(unsigned int shader)
 {
-	std::cout << "\nShader program for render functions is: " << shader << std::endl;
-	this->shaderProgram = shader;
-	glUseProgram(shader);
+	std::cout << "\n" << meshName;
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//this->shaderProgram = shader;
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
+	}
+	// Query the uniform location for modelUniform
+	GLuint modelMatrixLocation = glGetUniformLocation(this->shaderProgram, "modelUniform");
+
+	// Create a translation matrix based on the provided translation vector
+	glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), translation);
+
+	// Set the worldTransform to the identity matrix
+	worldTransform = glm::mat4(1.0f);
+
+	// Apply the transformations in the correct order: translation, rotation, scale
+	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
+
+	// Update the world transform matrix with the scale, rotation, and translation
+	worldTransform = translationMatrix * rotationMatrix * scaleMatrix;
+
+	// Update the model matrix uniform in your shader
+	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransform));
+	//std::cout << "\nShader program for render functions is: " << shader << std::endl;
+
+	for (int i = 0; i < 13; i++) {
+		glActiveTexture(GL_TEXTURE0 + i); // Set the active texture unit
+		glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture
+	}
+
+	glUseProgram(this->shaderProgram);
 	glBindVertexArray(VAO);
-	std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
+	}
+
+	glActiveTexture(GL_TEXTURE0);
+	//std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
 	for (unsigned int i = 0; i < meshes.size(); i++) {
 		unsigned int materialIndex = meshes[i].materialIndex;
 		std::cout << "\nLoop iteration: " << i;
+		error = glGetError();
+		if (error != GL_NO_ERROR) {
+			std::cerr << "OpenGL error before assert: " << error << std::endl;
+		}
 		assert(materialIndex < textures.size());
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error: " << error << std::endl;
+			std::cerr << "OpenGL error before bind texture unit: " << error << std::endl;
 		}
 		if (textures[materialIndex]) {//Checks if there is a material without a diffuse texture.
 			textures[materialIndex]->Bind(COLOUR_TEXTURE_UNIT);
@@ -21,15 +65,18 @@ void Mesh::Render(unsigned int shader)
 		}
 		error = glGetError();
 		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error: " << error << std::endl;
+			std::cerr << "OpenGL error after binding texture unit: " << error << std::endl;
 		}
 		std::cout << "\nChecked texture.";
 		//GLDrawElBaseVertex allows us to draw sub regions. We provide an offset below (void * sizeof etc)
 		glDrawElementsBaseVertex(GL_TRIANGLES, meshes[i].numIndices, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * meshes[i].baseIndex),
 			meshes[i].baseVertex);
+		//glBindTexture(GL_TEXTURE_2D, 0);
 
 	//	std::cout << "\nFirst draw call success " << i;
 	}
+	std::cout << "\n" << meshName << "^^.\n";
+	glBindTexture(GL_TEXTURE_2D, 0);
 	//std::cout << "\nFinished mesh draw call function successfully";
 	glBindVertexArray(0);
 	//if (scenePtr)
@@ -39,7 +86,7 @@ void Mesh::Render(unsigned int shader)
 	//else std::cout << "scene ptr not valid(at mesh render function)";
 	}
 
-void Mesh::loadMesh(const std::string filename)
+void Mesh::loadMesh(const std::string filename, GLuint shader)
 {
 	this->worldTransform = glm::mat4(1.0f);
 	glGenVertexArrays(1, &VAO);
@@ -63,6 +110,7 @@ void Mesh::loadMesh(const std::string filename)
 		std::cout << "Error parsing '%s': '%s'\n", filename.c_str(), importer.GetErrorString();
 	}
 	glBindVertexArray(0);
+	this->shaderProgram = shader;
 }
 
 void Mesh::populateBuffers()
@@ -191,8 +239,13 @@ bool Mesh::initMaterials(const aiScene* scenePtr, const std::string& filename)
 				std::string fullPath = dir + "/" + p;
 				
 				textures[i] = new Texture(fullPath.c_str(), GL_TEXTURE_2D);
-
-				//if(!textures[i]->)
+				std::cout << fullPath;
+				if (!textures[i]->Load()) {
+					std::cout << "texture not loaded";
+				}
+				else
+					std::cout << "\nTexture loaded";
+				
 			}
 		}
 	}
