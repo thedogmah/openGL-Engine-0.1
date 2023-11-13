@@ -24,201 +24,203 @@ void Terrain::render()
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
 	renderTextureLoader();
-	ImGui::Begin("Terrain Settings");
+	if (drawIMGUI) {
+		ImGui::Begin("Terrain Settings");
 
-	
-	ImGui::Begin("Scale");
-	if (ImGui::SliderFloat("Y Scale", &yScale, 0.5f, 10.0f)) {
-	
-		for (int i = 1; i < vertices.size(); i += 3) {
-			// Update the Y-coordinate by scaling it
-			vertices[i] *= yScale;
 
-			glBindBuffer(GL_ARRAY_BUFFER, VBO);
-			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+		ImGui::Begin("Scale");
+		if (ImGui::SliderFloat("Y Scale", &yScale, 0.5f, 10.0f)) {
+
+			for (int i = 1; i < vertices.size(); i += 3) {
+				// Update the Y-coordinate by scaling it
+				vertices[i] *= yScale;
+
+				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			}
+		}		// Update the Y-axis scale factor when the slider changes
+
+		ImGui::End();
+
+		// Create input fields for the values
+		ImGui::InputInt("Iterations", &terrainIterations);
+		ImGui::InputFloat("Height", &terrainHeight);
+		ImGui::InputFloat("Min Delta", &terrainMinDelta);
+		ImGui::InputFloat("Max Delta", &terrainMaxDelta);
+		ImGui::InputInt("Smooth Iterations", &numIterations);
+		ImGui::InputFloat("Kernal Size", &kernelPoint);
+		ImGui::Checkbox("Fractalise Terrain", &boolFractalTerrain);
+		ImGui::Checkbox("Voxelate Terrain", &boolVoxelateTerrain);
+		ImGui::Checkbox("FIR Erosion Terrain", &boolFIRErosion);
+		ImGui::Checkbox("Trim Terrain Edges", &boolTrimEdges);
+		ImGui::SliderFloat("Mountain Scaling", &mountain_scaling, 0.0, 100);  // Adjust to control mountain height
+
+		if (ImGui::Button("Generate Terrain")) {
+			// Call terrain generation function with the updated values
+			//
+			//GenerateFractalTerrain(vertices, terrainIterations, terrainHeight, terrainMinDelta, terrainMaxDelta);
+			dynamicsWorldUniversalPtr->removeCollisionObject(this->getTerrainMesh());
+
+			createTerrainMesh();
+		}
+		ImGui::End();
+
+		glUseProgram(*this->shaderPtr);
+		GLint timeLocation = glGetUniformLocation(*this->shaderPtr, "time");
+		glUniform1f(timeLocation, currentTime);
+		GLint waterColorLocation = glGetUniformLocation(*this->shaderPtr, "waterColor");
+		GLint grassColorLocation = glGetUniformLocation(*this->shaderPtr, "grassColor");
+		GLint rockyColorLocation = glGetUniformLocation(*this->shaderPtr, "rockyColor");
+		GLint snowColorLocation = glGetUniformLocation(*this->shaderPtr, "snowColor");
+		GLint diffuseColorLocation = glGetUniformLocation(*this->shaderPtr, "diffuseColor");
+
+		GLint smoothStepLocation = glGetUniformLocation(*this->shaderPtr, "smoothStepFactor");
+		GLint waterThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterThreshold");
+		GLint grassThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassThreshold");
+		GLint rockyThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyThreshold");
+		GLint snowThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowThreshold");
+		GLint peakThresholdLocation = glGetUniformLocation(*this->shaderPtr, "peakThreshold");
+		GLint ambientColorLocation = glGetUniformLocation(*this->shaderPtr, "ambientColor");
+
+		GLint waterStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterStopThreshold");
+		GLint grassStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassStopThreshold");
+		GLint rockyStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyStopThreshold");
+		GLint snowStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowStopThreshold");
+		GLint shininessLocation = glGetUniformLocation(*this->shaderPtr, "shininess");
+		GLint specularColorLocation = glGetUniformLocation(*this->shaderPtr, "specularColor");
+		GLint sunBrightnessLocation = glGetUniformLocation(*this->shaderPtr, "sunBrightness");
+
+		GLint lightDirectionLocation = glGetUniformLocation(*this->shaderPtr, "lightDirection");
+
+		//render UI
+		ImGui::Begin("Shader Controls");
+		// Water Color
+		float lowestY = -1;  // Start with a very high value
+		float highestY = 1; // Start with a very low value
+
+		//// Iterate through the Y-coordinates of 'vertices'
+		//for (int i = 1; i < vertices.size(); i += 3) {
+		//	float y = vertices[i]; // Y-coordinate for this vertex
+
+		//	// Update lowest and highest Y-values
+		//	if (y < lowestY) {
+		//		lowestY = y;
+		//	}
+		//	if (y > highestY) {
+		//		highestY = y;
+		//	}
+		//}
+
+		// Use ImGui to display the lowest and highest Y-values as text labels
+		ImGui::Text("Lowest Y: %.2f", lowestY);
+		ImGui::Text("Highest Y: %.2f", highestY);
+		if (ImGui::SliderFloat("Water Stop Threshold", &waterStopThreshold, -220.0f, 570.0f)) {
+			glUniform1f(waterStopThresholdLocation, waterStopThreshold);
+		}
+
+		if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, -220.0f, 570.0f)) {
+			glUniform1f(grassStopThresholdLocation, grassStopThreshold);
+		}
+
+		if (ImGui::SliderFloat("Rocky Stop Threshold", &rockyStopThreshold, -220.0f, 570.0f)) {
+			glUniform1f(rockyStopThresholdLocation, rockyStopThreshold);
+		}
+		if (ImGui::SliderFloat("Snow Stop Threshold", &snowStopThreshold, -220.0f, 570.0f)) {
+			glUniform1f(snowStopThresholdLocation, snowStopThreshold);
+		}
+
+		/*if (ImGui::InputFloat3("- Light Direction - ", &lightDirection.x)) {
+			glUniform3fv(lightDirectionLocation, 1, &lightDirection.x);
+		}*/
+
+		if (ImGui::ColorEdit3("- Light Colour - ", &diffuseColor.x)) {
+			glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
+		}
+
+		if (ImGui::SliderFloat("Shininess", &shininess, 0.2f, 100.0f)) {
+			glUniform1f(shininessLocation, shininess);
 
 		}
-	}		// Update the Y-axis scale factor when the slider changes
+		if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 2.0f)) {
+			glUniform1f(sunBrightnessLocation, sunBrightness);
 
-	ImGui::End();
-	
-	// Create input fields for the values
-	ImGui::InputInt("Iterations", &terrainIterations);
-	ImGui::InputFloat("Height", &terrainHeight);
-	ImGui::InputFloat("Min Delta", &terrainMinDelta);
-	ImGui::InputFloat("Max Delta", &terrainMaxDelta);
-	ImGui::InputInt("Smooth Iterations", &numIterations);
-	ImGui::InputFloat("Kernal Size", &kernelPoint);
-	ImGui::Checkbox("Fractalise Terrain", &boolFractalTerrain);
-	ImGui::Checkbox("Voxelate Terrain", &boolVoxelateTerrain);
-	ImGui::Checkbox("FIR Erosion Terrain", &boolFIRErosion);
-	ImGui::Checkbox("Trim Terrain Edges", &boolTrimEdges);
-	ImGui::SliderFloat("Mountain Scaling", &mountain_scaling, 0.0, 100);  // Adjust to control mountain height
-	
-	if (ImGui::Button("Generate Terrain")) {
-		// Call terrain generation function with the updated values
-		//
-		//GenerateFractalTerrain(vertices, terrainIterations, terrainHeight, terrainMinDelta, terrainMaxDelta);
-		dynamicsWorldUniversalPtr->removeCollisionObject(this->getTerrainMesh());
+		}
 
-		createTerrainMesh();
-	}
-	ImGui::End();
+		//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
+		//	// Update the sun's position whenever the time of day changes
+		//	// You can use this callback to trigger any other time-dependent effects
+		//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+		//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
 
-	glUseProgram(*this->shaderPtr);
-	GLint timeLocation = glGetUniformLocation(*this->shaderPtr, "time");
-	glUniform1f(timeLocation, currentTime);
-	GLint waterColorLocation = glGetUniformLocation(*this->shaderPtr, "waterColor");
-	GLint grassColorLocation = glGetUniformLocation(*this->shaderPtr, "grassColor");
-	GLint rockyColorLocation = glGetUniformLocation(*this->shaderPtr, "rockyColor");
-	GLint snowColorLocation = glGetUniformLocation(*this->shaderPtr, "snowColor");
-	GLint diffuseColorLocation = glGetUniformLocation(*this->shaderPtr, "diffuseColor");
+		//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
+		//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
 
-	GLint smoothStepLocation = glGetUniformLocation(*this->shaderPtr, "smoothStepFactor");
-	GLint waterThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterThreshold");
-	GLint grassThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassThreshold");
-	GLint rockyThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyThreshold");
-	GLint snowThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowThreshold");
-	GLint peakThresholdLocation = glGetUniformLocation(*this->shaderPtr, "peakThreshold");
-	GLint ambientColorLocation = glGetUniformLocation(*this->shaderPtr, "ambientColor");
+		//}
 
-	GLint waterStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterStopThreshold");
-	GLint grassStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassStopThreshold");
-	GLint rockyStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "rockyStopThreshold");
-	GLint snowStopThresholdLocation = glGetUniformLocation(*this->shaderPtr, "snowStopThreshold");
-	GLint shininessLocation = glGetUniformLocation(*this->shaderPtr, "shininess");
-	GLint specularColorLocation = glGetUniformLocation(*this->shaderPtr, "specularColor");
-	GLint sunBrightnessLocation = glGetUniformLocation(*this->shaderPtr, "sunBrightness");
+		if (ImGui::SliderFloat("Time", &timeOfDay, 0.0f, 24.0f)) {
 
-	GLint lightDirectionLocation = glGetUniformLocation(*this->shaderPtr, "lightDirection");
+			glUniform1f(timeLocation, timeOfDay);
 
-	//render UI
-	ImGui::Begin("Shader Controls");
-	// Water Color
-	float lowestY = -1;  // Start with a very high value
-	float highestY = 1; // Start with a very low value
+		}
+		ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
 
-	//// Iterate through the Y-coordinates of 'vertices'
-	//for (int i = 1; i < vertices.size(); i += 3) {
-	//	float y = vertices[i]; // Y-coordinate for this vertex
+		//need to make ambience white at midday and black at midnight.
+		//shininess needs to go a lot higher
 
-	//	// Update lowest and highest Y-values
-	//	if (y < lowestY) {
-	//		lowestY = y;
-	//	}
-	//	if (y > highestY) {
-	//		highestY = y;
-	//	}
-	//}
 
-	// Use ImGui to display the lowest and highest Y-values as text labels
-	ImGui::Text("Lowest Y: %.2f", lowestY);
-	ImGui::Text("Highest Y: %.2f", highestY);
-	if (ImGui::SliderFloat("Water Stop Threshold", &waterStopThreshold, -220.0f, 570.0f)) {
-		glUniform1f(waterStopThresholdLocation, waterStopThreshold);
-	}
-
-	if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, -220.0f,570.0f)) {
-		glUniform1f(grassStopThresholdLocation, grassStopThreshold);
-	}
-
-	if (ImGui::SliderFloat("Rocky Stop Threshold", &rockyStopThreshold, -220.0f, 570.0f)) {
-		glUniform1f(rockyStopThresholdLocation, rockyStopThreshold);
-	}
-	if (ImGui::SliderFloat("Snow Stop Threshold", &snowStopThreshold, -220.0f, 570.0f)) {
-		glUniform1f(snowStopThresholdLocation, snowStopThreshold);
-	}
-
-	/*if (ImGui::InputFloat3("- Light Direction - ", &lightDirection.x)) {
-		glUniform3fv(lightDirectionLocation, 1, &lightDirection.x);
-	}*/
-
-	if (ImGui::ColorEdit3("- Light Colour - ", &diffuseColor.x)) {
-		glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
-	}
-
-	if (ImGui::SliderFloat("Shininess", &shininess, 0.2f, 100.0f)) {
-		glUniform1f(shininessLocation, shininess);
-
-	}
-	if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 2.0f )) {
-		glUniform1f(sunBrightnessLocation, sunBrightness);
-
-	}
-
-	//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
-	//	// Update the sun's position whenever the time of day changes
-	//	// You can use this callback to trigger any other time-dependent effects
-	//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-	//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-
-	//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
-	//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
-
-	//}
-
-	if (ImGui::SliderFloat("Time", &timeOfDay, 0.0f, 24.0f)) {
-	
-		glUniform1f(timeLocation, timeOfDay);
-
-	}
-	ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
-
-	//need to make ambience white at midday and black at midnight.
-	//shininess needs to go a lot higher
-
-	
-	// Color picker for specularColor
-	if(ImGui::ColorEdit3("Specular Color", &specularColor.x))
-	{   glUniform3fv(specularColorLocation, 1, &specularColor.x);
-	}
+		// Color picker for specularColor
+		if (ImGui::ColorEdit3("Specular Color", &specularColor.x))
+		{
+			glUniform3fv(specularColorLocation, 1, &specularColor.x);
+		}
 
 		if (ImGui::ColorEdit3("Water Color", &waterColor.x)) {
 			glUniform3fv(waterColorLocation, 1, &waterColor.x);
 		}
 
-	if (ImGui::ColorEdit3("Grass Color", &grassColor.x)) {
-		glUniform3fv(grassColorLocation, 1, &grassColor.x);
-	}
+		if (ImGui::ColorEdit3("Grass Color", &grassColor.x)) {
+			glUniform3fv(grassColorLocation, 1, &grassColor.x);
+		}
 
-	if (ImGui::ColorEdit3("Rocky Color", &rockyColor.x)) {
-		glUniform3fv(rockyColorLocation, 1, &rockyColor.x);
-	}
+		if (ImGui::ColorEdit3("Rocky Color", &rockyColor.x)) {
+			glUniform3fv(rockyColorLocation, 1, &rockyColor.x);
+		}
 
-	if (ImGui::ColorEdit3("Snow Color", &snowColor.x)) {
-		glUniform3fv(snowColorLocation, 1, &snowColor.x);
-	}
-	
-	if (ImGui::ColorEdit3("Ambient Color", &ambientColor.x)) {
-		glUniform3fv(ambientColorLocation, 1, &ambientColor.x);
-	}
-	// Height Thresholds
-	if (ImGui::SliderFloat("Water Threshold", &waterThreshold, terrainBottom, terrainTop)) {
-		glUniform1f(waterThresholdLocation, waterThreshold);
-	}
+		if (ImGui::ColorEdit3("Snow Color", &snowColor.x)) {
+			glUniform3fv(snowColorLocation, 1, &snowColor.x);
+		}
 
-	if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, terrainBottom, terrainTop)) {
-		glUniform1f(grassThresholdLocation, grassThreshold);
-	}
+		if (ImGui::ColorEdit3("Ambient Color", &ambientColor.x)) {
+			glUniform3fv(ambientColorLocation, 1, &ambientColor.x);
+		}
+		// Height Thresholds
+		if (ImGui::SliderFloat("Water Threshold", &waterThreshold, terrainBottom, terrainTop)) {
+			glUniform1f(waterThresholdLocation, waterThreshold);
+		}
 
-	if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, terrainBottom, terrainTop)) {
-		glUniform1f(rockyThresholdLocation, rockyThreshold);
-	}
+		if (ImGui::SliderFloat("Grass Threshold", &grassThreshold, terrainBottom, terrainTop)) {
+			glUniform1f(grassThresholdLocation, grassThreshold);
+		}
 
-	if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, terrainBottom, terrainTop)) {
-		glUniform1f(snowThresholdLocation, snowThreshold);
-	}
-	if (ImGui::SliderFloat("Peak Threshold", &peakThreshold, terrainBottom, terrainTop)) {
-		glUniform1f(peakThresholdLocation, peakThreshold);
-	}
-	
-	if (ImGui::SliderFloat("!Smooth Step", &smoothStep, 0.0f, 150.0f)) {
-		glUniform1f(smoothStepLocation, smoothStep);
-	}
+		if (ImGui::SliderFloat("Rocky Threshold", &rockyThreshold, terrainBottom, terrainTop)) {
+			glUniform1f(rockyThresholdLocation, rockyThreshold);
+		}
 
-	ImGui::End();
+		if (ImGui::SliderFloat("Snow Threshold", &snowThreshold, terrainBottom, terrainTop)) {
+			glUniform1f(snowThresholdLocation, snowThreshold);
+		}
+		if (ImGui::SliderFloat("Peak Threshold", &peakThreshold, terrainBottom, terrainTop)) {
+			glUniform1f(peakThresholdLocation, peakThreshold);
+		}
 
+		if (ImGui::SliderFloat("!Smooth Step", &smoothStep, 0.0f, 150.0f)) {
+			glUniform1f(smoothStepLocation, smoothStep);
+		}
+
+		ImGui::End();
+	}
 	ImGui::Begin("Terrain Controls");
 
 	// Input fields for X, Y, and Z coordinates
@@ -1505,3 +1507,98 @@ GLuint Terrain::loadTexture(const char* path)
 	//	glDrawElements(GL_TRIANGLES, (terrain.size - 1) * (terrain.size - 1) * 6, GL_UNSIGNED_INT, 0);
 	//	glBindVertexArray(0);
 	//}}
+
+
+
+void drawShaderManager() {
+
+	ImGui::Begin("Shader Manager");
+	static int selectedShaderIndex = -1;
+	const char* comboLabel = "Select Shader";
+	if (customShaders.size() > 0) {
+		std::vector<const char*> shaderNames;
+		for (const auto& shader : customShaders) {
+			shaderNames.push_back(shader->shaderName.c_str());
+		}
+		ImGui::Combo(comboLabel, &selectedShaderIndex, shaderNames.data(), shaderNames.size());
+	}
+
+	// Display shader code for the selected shader
+	if (selectedShaderIndex >= 0 && selectedShaderIndex < customShaders.size()) {
+		ImGui::InputTextMultiline("Vertex Shader", customShaders[selectedShaderIndex]->vertexShaderCode.data(), customShaders[selectedShaderIndex]->vertexShaderCode.capacity());
+		ImGui::InputTextMultiline("Fragment Shader", customShaders[selectedShaderIndex]->fragmentShaderCode.data(), customShaders[selectedShaderIndex]->fragmentShaderCode.capacity());
+
+		// Display shader program ID
+		ImGui::Text("Shader Program ID: %d", customShaders[selectedShaderIndex]->shaderProgramID);
+	}
+
+	
+	ImGui::InputTextMultiline("Vertex Shader2", customVertexShaderCode.data(), customVertexShaderCode.capacity());
+	ImGui::InputTextMultiline("Fragment Shader2", customFragmentShaderCode.data(), customFragmentShaderCode.capacity()); //, ImGuiInputTextFlags_AllowTabInput
+	
+
+
+	if (ImGui::Button("Add Custom Shader")) {
+	
+		customShader* newShader;
+		newShader = new customShader;
+		newShader->shaderName = "Shader" + std::to_string(customShaders.size() + 1);
+		newShader->vertexShaderCode = std::string(customVertexShaderCode.c_str());
+		newShader->fragmentShaderCode = std::string(customFragmentShaderCode.c_str());
+		newShader->shaderProgramID = loadCustomShader(customVertexShaderCode, customFragmentShaderCode); // Assuming you have a function to load custom shaders.
+		customShaders.push_back(newShader);
+
+		customVertexShaderCode.clear(); // Clear the string for the next input.
+		customFragmentShaderCode.clear(); // Clear the string for the next input.
+	}
+
+	ImGui::End();
+
+}
+
+GLuint loadCustomShader(const std::string& vertexShaderCode, const std::string& fragmentShaderCode) {
+	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	const GLchar* vertexSource = vertexShaderCode.c_str();
+	glShaderSource(vertexShader, 1, &vertexSource, nullptr);
+	glCompileShader(vertexShader);
+
+	GLint vertexShaderCompiled;
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &vertexShaderCompiled);
+	if (vertexShaderCompiled != GL_TRUE) {
+		GLint logLength;
+		glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &logLength);
+		std::vector<GLchar> vertexShaderError(logLength);
+		glGetShaderInfoLog(vertexShader, logLength, &logLength, &vertexShaderError[0]);
+		std::string customShaderErrorVert(vertexShaderError.begin(), vertexShaderError.end());
+		std::cerr << "Vertex shader compilation failed: " << customShaderErrorVert << std::endl;
+	}
+
+	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	const GLchar* fragmentSource = fragmentShaderCode.c_str();
+	glShaderSource(fragmentShader, 1, &fragmentSource, nullptr);
+	glCompileShader(fragmentShader);
+
+	GLint fragmentShaderCompiled;
+	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &fragmentShaderCompiled);
+	if (fragmentShaderCompiled != GL_TRUE) {
+		GLint logLength;
+		glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &logLength);
+		std::vector<GLchar> fragmentShaderError(logLength);
+		glGetShaderInfoLog(fragmentShader, logLength, &logLength, &fragmentShaderError[0]);
+		std::string customShaderErrorFrag(fragmentShaderError.begin(), fragmentShaderError.end());
+		std::cerr << "Fragment shader compilation failed: " << customShaderErrorFrag << std::endl;
+	}
+
+	GLuint shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertexShader);
+	glAttachShader(shaderProgram, fragmentShader);
+	glLinkProgram(shaderProgram);
+
+	// Error handling for shader linking can be added here.
+
+	// Delete the shaders as they are now linked to the program.
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+
+	return shaderProgram;
+}

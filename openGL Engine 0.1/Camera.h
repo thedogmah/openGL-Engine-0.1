@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include "globals.h"
 #include "Character.h"
+class Character;
 class Camera
 {
 public:

@@ -17,13 +17,16 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/noise.hpp>
 #include <random>
-
+#include "globals.h"
 #include <vector>
 
 #include "btBulletDynamicsCommon.h"
 
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include "BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
+
+
+
 class Engine
 {
 };
@@ -186,3 +189,9 @@ public:
 		 };
 
 };
+
+
+void drawShaderManager();
+
+
+GLuint loadCustomShader(const std::string& vertexShaderCode, const std::string& fragmentShaderCode);

@@ -43,10 +43,27 @@
 #include <filesystem>
 #include "Mesh.h"
 #include "Texture.h"
+
+//Customer shader variables
+std::string customVertexShaderCode;
+std::string customFragmentShaderCode;
+std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down for changing them in mesh propertie imgui / 
+ int selectedShaderID = 0; //initalisation for shader ID selected where loading meshes
+ int selectedShaderID2 = 0;
+
+
+ 
+  int meshCountInstanced;
+  std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
+std::vector<customShader*> customShaders; //declaring from globals.h once for all 
+std::vector<World::meshInstance*> meshInstancesVector;
+//customer shader manager varaibles ends
+
 Mesh mesh;
  ImVec4 bgColor = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);     // Default background color
  ImVec4 buttonColor = ImVec4(0.4f, 0.4f, 0.4f, 1.0f); // Default button color
- bool boolDrawUI=true; //globals.h (left alt  - hot path was in UI! drawimgui)
+ bool boolDrawUI=true; //globals.h (left alt  - hot path was in UI! drawimgui)#
+ bool drawIMGUI = true;
  bool boolShowGLErrors = false ;
 // Declare and define the global variables
 glm::mat4 cubeModelMatrix;
@@ -63,6 +80,7 @@ std::vector<btRigidBody*> rigidBodies;
 btAlignedObjectArray<btCollisionShape*> collisionShapes;
 bool lMouseClicked = true;
 Camera camera;
+
 GLuint modelMatrixLocation = 0;
 Character* character = nullptr;
  float characterCameraXOffset = 0.0;
@@ -70,7 +88,9 @@ Character* character = nullptr;
  float characterCameraZOffset = 0.0;
 
 //forward declarations
-void initialise(float x, float y, float z, GLFWwindow* window);
+
+ void generateSSBOInstance(int count); //function used to create instance date for dynamic mesh ssbos
+ void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
 void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor);
@@ -802,6 +822,10 @@ int main()
 
 	glUseProgram(shaderProgram);
 	*defaultShaderProgramPtr = shaderProgram;
+	customShader defaultShaderCustomShader;
+	defaultShaderCustomShader.shaderName = "Default Shader";
+	defaultShaderCustomShader.shaderProgramID = *defaultShaderProgramPtr;
+	customShaders.push_back(&defaultShaderCustomShader);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error afterpolygon mode " << error << std::endl;
@@ -888,6 +912,7 @@ int main()
 		std::cout << "OpenGL Error after openGL drawable constructor: " << error << std::endl;
 	}
 	std::vector<World::Lights> sceneLights;
+	std::vector < World::meshInstance> meshInstancesVector;
 	//Generate Lights
 	World::Lights sun;
 	World::Lights lamp1;
@@ -911,6 +936,7 @@ int main()
 	material.specular = glm::vec3(0.8, 0.8, 0.8); // Example specular color, adjust as needed
 	material.shininess =1.0;             // Example shininess, adjust as needed
 	material.transparency = 0.75;
+
 	// Get the location of the Material uniform in the shader program
 
 	sceneLights.push_back(sun);
@@ -924,6 +950,7 @@ int main()
 	}
 	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
 	SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
+	
 	 cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after binding ssbos: " << error << std::endl;
@@ -1137,13 +1164,13 @@ int main()
 		// 
 		// 
 		//Updates all update functions, including character
-	/*	if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_REPEAT)
+		if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_REPEAT)
 
 		{
-		if(boolDrawUI)	boolDrawUI = false;
-		else if (!boolDrawUI)	boolDrawUI = true;
+		if(drawIMGUI)	drawIMGUI = false;
+		else if (!drawIMGUI)	drawIMGUI = true;
 
-		}*/
+		}
 
 		//if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_C) == GLFW_REPEAT)
 
@@ -1277,49 +1304,53 @@ int main()
 		glm::vec3 caveCenter(10.0f, 5.0f, 10.0f); // Example cave center
 		float caveRadius = 125.0f; // Example cave radius
 		float caveDepth = 253.0f;
-		ImGui::Begin("Cave");
-		if (ImGui::Button("Generate Cave")) {
-			// Code to create the cave directly within the button press
-			for (size_t i = 0; i < terrain.vertices.size(); i += 3) {
-				GLfloat x = terrain.vertices[i];
-				GLfloat y = terrain.vertices[i + 1];
-				GLfloat z = terrain.vertices[i + 2];
+		if (drawIMGUI) {
+			ImGui::Begin("Cave");
+			if (ImGui::Button("Generate Cave")) {
 
-				glm::vec3 vertex(x, y, z);
-				float distanceToCave = glm::length(vertex - caveCenter);
+				// Code to create the cave directly within the button press
+				for (size_t i = 0; i < terrain.vertices.size(); i += 3) {
+					GLfloat x = terrain.vertices[i];
+					GLfloat y = terrain.vertices[i + 1];
+					GLfloat z = terrain.vertices[i + 2];
 
-				if (distanceToCave < caveRadius) {
-					float depth = caveDepth * (1.0f - (distanceToCave / caveRadius));
-					vertex.y -= depth;
+					glm::vec3 vertex(x, y, z);
+					float distanceToCave = glm::length(vertex - caveCenter);
+
+					if (distanceToCave < caveRadius) {
+						float depth = caveDepth * (1.0f - (distanceToCave / caveRadius));
+						vertex.y -= depth;
+					}
+
+					terrain.vertices[i] = vertex.x;
+					terrain.vertices[i + 1] = vertex.y;
+					terrain.vertices[i + 2] = vertex.z;
 				}
+				glBindBuffer(GL_ARRAY_BUFFER, terrain.VBO);
+				glBufferData(GL_ARRAY_BUFFER, terrain.vertices.size() * sizeof(GLfloat), terrain.vertices.data(), GL_STATIC_DRAW);
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-				terrain.vertices[i] = vertex.x;
-				terrain.vertices[i + 1] = vertex.y;
-				terrain.vertices[i + 2] = vertex.z;
 			}
-			glBindBuffer(GL_ARRAY_BUFFER, terrain.VBO);
-			glBufferData(GL_ARRAY_BUFFER, terrain.vertices.size() * sizeof(GLfloat), terrain.vertices.data(), GL_STATIC_DRAW);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			ImGui::End();
+
+			ImGui::Begin("Frame Info");
+
+			ImGui::Text("Frame Time: %.4f ms", deltaTime * 1000.0);
+			ImGui::Text("Average FPS (Last 10s): %.1f", averageFPSLast10Seconds);
+			ImGui::Text("FPS: %.1f", fps);
+			ImGui::Text("Lowest 1%% Frame Time (Last 10s): %.4f ms", lowest1PercentFrameTime * 1000.0);
+			ImGui::Text("Lowest 1%% Frame Time (Last 10s) FPS: %.1f", 1.0 / lowest1PercentFrameTime);
+
+			ImGui::End();
 
 		}
-		ImGui::End();
-		ImGui::Begin("Frame Info");
-
-		ImGui::Text("Frame Time: %.4f ms", deltaTime * 1000.0);
-		ImGui::Text("Average FPS (Last 10s): %.1f", averageFPSLast10Seconds);
-		ImGui::Text("FPS: %.1f", fps);
-		ImGui::Text("Lowest 1%% Frame Time (Last 10s): %.4f ms", lowest1PercentFrameTime * 1000.0);
-		ImGui::Text("Lowest 1%% Frame Time (Last 10s) FPS: %.1f", 1.0 / lowest1PercentFrameTime);
-
-		ImGui::End();
-
-
+		if (drawIMGUI) {
 			ImGui::Begin("Camera Location");
 			if (ImGui::Button("Snap to World Origin")) {
 				glm::mat4 worldOrigin = glm::mat4(1.0f); // Identity matrix
 				btRigidBody* player1 = character->getRigidBody();
 				btVector3 newPosition(0.0f, 15.0f, 0.0f);
-				
+
 				// Set the new position for the player character's rigid body
 				player1->getWorldTransform().setOrigin(newPosition);
 				btVector3 newLinearVelocity(0.0f, 0.0f, 0.0f);
@@ -1352,16 +1383,16 @@ int main()
 			}
 			ImGui::InputFloat("Camera Offset for Player", &characterCameraYOffset, 0.0, 150);
 			// Get the view matrix from your camera
-			 
-				btTransform transform;
-			btRigidBody* charr = character->getRigidBody();
-				transform = charr->getWorldTransform();
-				// Get the character's current position
-				btVector3 position = transform.getOrigin();
 
-				// Display the character's position
-				ImGui::Text("Character Position: %.2f, %.2f, %.2f", position.getX(), position.getY(), position.getZ());
-			
+			btTransform transform;
+			btRigidBody* charr = character->getRigidBody();
+			transform = charr->getWorldTransform();
+			// Get the character's current position
+			btVector3 position = transform.getOrigin();
+
+			// Display the character's position
+			ImGui::Text("Character Position: %.2f, %.2f, %.2f", position.getX(), position.getY(), position.getZ());
+
 			glm::mat4 viewMatrix = camera.getViewMatrix();
 
 			// Extract the camera's position from the view matrix
@@ -1379,7 +1410,7 @@ int main()
 
 			// End ImGui frame
 			ImGui::End();
-
+		}
 			glm::mat4 matrix1 = camera.getViewMatrix();
 			glm::mat4 matrix2 = camera.getViewMatrix();
 			glm::mat4 matrix3 = camera.getViewMatrix();
@@ -1389,6 +1420,7 @@ int main()
 			ImVec4 color3 = ImVec4(0.0f, 0.0f, 1.0f, 1.0f); // Blue
 
 			// Open a new ImGui window to display matrices
+		if (drawIMGUI){
 			ImGui::Begin("Matrices");
 
 			// Display matrix1 with a red color
@@ -1431,7 +1463,7 @@ int main()
 			}
 
 			ImGui::End(); // End the ImGui window for matrices
-
+		}
 			//ImGui::Begin("Cube Properties");
 
 			//// Iterate through cubesSSBOVector
@@ -1475,165 +1507,172 @@ int main()
 
 		
 		cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-		ImGui::End();
+		//ImGui::End();
 
-		ImGui::Begin("Add Lighting");
-		if (ImGui::SliderFloat("Exposure", &sceneExposure, 0.01, 1.0f))
-		{
-			int sceneExposureLocation = glGetUniformLocation(shaderProgram, "exposure");
-			glUniform1f(sceneExposureLocation, sceneExposure);
+		if (drawIMGUI) {
+			ImGui::Begin("Add Lighting");
+			if (ImGui::SliderFloat("Exposure", &sceneExposure, 0.01, 1.0f))
+			{
+				int sceneExposureLocation = glGetUniformLocation(shaderProgram, "exposure");
+				glUniform1f(sceneExposureLocation, sceneExposure);
+			}
+			ImGui::Text("Add Light");
+			ImGui::SliderFloat3("Position", glm::value_ptr(positionNL), -10.0f, 10.0f);
+			ImGui::SliderFloat("Strength", &strengthNL, 0.1f, 1.0f);
+			ImGui::ColorEdit3("Colour", glm::value_ptr(colourNL));
+			if (ImGui::Button("Add Light to Scene"))
+			{
+				glUseProgram(shaderProgram);
+				newLight.position = positionNL;
+				newLight.colour = colourNL;
+				newLight.strength = strengthNL;
+				newLight.pad1 = 0.0f;
+				newLight.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+				sceneLights.push_back(newLight);
+				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
+				glUniform1i(arraySizeLocation, sceneLights.size());
+
+				ssboLighting.Bind();
+				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+
+			}
+			if (ImGui::Button("Remove Last Light"))
+			{
+				if (sceneLights.size() > 0)
+					sceneLights.pop_back();
+			}
+
+			ImGui::End();
 		}
-		ImGui::Text("Add Light");
-		ImGui::SliderFloat3("Position", glm::value_ptr(positionNL), -10.0f, 10.0f);
-		ImGui::SliderFloat("Strength", &strengthNL, 0.1f, 1.0f);
-		ImGui::ColorEdit3("Colour", glm::value_ptr(colourNL));
-		if (ImGui::Button("Add Light to Scene"))
-		{
-			glUseProgram(shaderProgram);
-			newLight.position = positionNL;
-			newLight.colour = colourNL;
-			newLight.strength = strengthNL;
-			newLight.pad1 = 0.0f;
-			newLight.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
-			sceneLights.push_back(newLight);
+		if (drawIMGUI) {
+			ImGui::Begin("Settings");
+			int lightname = 0;
+
+
+			for (auto& source : sceneLights) {
+				// Sun position sliders
+
+				std::string name = "Sun X " + std::to_string(lightname);
+				if (ImGui::SliderFloat(name.c_str(), &source.position.x, -10.0f, 10.0f))
+				{
+					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
+					glUniform1i(arraySizeLocation, sceneLights.size());
+					std::cout << "\Scene Lights Size(if statement): " << sceneLights.size();
+
+					ssboLighting.Bind();
+					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+
+				}
+				name = "Sun Y " + std::to_string(lightname);
+				if (ImGui::SliderFloat(name.c_str(), &source.position.y, -10.0f, 10.0f)) {
+					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
+					glUniform1i(arraySizeLocation, sceneLights.size());
+					ssboLighting.Bind();
+					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+				}
+				name = "Sun Z " + std::to_string(lightname);
+				if (ImGui::SliderFloat(name.c_str(), &source.position.z, -10.0f, 10.0f)) {
+					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
+					glUniform1i(arraySizeLocation, sceneLights.size());
+					ssboLighting.Bind();
+					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+				}
+				name = "Strength " + std::to_string(lightname);
+				if (ImGui::SliderFloat(name.c_str(), &source.strength, 0.1f, 1.0f)) {
+					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
+					glUniform1i(arraySizeLocation, sceneLights.size());
+					ssboLighting.Bind();
+					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+				}
+
+				name = "Transparency " + std::to_string(lightname);
+				if (ImGui::SliderFloat(name.c_str(), &material.transparency, 0.05f, 1.0f)) {
+					ssboMaterial.Bind();
+					ssboMaterial.updateData(&material, sizeof(World::Material));
+				}
+
+				name = "Diffuse " + std::to_string(lightname);
+				if (ImGui::SliderFloat3(name.c_str(), &material.diffuse.x, 0.05f, 1.0f)) {
+					ssboMaterial.Bind();
+					ssboMaterial.updateData(&material, sizeof(World::Material));
+				}
+
+				name = "Ambient " + std::to_string(lightname);
+				if (ImGui::SliderFloat3(name.c_str(), &material.ambient.x, 0.05f, 1.0f)) {
+					ssboMaterial.Bind();
+					ssboMaterial.updateData(&material, sizeof(World::Material));
+				}
+				// Sun color sliders
+
+				name = "Sun Color " + std::to_string(lightname);
+				if (ImGui::ColorEdit3(name.c_str(), glm::value_ptr(source.colour))) {
+
+
+					ssboLighting.Bind();
+					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+				}
+
+				lightname++;
+			}
+
+
+
+
 			int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
 			glUniform1i(arraySizeLocation, sceneLights.size());
+			//	glDrawElements(GL_TRIANGLES, cubeIndices.size(), GL_UNSIGNED_INT, 0);
 
-			ssboLighting.Bind();
-			ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-
-					}
-		if (ImGui::Button("Remove Last Light"))
-		{
-			if (sceneLights.size()>0)
-				sceneLights.pop_back();
-		}
-		
-		ImGui::End();
-		ImGui::Begin("Settings");
-		int lightname = 0;
-	
-
-		for (auto &source : sceneLights) {
-			// Sun position sliders
-			
-			std::string name = "Sun X " +std::to_string(lightname);
-			if (ImGui::SliderFloat(name.c_str(), &source.position.x, -10.0f, 10.0f))
-			{
-				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-				glUniform1i(arraySizeLocation, sceneLights.size());
-				std::cout << "\Scene Lights Size(if statement): " << sceneLights.size();
-				
-				ssboLighting.Bind();
-				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-			
-			}
-			name = "Sun Y " + std::to_string(lightname);
-			if (ImGui::SliderFloat(name.c_str(), &source.position.y, -10.0f, 10.0f)) {
-				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-				glUniform1i(arraySizeLocation, sceneLights.size());
-				ssboLighting.Bind();
-				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-			}												
-			name = "Sun Z " + std::to_string(lightname);
-			if (ImGui::SliderFloat(name.c_str(), &source.position.z, -10.0f, 10.0f)) {
-				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-				glUniform1i(arraySizeLocation, sceneLights.size());
-				ssboLighting.Bind();
-				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-			}
-			name = "Strength " + std::to_string(lightname);
-			if (ImGui::SliderFloat(name.c_str(), &source.strength, 0.1f, 1.0f)) {
-				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-				glUniform1i(arraySizeLocation, sceneLights.size());
-				ssboLighting.Bind();
-				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-			}
-
-			name = "Transparency " + std::to_string(lightname);
-			if (ImGui::SliderFloat(name.c_str(), &material.transparency, 0.05f, 1.0f)) {
-				ssboMaterial.Bind();
-				ssboMaterial.updateData(&material, sizeof(World::Material));
-			}
-
-			name = "Diffuse " + std::to_string(lightname);
-			if (ImGui::SliderFloat3(name.c_str(), &material.diffuse.x, 0.05f, 1.0f)) {
-				ssboMaterial.Bind();
-				ssboMaterial.updateData(&material, sizeof(World::Material));
-			}
-
-			name = "Ambient " + std::to_string(lightname);
-			if (ImGui::SliderFloat3(name.c_str(), &material.ambient.x, 0.05f, 1.0f)) {
-				ssboMaterial.Bind();
-				ssboMaterial.updateData(&material, sizeof(World::Material));
-			}
-			// Sun color sliders
-
-			name = "Sun Color " + std::to_string(lightname);
-			if(ImGui::ColorEdit3(name.c_str(), glm::value_ptr(source.colour))){
-				
-				
-				ssboLighting.Bind();
-			ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-		}
-
-			lightname++;
-		}
-
-	
-
-
-		int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-		glUniform1i(arraySizeLocation, sceneLights.size());
-	//	glDrawElements(GL_TRIANGLES, cubeIndices.size(), GL_UNSIGNED_INT, 0);
-	
-		ImGui::End();
+			ImGui::End();
+		}//closes imgui on boolen key press drawIMGUI
 		// Render pImGui demo window (for testing)
 		//ImGui::ShowDemoWindow();
 		cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0])* cubesSSBOVector.size());
 		dynamicsWorld->updateAabbs();
 		dynamicsWorld->stepSimulation(deltaTime, 1);
-		//std::cout << "\n\tFrame time: " << deltaTime << "\n\t";
-		//ImGui::Begin("Chaos");
-		if (ImGui::Button("Chaos")) {
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_real_distribution<float> translationDist(-15, 15);
 
-			btCollisionObjectArray& collisionObjects = dynamicsWorld->getCollisionObjectArray();
+		//if (drawIMGUI) {
+		//	//std::cout << "\n\tFrame time: " << deltaTime << "\n\t";
+		//	//ImGui::Begin("Chaos");
+		//	if (ImGui::Button("Chaos")) {
+		//		std::random_device rd;
+		//		std::mt19937 gen(rd());
+		//		std::uniform_real_distribution<float> translationDist(-15, 15);
 
-			for (int i = 0; i < cubesSSBOVector.size(); i++) {
-				// Check if the collision object is a rigid body
-				if (collisionObjects[i]->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
-					btRigidBody* rigidBody = btRigidBody::upcast(collisionObjects[i]);
+		//		btCollisionObjectArray& collisionObjects = dynamicsWorld->getCollisionObjectArray();
 
-					if (rigidBody) {
-						btTransform currentTransform;
-						rigidBody->getMotionState()->getWorldTransform(currentTransform);
+		//		for (int i = 0; i < cubesSSBOVector.size(); i++) {
+		//			// Check if the collision object is a rigid body
+		//			if (collisionObjects[i]->getInternalType() == btCollisionObject::CO_RIGID_BODY) {
+		//				btRigidBody* rigidBody = btRigidBody::upcast(collisionObjects[i]);
 
-						// Apply transformations or updates as needed
-						float randomX = translationDist(gen);
-						float randomY = translationDist(gen);
-						float randomZ = translationDist(gen);
+		//				if (rigidBody) {
+		//					btTransform currentTransform;
+		//					rigidBody->getMotionState()->getWorldTransform(currentTransform);
+
+		//					// Apply transformations or updates as needed
+		//					float randomX = translationDist(gen);
+		//					float randomY = translationDist(gen);
+		//					float randomZ = translationDist(gen);
 
 
-						// Apply the random translation to the current transform
-						btVector3 translation(randomX, randomY, randomZ);
-						currentTransform.setOrigin(currentTransform.getOrigin() + translation);
+		//					// Apply the random translation to the current transform
+		//					btVector3 translation(randomX, randomY, randomZ);
+		//					currentTransform.setOrigin(currentTransform.getOrigin() + translation);
 
-						// Set the updated transform back to the rigid body
-						rigidBody->getMotionState()->setWorldTransform(currentTransform);
-						rigidBodies[i]->getMotionState()->setWorldTransform(currentTransform);
+		//					// Set the updated transform back to the rigid body
+		//					rigidBody->getMotionState()->setWorldTransform(currentTransform);
+		//					rigidBodies[i]->getMotionState()->setWorldTransform(currentTransform);
 
-						// Now you can work with the rigidBody
-						// For example, you can access its transform or apply forces
-					}
-				}
+		//					// Now you can work with the rigidBody
+		//					// For example, you can access its transform or apply forces
+		//				}
+		//			}
 
-			}
+		//		}
 
-				
-		}
+
+		//	}
+		//}
 
 		// Update cube positions based on physics simulation
 	//	if (cubesSSBOVector.size() > 0)
@@ -1692,6 +1731,8 @@ int main()
 	//	glViewport(0, 0, window_width, window_height);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		//cubeSSBOptr->Bind();
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeSSBOptr->ssboID);
 		glUniform1i(isInstancedBool, 1);
 	glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, 5000);
 	if (boolShowGLErrors) {
@@ -1702,6 +1743,7 @@ int main()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 		glUniform1i(isInstancedBool,0);
+		
 		cubeTest.draw();
 		
 	
@@ -1724,6 +1766,7 @@ int main()
 		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
+		cubeSSBOptr->Unbind();
 		glUniform1i(isInstancedBool, 0);
 		//cubeTest.draw();
 
@@ -1731,8 +1774,26 @@ int main()
 		for (auto& mesh : meshVector) {
 		
 		//	mesh.SetWorldTransform(modelMatrix);
-			mesh.Render(shaderProgram);
+			mesh->Render(shaderProgram);
 		}
+		int instancedInt = 0;
+		glUseProgram(shaderProgram);
+		glUniform1i(isInstancedBool, 1);
+
+		//make sure using correct shader
+		//problem that mesh . render doesnt use instancing.
+		for (auto& each : SSBOVector)
+		{
+			//binds each ssbo which corresponds to the index position (intanceInt of the equivalent mesh)
+			//this mesh is then rendered.
+			//each->Bind();
+			instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
+			//std::cout << "\n" << each->ssboID << " is the bound SSBO ID\n";
+			instancedInt++;
+			//each->Unbind();
+		}
+		glUseProgram(shaderProgram);
+	glUniform1i(isInstancedBool, 0);
 	//	mesh.Render(*defaultShaderProgramPtr);
 		glBindVertexArray(VAO);
 		
@@ -1747,9 +1808,11 @@ int main()
 		terrain.render();
 			glUseProgram(shaderProgram);
 	
+		
 		ImGui::Render();
-
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		 
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		
 		//debugger.SetMatrices(view, projection);
 		//dynamicsWorld->setDebugDrawer(&debugger);
 			// 		dynamicsWorld->debugDrawWorld();
@@ -1873,231 +1936,373 @@ void drawUI()
 
 {
 
-
-	// Assuming 'mesh.scene' is the Assimp root node
-
-	ImGui::Begin("Assimp Scene Information");
-	//char file = fileNameBuffer[0];
-	//char meshName = meshNameBuffer[0];
-	ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
-	ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
-
-	if (ImGui::Button("Load Model") && !fileNameBuffer2.empty() && !meshNameBuffer.empty()) {
-		Mesh newMesh;
-		newMesh.meshName = meshNameBuffer; // Set the mesh name
-		newMesh.loadMesh(fileNameBuffer2, *defaultShaderProgramPtr);//if name is wrong causes errors.
-		meshVector.push_back(newMesh);
-		if (selectedMeshIndex == -1)
-			selectedMeshIndex = 0; //when all meshes are deleted it is set to -1, when we load a new one here, it should be set to the first
-		// Clear the input fields after loading
-
-		// Update the meshNames vector
-		Mesh::meshNames.push_back(meshNameBuffer); // Use emplace_back to construct the string directly
+	if (drawIMGUI) {
 
 
-	}
-	GLenum error = glGetError();
-	if (error != GL_NO_ERROR) {
-		std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
-	}
-	if (!mesh.scenePtr) {
-		std::cout << "Assimp scene is not loaded." << std::endl;
-		ImGui::Text("Assimp scene is not loaded.");
 
-	}
-	else {
-		const aiScene* scene = mesh.scenePtr;
 
-		bool hasTextures = scene->HasTextures();
-		bool hasMaterials = scene->HasMaterials();
 
-		if (hasTextures) {
-			std::cout << "Scene has textures." << std::endl;
-			ImGui::Text("Scene has textures.");
+
+
+
+
+
+		drawShaderManager();
+
+		//
+		ImGui::Begin("Create SSBO for Mesh");
+
+		ImGui::InputText("Mesh Name", &meshNameBufferInstanced[0], 10000);
+		ImGui::InputInt("Mesh Count", &meshCountInstanced);
+
+		if (ImGui::Button("Create SSBO"))
+		{
+
+			Mesh* newInstancedMesh;
+			newInstancedMesh = new Mesh;
+			newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
+			newInstancedMesh->shaderProgram = 3;
+			newInstancedMesh->customShaderProgramID = 3;
+			if (customShaders.size() == 0)
+				newInstancedMesh->customShaderProgramID = 3;
+			else
+				newInstancedMesh->customShaderProgramID = 3;
+
+			newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
+			newInstancedMesh->cameraPtr = &camera;
+
+			//if name is wrong causes errors.
+			instancedMeshVector.push_back(newInstancedMesh);
+
+			
+		//	if (selectedMeshIndex == -1)
+			//	selectedMeshIndex = 0; //when all meshes are deleted it is set to -1, when we load a new one here, it should be set to the first
+			// Clear the input fields after loading
+
+			// Update the meshNames vector
+			//create 'instanced' mesh names vector here
+			//Mesh::meshNames.push_back(meshNameBuffer); // Use emplace_back to construct the string directly
+
+
+			SSBO* instancedSSBO;
+			
+			//bindingIndexCount++;
+
+
+			//cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
+
+			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
+			instancedSSBO->instanceAmount = meshCountInstanced;
+			SSBOVector.push_back(instancedSSBO);
+			generateSSBOInstance(meshCountInstanced);
+			
+			//need to load  mesh into new vector (pointer)
+			// need to create instances (do random positions based on amount first // then make it Y relative for grass etc)
+			// // that should be with meshinstance in worldobjects
+			// then add instances to vector in loop, then can create the ssbo.
+			// then add the ssbo to a vector of them. need to connect the mesh to the ssbo mesh. indexing across both vectors.
+			//	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
+			//SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
+
+			//cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
+
+			// Assuming you have access to the SSBO class and the necessary functions
+			// Here, you can create the SSBO for the entered mesh name and count
+			// You can use the 'mesh_name' and 'mesh_count' variables for this purpose
+			// Example:
+			// SSBO newSSBO(bindingIndex, data, dataSize, useage);
+			// newSSBO.Bind(); // Bind the SSBO
+			// ...
+
+			// Placeholder message for demonstration
+			std::cout << "\nSSBO created for mesh %s with count: " << meshNameBufferInstanced << " " << meshCountInstanced;
 		}
-		else {
-			std::cout << "Scene does not have textures." << std::endl;
-			ImGui::Text("Scene does not have textures.");
-		}
 
-		if (hasMaterials) {
-			std::cout << "Scene has materials." << std::endl;
-			ImGui::Text("Scene has materials.");
-		}
-		else {
-			std::cout << "Scene does not have materials." << std::endl;
-			ImGui::Text("Scene does not have materials.");
-		}
+		ImGui::End();
+	
 
-		int numModels = scene->mNumMeshes;
-		std::cout << "Number of Models/Meshes: " << numModels << std::endl;
-		ImGui::Text("Number of Models/Meshes: %d", numModels);
+		// Assuming 'mesh.scene' is the Assimp root node
 
-		for (int i = 0; i < numModels; ++i) {
-			const aiMesh* paiMesh = scene->mMeshes[i];
+		ImGui::Begin("Assimp Scene Information");
+		//char file = fileNameBuffer[0];
+		//char meshName = meshNameBuffer[0];
+		ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
+		ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
 
-			if (!paiMesh) {
-				std::cout << "Invalid mesh at index: " << i << std::endl;
-				ImGui::Text("Invalid mesh at index: %d", i);
-				continue;
+
+		if (customShaders.size() > 0) {
+			std::vector<std::string> shaderIDs; // Use std::string instead of const char*
+
+			for (const auto& shader : customShaders) {
+				shaderIDs.push_back(std::to_string(shader->shaderProgramID)); // Store the strings themselves
 			}
 
-			ImGui::Separator();
-			ImGui::Text("Model %d", i + 1);
+			// Convert the vector of std::strings to a vector of const char*
+			std::vector<const char*> shaderIDPointers;
+			for (const auto& id : shaderIDs) {
+				shaderIDPointers.push_back(id.c_str());
+			}
 
-			ImGui::Text("Number of Vertices: %d", paiMesh->mNumVertices);
-			//ImGui::Text("Base Vertex: %d", paiMesh->mBaseVertex);
+			ImGui::Combo("Custom Shader ID", &selectedShaderID, shaderIDPointers.data(), shaderIDPointers.size());
 		}
-	}
-	ImGui::End();
 
-	ImGui::Begin("Mesh Properties");
+		ImGui::Checkbox("Override Load Path to Current", &boolPathOverride);
+		ImGui::InputText("Mesh Path Override", &stringMeshPathOverride[0], 10000);
+		if (ImGui::Button("Load Model") && !fileNameBuffer2.empty() && !meshNameBuffer.empty()) {
+			Mesh* newMesh;
+			newMesh = new Mesh;
+			newMesh->meshName = meshNameBuffer; // Set the mesh name
 
-	if (meshVector.size() > 0) {
+			if (customShaders.size() == 0)
+				newMesh->customShaderProgramID = *defaultShaderProgramPtr;
+			else
+				newMesh->customShaderProgramID = customShaders[selectedShaderID]->shaderProgramID;
 
-		// Rebuild the mesh names vector
-		Mesh::meshNames.clear();
-		for (const auto& mesh : meshVector) {
-			Mesh::meshNames.push_back(mesh.meshName);
+			newMesh->loadMesh(fileNameBuffer2, newMesh->customShaderProgramID);
+			newMesh->cameraPtr = &camera;
+
+			//if name is wrong causes errors.
+			meshVector.push_back(newMesh);
+			if (selectedMeshIndex == -1)
+				selectedMeshIndex = 0; //when all meshes are deleted it is set to -1, when we load a new one here, it should be set to the first
+			// Clear the input fields after loading
+
+			// Update the meshNames vector
+			Mesh::meshNames.push_back(meshNameBuffer); // Use emplace_back to construct the string directly
+
+
 		}
-		std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before Delete\n";
-		ImGui::Text("Selected Mesh Index numer is: %d", selectedMeshIndex);
-		if (ImGui::Button("Delete Mesh")) {
-			std::cout << "pressed delete\n";
-			if (!meshVector.empty()) {
-				std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before if2\n";
+		GLenum error = glGetError();
+		if (error != GL_NO_ERROR) {
+			std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
+		}
+		if (!mesh.scenePtr) {
+			std::cout << "Assimp scene is not loaded." << std::endl;
+			ImGui::Text("Assimp scene is not loaded.");
+
+		}
+		else {
+			const aiScene* scene = mesh.scenePtr;
+
+			bool hasTextures = scene->HasTextures();
+			bool hasMaterials = scene->HasMaterials();
+
+			if (hasTextures) {
+				std::cout << "Scene has textures." << std::endl;
+				ImGui::Text("Scene has textures.");
+			}
+			else {
+				std::cout << "Scene does not have textures." << std::endl;
+				ImGui::Text("Scene does not have textures.");
+			}
+
+			if (hasMaterials) {
+				std::cout << "Scene has materials." << std::endl;
+				ImGui::Text("Scene has materials.");
+			}
+			else {
+				std::cout << "Scene does not have materials." << std::endl;
+				ImGui::Text("Scene does not have materials.");
+			}
+
+			int numModels = scene->mNumMeshes;
+			std::cout << "Number of Models/Meshes: " << numModels << std::endl;
+			ImGui::Text("Number of Models/Meshes: %d", numModels);
+
+			for (int i = 0; i < numModels; ++i) {
+				const aiMesh* paiMesh = scene->mMeshes[i];
+
+				if (!paiMesh) {
+					std::cout << "Invalid mesh at index: " << i << std::endl;
+					ImGui::Text("Invalid mesh at index: %d", i);
+					continue;
+				}
+
+				ImGui::Separator();
+				ImGui::Text("Model %d", i + 1);
+
+				ImGui::Text("Number of Vertices: %d", paiMesh->mNumVertices);
+				//ImGui::Text("Base Vertex: %d", paiMesh->mBaseVertex);
+			}
+		}
+		ImGui::End();
+
+		ImGui::Begin("Mesh Properties");
+		if (!meshVector.empty()) {
+			std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before Delete\n";
+			ImGui::Text("Selected Mesh Index number is: %d", selectedMeshIndex);
+			if (ImGui::Button("Delete Mesh")) {
+				std::cout << "pressed delete\n";
 				if (selectedMeshIndex >= 0 && selectedMeshIndex < meshVector.size()) {
 					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before erase\n";
-					meshVector.erase(meshVector.begin() + selectedMeshIndex);
+					if (meshVector.size() == 1) {
+						meshVector.clear();
+						Mesh::meshNames.clear();
+					}
+					else {
+						meshVector.erase(meshVector.begin() + selectedMeshIndex);
+						Mesh::meshNames.erase(Mesh::meshNames.begin() + selectedMeshIndex);
+					}
 					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after .erase\n";
 					if (selectedMeshIndex >= meshVector.size()) {
 						selectedMeshIndex = meshVector.empty() ? -1 : meshVector.size() - 1;
 					}
 				}
 			}
-		}
-		
-		if (meshVector.size() > 0) {
-			std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after selectedmesh if\n";
-			// Dropdown for selecting a mesh
-			if (ImGui::BeginCombo("Select Mesh", selectedMeshIndex >= 0 ? Mesh::meshNames[selectedMeshIndex].c_str() : "-")) {
-				for (int i = 0; i < Mesh::meshNames.size(); ++i) {
-					bool isSelected = (i == selectedMeshIndex);
-					if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
-						selectedMeshIndex = i;
+
+
+
+			if (meshVector.size() > 0) {
+				std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after selectedmesh if\n";
+				// Dropdown for selecting a mesh
+				if (ImGui::BeginCombo("Select Mesh", selectedMeshIndex >= 0 ? Mesh::meshNames[selectedMeshIndex].c_str() : "-")) {
+					for (int i = 0; i < Mesh::meshNames.size(); ++i) {
+						bool isSelected = (i == selectedMeshIndex);
+						if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
+							selectedMeshIndex = i;
+						}
+						if (isSelected) {
+							ImGui::SetItemDefaultFocus(); // Set the default selection
+						}
 					}
-					if (isSelected) {
-						ImGui::SetItemDefaultFocus(); // Set the default selection
-					}
+					ImGui::EndCombo();
+
 				}
-				ImGui::EndCombo();
 
-			}
+				if (customShaders.size() > 0) {
+					shaderIDStrings.clear();
+					for (const auto& shader : customShaders) {
+						shaderIDStrings.push_back(std::to_string(shader->shaderProgramID));
+					}
 
+					std::vector<const char*> shaderIDs;
+					for (const auto& idString : shaderIDStrings) {
+						shaderIDs.push_back(idString.c_str());
+					}
+
+					ImGui::Combo("Custom Shader ID", &selectedShaderID2, shaderIDs.data(), shaderIDs.size());
+
+					if (ImGui::Button("Change Shader") && selectedShaderID2 != -1 && selectedMeshIndex != -1 && selectedMeshIndex < meshVector.size()) {
+						meshVector[selectedMeshIndex]->shaderProgram = customShaders[selectedShaderID2]->shaderProgramID;
+						meshVector[selectedMeshIndex]->customShaderProgramID = customShaders[selectedShaderID2]->shaderProgramID;
+
+					}
+					// This line was missing
+
+				}
+
+
+
+				ImGui::Text(std::to_string(meshVector[selectedMeshIndex]->customShaderProgramID).c_str());
 				if (ImGui::Button("Reset Transformations")) {
 					// Reset transformations to identity matrix
-					meshVector[selectedMeshIndex].SetScale(glm::vec3(1.0f));
-					meshVector[selectedMeshIndex].SetRotation(glm::vec3(0.0f));
-					meshVector[selectedMeshIndex].SetTranslation(glm::vec3(0.0f));
+					meshVector[selectedMeshIndex]->SetScale(glm::vec3(1.0f));
+					meshVector[selectedMeshIndex]->SetRotation(glm::vec3(0.0f));
+					meshVector[selectedMeshIndex]->SetTranslation(glm::vec3(0.0f));
 				}
 
-				if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex].scale.x, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex]->scale.x, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
 				}
 
-				if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex].scale.y, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex]->scale.y, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
 				}
 
-				if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex].scale.z, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex].SetScale(meshVector[selectedMeshIndex].scale);
+				if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex]->scale.z, 0.1f, 10.0f)) {
+					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
 				}
 
 				// For SetRotation
-				if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex].rotation.x, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex]->rotation.x, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
 				}
 
-				if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex].rotation.y, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex]->rotation.y, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
 				}
 
-				if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex].rotation.z, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex].SetRotation(meshVector[selectedMeshIndex].rotation);
+				if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex]->rotation.z, -180.0f, 180.0f)) {
+					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
 				}
 
 				// For SetTranslation
-				if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex].translation.x)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex]->translation.x)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 				}
 
-				if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex].translation.y)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex]->translation.y)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 				}
 
-				if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex].translation.z)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex]->translation.z)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 				}
-				if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex].translation.x, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
-				}
-
-				if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex].translation.y, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex]->translation.x, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 				}
 
-				if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex].translation.z, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex].SetTranslation(meshVector[selectedMeshIndex].translation);
+				if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex]->translation.y, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 				}
 
-			
+				if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex]->translation.z, -800.0f, 800.0f)) {
+					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+				}
+
+
+			}
+			//	ImGui::EndCombo();
+
 		}
-	
-	}
 		ImGui::End();
-	
-	ImGui::Begin("Style Settings");
+	}
+	if (drawIMGUI) {
+		ImGui::Begin("Style Settings");
 
-	// Background color slider
-	ImGui::Text("Background Color:");
-	ImGui::ColorEdit4("##bgColor", (float*)&bgColor);
+		// Background color slider
+		ImGui::Text("Background Color:");
+		ImGui::ColorEdit4("##bgColor", (float*)&bgColor);
 
-	// Button color slider
-	ImGui::Text("Button Color:");
-	ImGui::ColorEdit4("##buttonColor", (float*)&buttonColor);
+		// Button color slider
+		ImGui::Text("Button Color:");
+		ImGui::ColorEdit4("##buttonColor", (float*)&buttonColor);
 
-	// Apply button
-	if (ImGui::Button("Apply")) {
-		SetImGuiStyleColors(bgColor, buttonColor);
+		// Apply button
+		if (ImGui::Button("Apply")) {
+			SetImGuiStyleColors(bgColor, buttonColor);
+		}
+
+		ImGui::End();
 	}
 
-	ImGui::End();
+	if (drawIMGUI) {
 
-	ImGui::Begin("Render Shapes");
-	ImGui::Checkbox("Follow Character", &character->characterActive);
-	if (character->characterActive)
-	{
-		lMouseClicked = true;
-		ImGui::Text("TFGH to contrrl character (as WASD)");
+		ImGui::Begin("Render Shapes");
+		ImGui::Checkbox("Follow Character", &character->characterActive);
+		if (character->characterActive)
+		{
+			lMouseClicked = true;
+			ImGui::Text("TFGH to contrrl character (as WASD)");
+		}
+		//else { lMouseClicked = false; }
+		ImGui::Checkbox("Wireframe", &wireframe);
+
+		if (wireframe) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+		else
+		{
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+		const char* options[] = { "Pyramid", "Cube", "Plain", "Sphere" };
+
+		ImGui::Combo("Shape Type", &selectedOption, options, IM_ARRAYSIZE(options));
+
+		//What's needed to create a shape
+
+		ImGui::End();
 	}
-	//else { lMouseClicked = false; }
-	ImGui::Checkbox("Wireframe", &wireframe);
-
-	if (wireframe) {
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	}
-	else
-	{
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	}
-	const char* options[] = { "Pyramid", "Cube", "Plain", "Sphere" };
-
-	ImGui::Combo("Shape Type", &selectedOption, options, IM_ARRAYSIZE(options));
-
-	//What's needed to create a shape
-	
-	ImGui::End();
-
 	// Create ImGui window
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
 	glViewport(0, 0, window_width, window_height);
@@ -2106,7 +2311,7 @@ void drawUI()
 		std::cout << "Framebuffer is not complete! Error code: " << framebufferStatus << std::endl;
 		// Handle the error as needed
 	}
-	
+
 	//create screenshot im gui and tidy up after
 	if (boolShowGLErrors) {
 		GLenum error;
@@ -2114,195 +2319,51 @@ void drawUI()
 			std::cout << "\nopenGL Error at: Bind framebuffer at gameloop";
 		}
 	}
-	ImGui::Begin("Cubes");
-	ImGui::Checkbox("View Physics Engine", &boolRigidBody);
-	if (ImGui::Button("Screenshot")) {
-		GLubyte* pixels = new GLubyte[window_width * window_height * 4]; // 4 channels (RGBA)
-		if (boolShowGLErrors) {
-			GLenum error;
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
-			}
-		}
-		std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
-		// Read the pixel data from the framebuffer
-		glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-		if (boolShowGLErrors) {
-			GLenum error;
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
-			}
-		}
-		// Unbind the framebuffer
-
-		// Flip the pixel data vertically (OpenGL reads pixels from bottom to top)
-		GLubyte* flippedPixels = new GLubyte[window_width * window_height * 4];
-
-		for (int y = 0; y < window_height; ++y) {
-			for (int x = 0; x < window_width; ++x) {
-				int sourceIndex = (window_height - y - 1) * window_width + x;
-				int destIndex = y * window_width + x;
-
-				memcpy(flippedPixels + destIndex * 4, pixels + sourceIndex * 4, 4);
-			}
-		}
-
-		// Save the pixel data as an image using stb_image_write
-		stbi_write_png("colorFBO.png", window_width, window_height, 4, flippedPixels, window_width * 4);
-
-		// Clean up
-		delete[] pixels;
-		delete[] flippedPixels;
-	}
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-
-		ImGui::Begin("Heightmap Editor");//ImGui::Begin("Heightmap Editor", &showUI);
-
-		// Create a button to generate the heightmap
-		  // Iterate through the normals vector and display them in sets of 3
-		for (size_t i = 0; i + 2 < terrain.normals.size() && i < 16; i += 3) {
-			ImGui::Text("Set %zu", i / 3); // Display a label for the set
-
-			// Display each normal in the set
-			for (int j = 0; j < 3; ++j) {
-				ImGui::Text("Normal %d: (%.4f, %.4f, %.4f)", j + 1,
-					terrain.normals[i + j].x, terrain.normals[i + j].y, terrain.normals[i + j].z);
-			}
-
-			ImGui::Separator(); // Add a separator between sets
-		}
-		ImGui::Checkbox("Draw HeightMap Tools - Slows down rendering for large maps", &boolDrawHeightMap);
-	
-		if (boolDrawHeightMap) {
-			// Button to export the heightmap to a raw file
-			if (ImGui::Button("Export to Raw")) {
-				std::ofstream file("map.raw", std::ios::binary);
-				if (!file.is_open()) {
-					std::cerr << "Failed to open file for writing." << std::endl;
-					return;
+	if (drawIMGUI) {
+		ImGui::Begin("Cubes");
+		ImGui::Checkbox("View Physics Engine", &boolRigidBody);
+		if (ImGui::Button("Screenshot")) {
+			GLubyte* pixels = new GLubyte[window_width * window_height * 4]; // 4 channels (RGBA)
+			if (boolShowGLErrors) {
+				GLenum error;
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
 				}
-
-				file.write(reinterpret_cast<const char*>(terrain.heightmapData.heights.data()), terrain.heightmapData.heights.size() * sizeof(float));
-
-				file.close();
-				char map[] = "map.raw";
-				terrain.loadHeightMap(map, terrain.size);
-				terrain.generateHeightMap();
-				if (terrain.terrainMeshRigidBody != nullptr) {
-					//btCollisionShape* collisionShape = terrain.getTerrainCollionShape();
-					dynamicsWorldPtr->removeCollisionObject(terrain.getTerrainMesh());
-					terrain.terrainMeshRigidBody = nullptr;
-						//delete collisionShape;
+			}
+			std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
+			// Read the pixel data from the framebuffer
+			glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+			if (boolShowGLErrors) {
+				GLenum error;
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
 				}
-				terrain.createTerrainMesh();
-			
-				dynamicsWorldPtr->updateAabbs();
+			}
+			// Unbind the framebuffer
+
+			// Flip the pixel data vertically (OpenGL reads pixels from bottom to top)
+			GLubyte* flippedPixels = new GLubyte[window_width * window_height * 4];
+
+			for (int y = 0; y < window_height; ++y) {
+				for (int x = 0; x < window_width; ++x) {
+					int sourceIndex = (window_height - y - 1) * window_width + x;
+					int destIndex = y * window_width + x;
+
+					memcpy(flippedPixels + destIndex * 4, pixels + sourceIndex * 4, 4);
+				}
 			}
 
+			// Save the pixel data as an image using stb_image_write
+			stbi_write_png("colorFBO.png", window_width, window_height, 4, flippedPixels, window_width * 4);
 
-			if (ImGui::SliderInt("Number of Octaves", &terrain.numOctaves, 1, 10)) {
-				// Recalculate octaves if the number changes
-				// You can also adjust their properties here
-			}
-			if (ImGui::SliderFloat("Persistance", &terrain.persistance, 0.5, 5)) {
-				// Recalculate octaves if the number changes
-				// You can also adjust their properties here
-			}
-			if (ImGui::SliderFloat("Lacunarity", &terrain.lacunarity, 0.3, 5)) {
-				// Recalculate octaves if the number changes
-				// You can also adjust their properties here
-			}
-			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 100.0f))
-			{
-				terrain.generateHeightMap();
-			}
-
-			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 0.01f, 100.0f))
-			{
-				terrain.generateHeightMap();
-			}
-			if (ImGui::SliderInt("Size", &terrain.size, 128.f, 2048.0f)) {
-				terrain.heightmapData.size = terrain.size;
-
-			//	terrain.generateHeightMap();
-			}
-
-			if (ImGui::Button("Medium")) {
-				terrain.heightmapData.size = 512; 
-				terrain.size = 512;
-				terrain.amplitude	= 50;
-				terrain.frequency = 25;
-			}
-			if (ImGui::Button("Large")) { 
-			terrain.heightmapData.size = 768; 
-			terrain.size = 768;
-			terrain.frequency = 25;
-			terrain.amplitude = 50;
-			}
-
-			if (ImGui::Button("Medium Bumpy")) {
-				terrain.heightmapData.size = 512;
-				terrain.size = 512;
-				terrain.amplitude= 75;
-				terrain.frequency = 50;
-			}
-			if (ImGui::Button("Large Bumpy")) {
-			terrain.size = 768;
-			terrain.heightmapData.size = 768;
-			terrain.amplitude = 75;
-			terrain.frequency = 50;
-			}
-			ImGui::SliderFloat2("Grid", &Grid.x, 2.0f, 30.0f);
-			// Button to generate the heightmap
-			if (ImGui::Button("Generate Heightmap")) {
-				terrain.generateHeightMap();
-			}
-			if (terrain.size > 0 && terrain.heightmapData.heights.size() > 0) {
-				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
-				//	ImGui::BeginGroup(); // Begin a row
-
-				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
-				//		int index = x + y * terrain.heightmapData.size;
-				//		float heightValue = terrain.heightmapData.heights[index];
-
-				//		// Map height value to grayscale color
-				//		ImVec4 color(heightValue, heightValue, heightValue, 1.0f);
-
-				//		// Display color as a square
-
-				//		ImGui::ColorButton("##ColorButton", color, ImGuiColorEditFlags_NoTooltip, ImVec2(Grid.x, Grid.y));
-
-				//		ImGui::SameLine(); // Display the next color in the same row
-				//	}
-
-				//	ImGui::EndGroup(); // End the row
-				//}
-
-				//ImGui::Text("Heightmap Grid:");
-				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
-				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
-				//		int index = x + y * terrain.heightmapData.size;
-				//		ImGui::Text("%.2f", terrain.heightmapData.heights[index]);
-				//		ImGui::SameLine();
-				//	}
-				//	ImGui::NewLine();
-				//}
-
-				//// Create a grid for editing height values
-				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
-				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
-				//		int index = x + y * terrain.heightmapData.size;
-				//		ImGui::InputFloat(("Height##" + std::to_string(index)).c_str(), &terrain.heightmapData.heights[index]);
-				//	}
-				//}
-
-			}
+			// Clean up
+			delete[] pixels;
+			delete[] flippedPixels;
 		}
-		ImGui::End();
-	
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 
 
 		//Generate new cube IMGUI and their physics body
@@ -2440,18 +2501,18 @@ void drawUI()
 			//dynamicsWorld->addCollisionObject(body);
 
 			// Generate new cube instances
-			
+
 			std::mt19937 rng(std::time(nullptr));
 			glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
 			btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
 			sharedBoxShape->setMargin(0.1f);
 			for (int i = 0; i < cubesToGenerate; i++) {
 
-			//	btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
-				//boxShapeInstance->setMargin(0.1f);
+				//	btBoxShape* boxShapeInstance = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+					//boxShapeInstance->setMargin(0.1f);
 
-				// Define random distribution for positions and velocities
-				//std::uniform_real_distribution<float> positionDist(minPos, maxPos); // Define minPos and maxPos as desired
+					// Define random distribution for positions and velocities
+					//std::uniform_real_distribution<float> positionDist(minPos, maxPos); // Define minPos and maxPos as desired
 				std::uniform_real_distribution<float> velocityDist(0.1f, 5.0f); // Define minVel and maxVel as desired
 
 				float xVel = velocityDist(rng);
@@ -2466,9 +2527,9 @@ void drawUI()
 
 				//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
 				glm::vec3 instanceScale;
-instanceScale.x = glm::linearRand(0.1f, 1.0f);
-instanceScale.y = glm::linearRand(0.1f, 1.0f);
-instanceScale.z = glm::linearRand(0.1f, 1.0f);
+				instanceScale.x = glm::linearRand(0.1f, 1.0f);
+				instanceScale.y = glm::linearRand(0.1f, 1.0f);
+				instanceScale.z = glm::linearRand(0.1f, 1.0f);
 
 				glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
 
@@ -2511,7 +2572,7 @@ instanceScale.z = glm::linearRand(0.1f, 1.0f);
 				cube.rigidBody = rigidBody;
 				rigidBodies.push_back(rigidBody);
 				cubesSSBOVector.push_back(cube);
-				
+
 
 			}
 			// add the body to the dynamics world
@@ -2521,130 +2582,280 @@ instanceScale.z = glm::linearRand(0.1f, 1.0f);
 			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
 
 		}
-
-		//if (ImGui::Button("Display Physics Data"))
-		ImGui::Begin("Physics Data");
-
-		for (int i = 0; i < dynamicsWorldPtr->getNumCollisionObjects(); i++) {
-			btCollisionObject* obj = dynamicsWorldPtr->getCollisionObjectArray()[i];
-
-			// Check if it's a rigid body
-			btRigidBody* rigidBody = btRigidBody::upcast(obj);
-			if (rigidBody) {			//	// Print relevant data about the rigid body
-				btCollisionShape* shape = rigidBody->getCollisionShape();
-				btVector3 position = rigidBody->getCenterOfMassPosition();
-				btVector3 velocity = rigidBody->getLinearVelocity();
-				btVector3 angularVelocity = rigidBody->getAngularVelocity();
-
-			//	// Get the size of the collision shape (assuming it's a box shape)
-				btVector3 halfExtents;
-
-			//	if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
-			//		btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
-			//		halfExtents = boxShape->getHalfExtentsWithMargin();
-			//	}
-
-			//	else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
-			//		ImGui::Text("Rigid Body Sphere");
-			//	}
-			//	else {
-			//		// Handle other shape types here if needed
-			//		ImGui::Text("Unknown Collision Shape Type");
-
-			//		continue; // Skip to the next collision object
-			//	}
-
-			//	btVector3 size = halfExtents * 2.0;
-
-			//	// Display data in ImGui window
-			//	ImGui::Text("Rigid Body %d", i);
-			//	//if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
-			//	//	// When the button is clicked, set the camera's view matrix to look at the shape
-			//	//	// You'll need to adjust this part based on your camera setup
-			//	//	//glm::vec3 cameraPosition = /* Set your camera position here */;
-			//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-			//	//	camera.mYaw = -90.0f;
-			//	//	camera.update();
-			//	//	view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
-			//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-			//	//	camera.mYaw = -90.0f;
-			//	//	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-			//	//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-			//	//	camera.mViewMatrix = view;
-			//	//	camera.mPosition.x = position.x();
-			//	//	camera.mPosition.y = position.y();
-			//	//	camera.mPosition.z = (position.z() + 3.0f);
-			//	//}
-				glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		ImGui::End();
+	}
 
 
-			//	//DEBUG view matrices data for all cubes in an imgui window 'physics data' (heavy on cpu use due to imgui text)
-			//	/*for (int row = 0; row < 4; ++row) {
-			//		ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
-			//	}*/
-			glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	if (drawIMGUI) {
+		ImGui::Begin("Heightmap Editor");//ImGui::Begin("Heightmap Editor", &showUI);
 
-			//	ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
-			//		(std::numeric_limits<double>::max_digits10, position.y()),
-			//		(std::numeric_limits<double>::max_digits10, position.z()));
+		// Create a button to generate the heightmap
+		  // Iterate through the normals vector and display them in sets of 3
+		for (size_t i = 0; i + 2 < terrain.normals.size() && i < 16; i += 3) {
+			ImGui::Text("Set %zu", i / 3); // Display a label for the set
 
-			//	ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
-			//	ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
-			//	ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-			//	ImGui::Text(" ");
+			// Display each normal in the set
+			for (int j = 0; j < 3; ++j) {
+				ImGui::Text("Normal %d: (%.4f, %.4f, %.4f)", j + 1,
+					terrain.normals[i + j].x, terrain.normals[i + j].y, terrain.normals[i + j].z);
 			}
-			else {
-				// It's not a rigid body, so it might be another type of collision object
-				// You can add handling for other types here if needed
-				ImGui::Text("Unknown Collision Object Type");
-				ImGui::Text("Other Body %d", i);
-				btCollisionShape* shape = obj->getCollisionShape();
-				btTransform worldtransform = obj->getWorldTransform();
-				btVector3 position = worldtransform.getOrigin();
-				btVector3 velocity = obj->getInterpolationLinearVelocity();
-				//btVector3 angularVelocity = obj->getAngularVelocity();
-				btSphereShape* sphereShape = static_cast<btSphereShape*>(shape);
-				int size;
-				//size = sphereShape->getRadius();
-				glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-				if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+			ImGui::Separator(); // Add a separator between sets
+		}
+		ImGui::Checkbox("Draw HeightMap Tools - Slows down rendering for large maps", &boolDrawHeightMap);
 
-
-
-
-					// When the button is clicked, set the camera's view matrix to look at the shape
-					// You'll need to adjust this part based on your camera setup
-					//glm::vec3 cameraPosition = /* Set your camera position here */;
-					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-					camera.mYaw = -90.0f;
-					camera.update();
-					view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
-					camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
-					camera.mYaw = -90.0f;
-					glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-					camera.mViewMatrix = view;
-					camera.mPosition.x = position.x();
-					camera.mPosition.y = position.y();
-					camera.mPosition.z = (position.z() + 3.0f);
+		if (boolDrawHeightMap) {
+			// Button to export the heightmap to a raw file
+			if (ImGui::Button("Export to Raw")) {
+				std::ofstream file("map.raw", std::ios::binary);
+				if (!file.is_open()) {
+					std::cerr << "Failed to open file for writing." << std::endl;
+					return;
 				}
-				for (int row = 0; row < 4; ++row) {
-					ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+
+				file.write(reinterpret_cast<const char*>(terrain.heightmapData.heights.data()), terrain.heightmapData.heights.size() * sizeof(float));
+
+				file.close();
+				char map[] = "map.raw";
+				terrain.loadHeightMap(map, terrain.size);
+				terrain.generateHeightMap();
+				if (terrain.terrainMeshRigidBody != nullptr) {
+					//btCollisionShape* collisionShape = terrain.getTerrainCollionShape();
+					dynamicsWorldPtr->removeCollisionObject(terrain.getTerrainMesh());
+					terrain.terrainMeshRigidBody = nullptr;
+					//delete collisionShape;
 				}
-				ImGui::Text("Position: (%f, %f, %f)", position.x(), position.y(), position.z());
-				//ImGui::Text("Radius: (%f)", size);
-				ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
-				//ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
-				ImGui::Text(" ");
+				terrain.createTerrainMesh();
+
+				dynamicsWorldPtr->updateAabbs();
+			}
+
+
+			if (ImGui::SliderInt("Number of Octaves", &terrain.numOctaves, 1, 10)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Persistance", &terrain.persistance, 0.5, 5)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Lacunarity", &terrain.lacunarity, 0.3, 5)) {
+				// Recalculate octaves if the number changes
+				// You can also adjust their properties here
+			}
+			if (ImGui::SliderFloat("Frequency", &terrain.frequency, 0.01f, 100.0f))
+			{
+				terrain.generateHeightMap();
+			}
+
+			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 0.01f, 100.0f))
+			{
+				terrain.generateHeightMap();
+			}
+			if (ImGui::SliderInt("Size", &terrain.size, 128.f, 2048.0f)) {
+				terrain.heightmapData.size = terrain.size;
+
+				//	terrain.generateHeightMap();
+			}
+
+			if (ImGui::Button("Medium")) {
+				terrain.heightmapData.size = 512;
+				terrain.size = 512;
+				terrain.amplitude = 50;
+				terrain.frequency = 25;
+			}
+			if (ImGui::Button("Large")) {
+				terrain.heightmapData.size = 768;
+				terrain.size = 768;
+				terrain.frequency = 25;
+				terrain.amplitude = 50;
+			}
+
+			if (ImGui::Button("Medium Bumpy")) {
+				terrain.heightmapData.size = 512;
+				terrain.size = 512;
+				terrain.amplitude = 75;
+				terrain.frequency = 50;
+			}
+			if (ImGui::Button("Large Bumpy")) {
+				terrain.size = 768;
+				terrain.heightmapData.size = 768;
+				terrain.amplitude = 75;
+				terrain.frequency = 50;
+			}
+			ImGui::SliderFloat2("Grid", &Grid.x, 2.0f, 30.0f);
+			// Button to generate the heightmap
+			if (ImGui::Button("Generate Heightmap")) {
+				terrain.generateHeightMap();
+			}
+			if (terrain.size > 0 && terrain.heightmapData.heights.size() > 0) {
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	ImGui::BeginGroup(); // Begin a row
+
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		float heightValue = terrain.heightmapData.heights[index];
+
+				//		// Map height value to grayscale color
+				//		ImVec4 color(heightValue, heightValue, heightValue, 1.0f);
+
+				//		// Display color as a square
+
+				//		ImGui::ColorButton("##ColorButton", color, ImGuiColorEditFlags_NoTooltip, ImVec2(Grid.x, Grid.y));
+
+				//		ImGui::SameLine(); // Display the next color in the same row
+				//	}
+
+				//	ImGui::EndGroup(); // End the row
+				//}
+
+				//ImGui::Text("Heightmap Grid:");
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		ImGui::Text("%.2f", terrain.heightmapData.heights[index]);
+				//		ImGui::SameLine();
+				//	}
+				//	ImGui::NewLine();
+				//}
+
+				//// Create a grid for editing height values
+				//for (int y = 0; y < terrain.heightmapData.size; ++y) {
+				//	for (int x = 0; x < terrain.heightmapData.size; ++x) {
+				//		int index = x + y * terrain.heightmapData.size;
+				//		ImGui::InputFloat(("Height##" + std::to_string(index)).c_str(), &terrain.heightmapData.heights[index]);
+				//	}
+				//}
+
 			}
 		}
-		//<< section hidden via tool bar on left near line numberr <<
 		ImGui::End();
+	}
 
+		//if (ImGui::Button("Display Physics Data" ))
+		if (drawIMGUI) {
+			ImGui::Begin("Physics Data");
+
+			for (int i = 0; i < dynamicsWorldPtr->getNumCollisionObjects(); i++) {
+				btCollisionObject* obj = dynamicsWorldPtr->getCollisionObjectArray()[i];
+
+				// Check if it's a rigid body
+				btRigidBody* rigidBody = btRigidBody::upcast(obj);
+				if (rigidBody) {			//	// Print relevant data about the rigid body
+					btCollisionShape* shape = rigidBody->getCollisionShape();
+					btVector3 position = rigidBody->getCenterOfMassPosition();
+					btVector3 velocity = rigidBody->getLinearVelocity();
+					btVector3 angularVelocity = rigidBody->getAngularVelocity();
+
+					//	// Get the size of the collision shape (assuming it's a box shape)
+					btVector3 halfExtents;
+
+					//	if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
+					//		btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
+					//		halfExtents = boxShape->getHalfExtentsWithMargin();
+					//	}
+
+					//	else if (shape->getShapeType() == SPHERE_SHAPE_PROXYTYPE) {
+					//		ImGui::Text("Rigid Body Sphere");
+					//	}
+					//	else {
+					//		// Handle other shape types here if needed
+					//		ImGui::Text("Unknown Collision Shape Type");
+
+					//		continue; // Skip to the next collision object
+					//	}
+
+					//	btVector3 size = halfExtents * 2.0;
+
+					//	// Display data in ImGui window
+					//	ImGui::Text("Rigid Body %d", i);
+					//	//if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+					//	//	// When the button is clicked, set the camera's view matrix to look at the shape
+					//	//	// You'll need to adjust this part based on your camera setup
+					//	//	//glm::vec3 cameraPosition = /* Set your camera position here */;
+					//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					//	//	camera.mYaw = -90.0f;
+					//	//	camera.update();
+					//	//	view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+					//	//	camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+					//	//	camera.mYaw = -90.0f;
+					//	//	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+					//	//	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+					//	//	camera.mViewMatrix = view;
+					//	//	camera.mPosition.x = position.x();
+					//	//	camera.mPosition.y = position.y();
+					//	//	camera.mPosition.z = (position.z() + 3.0f);
+					//	//}
+					glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+
+					//	//DEBUG view matrices data for all cubes in an imgui window 'physics data' (heavy on cpu use due to imgui text)
+					//	/*for (int row = 0; row < 4; ++row) {
+					//		ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+					//	}*/
+					glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+					glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+					//	ImGui::Text("Position: (%f, %f, %f)", (std::numeric_limits<double>::max_digits10, position.x()),
+					//		(std::numeric_limits<double>::max_digits10, position.y()),
+					//		(std::numeric_limits<double>::max_digits10, position.z()));
+
+					//	ImGui::Text("Size: (%f, %f, %f)", size.x(), size.y(), size.z());
+					//	ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
+					//	ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+					//	ImGui::Text(" ");
+				}
+				else {
+					// It's not a rigid body, so it might be another type of collision object
+					// You can add handling for other types here if needed
+					ImGui::Text("Unknown Collision Object Type");
+					ImGui::Text("Other Body %d", i);
+					btCollisionShape* shape = obj->getCollisionShape();
+					btTransform worldtransform = obj->getWorldTransform();
+					btVector3 position = worldtransform.getOrigin();
+					btVector3 velocity = obj->getInterpolationLinearVelocity();
+					//btVector3 angularVelocity = obj->getAngularVelocity();
+					btSphereShape* sphereShape = static_cast<btSphereShape*>(shape);
+					int size;
+					//size = sphereShape->getRadius();
+					glm::mat4 viewMatrix = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), position.z() + 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+					if (ImGui::Button(("Look at Shape " + std::to_string(i)).c_str())) {
+
+
+
+
+						// When the button is clicked, set the camera's view matrix to look at the shape
+						// You'll need to adjust this part based on your camera setup
+						//glm::vec3 cameraPosition = /* Set your camera position here */;
+						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+						camera.mYaw = -90.0f;
+						camera.update();
+						view = glm::lookAt(camera.mPosition, glm::vec3(position.x(), position.y(), (position.z() + 3.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+						camera.mPitch = 0.0f;  // Reset pitch to 0 degrees
+						camera.mYaw = -90.0f;
+						glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+						glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+						camera.mViewMatrix = view;
+						camera.mPosition.x = position.x();
+						camera.mPosition.y = position.y();
+						camera.mPosition.z = (position.z() + 3.0f);
+					}
+					for (int row = 0; row < 4; ++row) {
+						ImGui::Text("%.3f, %.3f, %.3f, %.3f", viewMatrix[row][0], viewMatrix[row][1], viewMatrix[row][2], viewMatrix[row][3]);
+					}
+					ImGui::Text("Position: (%f, %f, %f)", position.x(), position.y(), position.z());
+					//ImGui::Text("Radius: (%f)", size);
+					ImGui::Text("Linear Velocity: (%f, %f, %f)", velocity.x(), velocity.y(), velocity.z());
+					//ImGui::Text("Angular Velocity: (%f, %f, %f)", angularVelocity.x(), angularVelocity.y(), angularVelocity.z());
+					ImGui::Text(" ");
+				}
+			}
+			//<< section hidden via tool bar on left near line numberr <<
+			ImGui::End();
+		}
 
 }
 
@@ -2923,9 +3134,16 @@ void initialise(float x, float y, float z, GLFWwindow* window) {
 	character = new Character(dynamicsWorldPtr, x, y, z, window );
 	camera.m_window = window;
 	camera.character = character;
+	 customVertexShaderCode.reserve(10000);
+	 customFragmentShaderCode.reserve(10000);
+	 stringMeshPathOverride.reserve(10000);
+	 meshNameBufferInstanced.reserve(10000);
 
+	std::string customFragmentShaderCode;
 	//setup matrices
 
+
+	bindingIndexCount = 3;
 	 modelLoc = glGetUniformLocation(*defaultShaderProgramPtr, "model");
 	 viewLoc = glGetUniformLocation(*defaultShaderProgramPtr, "view");
 	 projectionLoc = glGetUniformLocation(*defaultShaderProgramPtr, "projection");
@@ -2953,3 +3171,75 @@ void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor) {
 	// Set button color
 	style.Colors[ImGuiCol_Button] = buttonColor;
 }
+
+void generateSSBOInstance(int count) {
+	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+	sharedBoxShape->setMargin(0.1f);
+	std::vector<World::cubeInstance>instanceDataVector;
+	for (int i = 0; i < count; i++)
+	{	
+		glm::vec3 instancePosition;
+		instancePosition.x = glm::linearRand(-1500.0f, 1547.0f);
+		instancePosition.y = glm::linearRand(-1555.0f, 1556.0f);
+		instancePosition.z = glm::linearRand(-1500.0f, 1547.0f);
+
+		//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
+		glm::vec3 instanceScale;
+		float randomScale = glm::linearRand(0.01f, 0.5f);
+		instanceScale.x = randomScale;
+		instanceScale.y = randomScale;
+		instanceScale.z = randomScale;
+
+		glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
+
+		// Apply scale
+		modelMatrix = glm::scale(modelMatrix, instanceScale);
+
+		// Apply translation
+		modelMatrix = glm::translate(modelMatrix, instancePosition);
+
+		// No rotation is applied in this version
+		
+		World::cubeInstance instance;
+		instance.modelMatrix = modelMatrix;
+		//cube pushed back into vector after rigid body creation to pass ptr to body into same ssbo vector so each cube can
+			//access its RB
+
+		glm::vec3 cubePosition = instancePosition;
+		glm::vec3 scale = instanceScale;
+
+		// Set initial position and orientation
+		btTransform startTransform;
+		startTransform.setIdentity();
+		startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
+
+		// Create a rigid body
+		btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
+		btVector3 localInertia(0, 0, 0);
+		sharedBoxShape->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
+
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, sharedBoxShape, localInertia);
+		btRigidBody* rigidBody = new btRigidBody(rbInfo);
+
+		//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
+		btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
+		rigidBody->setAngularVelocity(angularVelocity);
+		
+		
+		// Add rigid body to the dynamics world
+		//dynamicsWorldPtr->addRigidBody(rigidBody);
+		instance.rigidBody = rigidBody;
+		//rigidBodies.push_back(rigidBody);
+		instanceDataVector.push_back(instance);
+
+	}
+	//cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+	SSBOVector[SSBOVector.size() - 1]->Bind();
+	SSBOVector[SSBOVector.size()-1]->updateData(instanceDataVector.data(), sizeof(instanceDataVector[0]) * instanceDataVector.size());
+	GLenum error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error after updating SSBO: " << error << std::endl;
+	}
+}
+

@@ -41,6 +41,19 @@ namespace World {
 
 	};
 
+	struct meshInstance : public worldObject {
+
+		glm::mat4 modelMatrix;
+		glm::vec3 rotationPerFrame;
+		glm::uvec2 padding;
+		btRigidBody* rigidBody = nullptr;
+		// Add any other relevant properties for the specific mesh type
+	};
+
 };
 
 static_assert(sizeof(World::cubeInstance) % 16 == 0, "worldObject size not aligned");
+
+
+static_assert(sizeof(World::meshInstance) % 16 == 0, "worldObject size not aligned");
+

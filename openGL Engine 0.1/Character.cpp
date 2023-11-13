@@ -74,29 +74,31 @@ void Character::update()
 void Character::debug()
 {
 	if (ImGui::GetCurrentContext()) {
-	
-		ImGui::Begin("Character Debugging");
-		if (ImGui::SliderFloat("Friction", &frictionValue, 0.0f, 1.0f)) // Adjust the range as needed
-		{
-			this->rigidBody->setFriction(frictionValue);
+		if (drawIMGUI) {
+			ImGui::Begin("Character Debugging");
+			if (ImGui::SliderFloat("Friction", &frictionValue, 0.0f, 1.0f)) // Adjust the range as needed
+			{
+				this->rigidBody->setFriction(frictionValue);
+			}
+			if (ImGui::SliderFloat("Linear Damping", &linearDamping, 0.01f, 5.0f)) {
+				rigidBody->setDamping(linearDamping, angularDamping);
+			}
+			if (ImGui::SliderFloat("Angular Damping", &angularDamping, 0.01f, 5.0f)) {
+				rigidBody->setDamping(linearDamping, angularDamping);
+			}
+			// Apply the updated friction value to the character's rigid body
+
+			ImGui::SliderFloat("Force Factor", &forceFactor, 0.1f, 50.0f); // Adjust the range as needed
+			ImGui::Text("Force: %.2f, %.2f, %.2f", force.x, force.y, force.z);
+
+			if (!rigidBody->isActive()) {
+				// Print a message to the console
+				ImGui::Text("RigidBody is not active!");
+
+			}
+			ImGui::End();
 		}
-		if(ImGui::SliderFloat("Linear Damping", &linearDamping, 0.01f, 5.0f)) {
-			rigidBody->setDamping(linearDamping, angularDamping);
-		}
-		if (ImGui::SliderFloat("Angular Damping", &angularDamping, 0.01f, 5.0f)) {
-			rigidBody->setDamping(linearDamping, angularDamping);
-		}
-		// Apply the updated friction value to the character's rigid body
-	
-		ImGui::SliderFloat("Force Factor", &forceFactor, 0.1f, 50.0f); // Adjust the range as needed
-		ImGui::Text("Force: %.2f, %.2f, %.2f", force.x, force.y, force.z);
-		
-		if (!rigidBody->isActive()) {
-			// Print a message to the console
-			ImGui::Text("RigidBody is not active!");
-			
-		}
-		ImGui::End();
+
 	}
 }
 

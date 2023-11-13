@@ -75,6 +75,8 @@ GLuint depthrenderBuffer;
 int rgbSelected[4];
 SSBO* cubeSSBOptr = nullptr;
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {

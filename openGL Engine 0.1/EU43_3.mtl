@@ -1,0 +1,61 @@
+
+
+newmtl default_Mat
+illum 2
+Kd 0.800000 0.800000 0.800000
+
+newmtl EU43trk4
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43trk4.tif
+bump EU43trk4.tif
+
+newmtl EU43brk4
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43brk4.tif
+bump EU43brk4.tif
+
+newmtl EU43lef2
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43lef2.tif
+map_d EU43lef2.tif
+
+newmtl EU43lef1
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43lef1.tif
+map_d EU43lef1.tif
+
+newmtl EU43twg1
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43twg1.tif
+bump EU43twg1.tif
+
+newmtl EU43frt1
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43frt1.tif
+bump EU43frt1.tif
+
+newmtl EU43frt3
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43frt3.tif
+bump EU43frt3.tif
+
+newmtl EU43rts4
+Ns 50.781250
+illum 2
+Kd 0.700000 0.700000 0.700000
+map_Kd EU43rts4.tif
+bump EU43rts4.tif

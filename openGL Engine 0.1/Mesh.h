@@ -20,14 +20,20 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include "Camera.h"
+#include "ImGuiVariables.h"
 class Texture;
+class Camera;
 class Mesh
 {
 
 public:
-   // Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
+    // Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
     Mesh() { this->worldTransform = glm::mat4(1.0f); };
+    ~Mesh();
     void Render(unsigned int shader);
+    void renderInstance(unsigned int shader, GLuint ssboID, GLuint amount);
+    GLuint instancedAmount = 1;
     void loadMesh(const std::string filenane, GLuint shader);
     void Render(unsigned int numInstances, const glm::mat4 WVPmatrix, const glm::mat4 worldMatrix);
     void populateBuffers();
@@ -38,7 +44,7 @@ public:
     const aiScene* scenePtr = nullptr;
 public:
 
-
+    Camera* cameraPtr;
     enum BUFFER_TYPE {
         INDEX_BUFFER = 0,
         POS_VB = 1,
@@ -101,6 +107,7 @@ public:
     // OpenGL buffers and rendering-related data
     GLuint VAO, VBO, EBO;
     GLuint shaderProgram; //currently bound shader program if any
+    GLuint customShaderProgramID = -1;
     void setupMesh();
 
 public:

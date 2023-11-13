@@ -16,7 +16,13 @@ Texture::Texture(const std::string& filePath, GLenum textureType)
     // Load and generate the texture
     int width, height, numChannels;
     stbi_set_flip_vertically_on_load(true); // Flip the texture vertically (if needed)
-    unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &numChannels, 0);
+    // Your code
+    std::string modifiedFilePath = filePath;
+    std::replace(modifiedFilePath.begin(), modifiedFilePath.end(), '\\', '/');
+
+    // Use the modifiedFilePath variable in the stbi_load function
+    unsigned char* data = stbi_load(modifiedFilePath.c_str(), &width, &height, &numChannels, 0);
+
     if (data) {
         GLenum format = (numChannels == 3) ? GL_RGB : GL_RGBA; // Adjust based on the image format
 
@@ -44,7 +50,14 @@ bool Texture::Load()
     // Load and generate the texture
     int width, height, numChannels;
     stbi_set_flip_vertically_on_load(true); // Flip the texture vertically (if needed)
-    unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &numChannels, 0);
+
+    // Your code
+    std::string modifiedFilePath = filePath;
+    std::replace(modifiedFilePath.begin(), modifiedFilePath.end(), '\\', '/');
+
+    // Use the modifiedFilePath variable in the stbi_load function
+    unsigned char* data = stbi_load(modifiedFilePath.c_str(), &width, &height, &numChannels, 0);
+
     if (data) {
         GLenum format = (numChannels == 3) ? GL_RGB : GL_RGBA; // Adjust based on the image format
 
@@ -62,7 +75,7 @@ bool Texture::Load()
 
 void Texture::Bind(GLenum textureUnit) const
 {
-    std::cout << "...ENTERING BIND FUNCTION";
+    //std::cout << "...ENTERING BIND FUNCTION";
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         std::cerr << "OpenGL error before activate texture unit: " << error << std::endl;
@@ -77,7 +90,7 @@ void Texture::Bind(GLenum textureUnit) const
         std::cerr << "OpenGL error after bind texture unit: " << error << std::endl;
     }
 
-    std::cout << "...EXIT TEXTURE BIND FUNCTION";
+    //std::cout << "...EXIT TEXTURE BIND FUNCTION";
 }
 
 void Texture::Unbind() const

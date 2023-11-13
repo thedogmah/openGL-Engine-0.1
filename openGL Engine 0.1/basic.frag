@@ -31,6 +31,8 @@ layout (std430, binding = 1) buffer MaterialBuffer {
    Material material;
 };
 
+
+
 in vec2 textureCoords;
 in vec3 Normal;
 in vec3 FragPosWorld;

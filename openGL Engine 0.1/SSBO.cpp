@@ -7,8 +7,8 @@ SSBO::SSBO()
 SSBO::SSBO(GLuint bindingIndex, const void* data, size_t dataSize, GLenum useage)
 {
 	bindIndex = bindingIndex;
-	glGenBuffers(1, &ssboID);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboID);
+	glGenBuffers(1, &this->ssboID);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboID);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, dataSize, data, useage);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingIndex, ssboID);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -26,7 +26,7 @@ void SSBO::Unbind() {
 
 void SSBO::updateData(const void* newData, size_t dataSize) 
 {
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboID);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboID);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 

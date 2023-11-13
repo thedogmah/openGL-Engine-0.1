@@ -11,11 +11,12 @@
 #include <set>
 #include <vector>
 #include "btBulletDynamicsCommon.h"
-
+#include "Lights.h"
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include <LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
+//#include "Camera.h"
 
 class Texture;
 
@@ -29,6 +30,7 @@ extern float characterCameraYOffset;
 extern float characterCameraZOffset;
 class Camera;
 extern Camera camera;
+extern bool drawIMGUI;
 class SSBO;
 extern glm::mat4 cubeModelMatrix;
 
@@ -58,7 +60,31 @@ struct Vertex {
     float r, g, b, a ;
   
 };
-static std::vector<Mesh> meshVector;//for importing multiple meshes
+
+
+struct customShader{
+
+    GLuint shaderProgramID;
+    std::string vertexShaderCode;
+    std::string fragmentShaderCode;
+    std::string shaderName;
+};
+
+//CUSTOM SHADER IMGUI TOOLS BEGIN
+extern std::string customVertexShaderCode;
+extern std::string customFragmentShaderCode;
+
+extern  std::vector<customShader*> customShaders;//custom shader vector assigned to each model uniquely.
+//CUSTOM SHADER IMGUI TOOLS END
+
+
+//two containers that map together
+extern std::vector<SSBO*> SSBOVector;
+extern std::vector<World::meshInstance*> meshInstancesVector;//container for all the vectors of unique dyanmic sSBOs (Below)
+static std::vector<Mesh*> instancedMeshVector;//for importing multiple meshes for single SSBOs (grass / instances of trees etc)
+
+
+static std::vector<Mesh*> meshVector;//for importing multiple meshes
 
 
 extern Character* character;
