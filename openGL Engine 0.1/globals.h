@@ -9,6 +9,7 @@
 
 #include "Cube.h"
 #include <set>
+#include <map>
 #include <vector>
 #include "btBulletDynamicsCommon.h"
 #include "Lights.h"
@@ -16,6 +17,7 @@
 #include <LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
+
 //#include "Camera.h"
 
 class Texture;
@@ -89,6 +91,7 @@ static std::vector<Mesh*> meshVector;//for importing multiple meshes
 
 extern Character* character;
 
+extern std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
 
 //OpenGL varaibles - also used by callback functions in callbackfunctions.h
 

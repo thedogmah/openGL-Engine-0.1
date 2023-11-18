@@ -146,7 +146,7 @@ void Mesh::Render(unsigned int shader)
 	
 		//std::cout << "\nSSBO ID to render: " << ssboID << "Amount of times is " << amount << std::endl;
 		//std::cout << "\n" << meshName << std::endl << "\n";
-		glUseProgram(customShaderProgramID);
+		glUseProgram(shader);
 		//glEnable(GL_BLEND);
 		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		//this->shaderProgram = shader;
@@ -155,7 +155,7 @@ void Mesh::Render(unsigned int shader)
 			std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
 		}
 		// Query the uniform location for modelUniform
-		GLuint modelMatrixLocation = glGetUniformLocation(this->customShaderProgramID, "modelUniform");
+		GLuint modelMatrixLocation = glGetUniformLocation(shader, "modelUniform");
 
 		// Create a translation matrix based on the provided translation vector
 		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), translation);
@@ -181,11 +181,11 @@ void Mesh::Render(unsigned int shader)
 		glm::mat4 viewMatrix; // Your view matrix
 
 		// Get the uniform location for the view matrix in the shader
-		GLuint viewMatrixLocation = glGetUniformLocation(customShaderProgramID, "view");
+		GLuint viewMatrixLocation = glGetUniformLocation(shader, "view");
 
 		// Pass the view matrix to the shader
 	//	glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, glm::value_ptr(cameraPtr->getViewMatrix()));
-		GLuint isInstancedBool = glGetUniformLocation(customShaderProgramID, "isInstanced");
+		GLuint isInstancedBool = glGetUniformLocation(shader, "isInstanced");
 
 		glUniform1i(isInstancedBool, 1);
 

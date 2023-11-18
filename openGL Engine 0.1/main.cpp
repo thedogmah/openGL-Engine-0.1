@@ -25,9 +25,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <map>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Camera.h"
 #include "worldObject.h"
@@ -55,7 +57,9 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
  
   int meshCountInstanced;
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
-std::vector<customShader*> customShaders; //declaring from globals.h once for all 
+  std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
+
+  std::vector<customShader*> customShaders; //declaring from globals.h once for all 
 std::vector<World::meshInstance*> meshInstancesVector;
 //customer shader manager varaibles ends
 
@@ -89,7 +93,7 @@ Character* character = nullptr;
 
 //forward declarations
 
- void generateSSBOInstance(int count); //function used to create instance date for dynamic mesh ssbos
+ void generateSSBOInstance(int count, std::string ssboname); //function used to create instance date for dynamic mesh ssbos
  void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
@@ -912,7 +916,7 @@ int main()
 		std::cout << "OpenGL Error after openGL drawable constructor: " << error << std::endl;
 	}
 	std::vector<World::Lights> sceneLights;
-	std::vector < World::meshInstance> meshInstancesVector;
+	//std::vector < World::meshInstance> meshInstancesVector;
 	//Generate Lights
 	World::Lights sun;
 	World::Lights lamp1;
@@ -1941,13 +1945,204 @@ void drawUI()
 
 
 
-
-
-
-
-
-
 		drawShaderManager();
+		ImGui::Begin("SSBO Map Viewer");
+
+		// First Loop
+		int ii = 0;
+		//bool showSecondDropdown = false;
+		 // Variable to store the selected SSBO
+		
+		if (ImGui::BeginCombo("##KeyCombo", "Select SSBO")) {
+			// Iterate through the SSBO objects found in mapSSBOMeshInstanceVector
+			
+
+			for (auto& keyValuePair : mapSSBOMeshInstanceVector) {
+				ii++;
+
+				// Display a selectable item for each SSBO object
+				bool isSelected = (selectedSSBO == &keyValuePair.first);
+				if (ImGui::Selectable(keyValuePair.first.SSBOName.c_str(), isSelected)) {
+					// Handle item selection, if needed
+					tempSelectedSSBO = &keyValuePair.first;
+					showSecondDropdown = true; // Set the flag to true when an item is selected
+				}
+			}
+			if (tempSelectedSSBO != nullptr) {
+				selectedSSBO = const_cast<SSBO*>(tempSelectedSSBO);
+			ImGui::EndCombo();
+		}
+
+		}
+//		mapSSBOMeshInstanceVector[
+		// Second Loop
+		if (showSecondDropdown) {
+			//int jj = 0;
+			//if (ImGui::BeginCombo("##SecondCombo", "SSBO Items")) {
+			//	// Find the iterator associated with the selected SSBO
+			//	auto it = mapSSBOMeshInstanceVector.find(*selectedSSBO);
+
+			//	// Check if the key was found
+			//	if (it != mapSSBOMeshInstanceVector.end()) {
+			//		// Iterate through the vector associated with the selected SSBO
+			//		for (const auto& vectorItem : it->second) {
+			//			std::string label = std::to_string(vectorItem.ID); // Use SSBOID as the label
+			//			// Display a selectable item for each vector element
+			//			bool isSelected = (jj == intSelectedmapSSBOMeshInstance);
+			//			if (ImGui::Selectable(label.c_str(), isSelected)) {
+			//				// Handle item selection, if needed
+			//				//selectedMeshInstance = vectorItem.modelMatrix
+			//				//mapSSBOMeshInstanceVector[
+			//			}
+			//			jj++;
+			//		}
+			//	}
+
+			//	ImGui::EndCombo();
+			//}
+
+
+			int kk = 0;
+
+			if (ImGui::BeginCombo("##ThirdCombo", "SSBO Items - Direct Vector Access")) {
+				std::vector<World::cubeInstance> vectorToIterate = selectedSSBO->getDataVector();
+
+				for (int idx = 0; idx < vectorToIterate.size(); ++idx) {
+					const auto& vectorItem = vectorToIterate[idx];
+					std::string label = std::to_string(vectorItem.ID) + ": " + selectedSSBO->SSBOName;
+					boolSSBOCombo3isSelected = (idx == intSelectedmapSSBOMeshInstance);
+
+					if (ImGui::Selectable(label.c_str(), boolSSBOCombo3isSelected)) {
+						// Update the selected index
+						intSelectedmapSSBOMeshInstance = idx;
+						std::cout << "Option Selected is:" << idx << ": " << intSelectedmapSSBOMeshInstance << std::endl;
+
+						// Copy the model matrix to the global matrix
+						globalModelMatrix = vectorItem.modelMatrix;
+
+						// Assuming quaternionRotation is in radians, convert it to degrees before passing to ImGui
+
+						// Extract translation, rotation, and scale components
+					
+					}
+				}
+
+				ImGui::EndCombo();
+
+			}
+		}
+
+		glm::vec3 translation, rotation, scale;
+		glm::quat quaternionRotation; // for rotation
+		glm::vec3 eulerRotationDegrees = glm::degrees(glm::eulerAngles(quaternionRotation));
+
+		// Decompose the model matrix
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(globalModelMatrix, scale, quaternionRotation, translation, skew, perspective);
+
+		// Update ImGui sliders based on the global matrix
+		ImGui::SliderFloat3("Translation", glm::value_ptr(translation), -10.0f, 10.0f);
+		ImGui::SliderFloat3("Rotation", &eulerRotationDegrees[0], -180.0f, 180.0f);
+		ImGui::SliderFloat3("Scale", glm::value_ptr(scale), 0.1f, 2.0f);
+		// Console information
+		std::cout << "\nTranslation: (" << translation.x << ", " << translation.y << ", " << translation.z << ")\n";
+		std::cout << "Rotation (Euler): (" << eulerRotationDegrees.x << ", "
+			<< eulerRotationDegrees.y << ", "
+			<< eulerRotationDegrees.z << ")\n";
+		std::cout << "Scale: (" << scale.x << ", " << scale.y << ", " << scale.z << ")\n";
+		//DOCS:: SSBO instance model matrices edit tools
+
+	//	if (customShaders.size() > 0) {
+	//		shaderIDStrings.clear();
+	//		for (const auto& shader : customShaders) {
+	//			shaderIDStrings.push_back(std::to_string(shader->shaderProgramID));
+	//		}
+
+	//		std::vector<const char*> shaderIDs;
+	//		for (const auto& idString : shaderIDStrings) {
+	//			shaderIDs.push_back(idString.c_str());
+	//		}
+
+	//		ImGui::Combo("Custom Shader ID", &selectedShaderID2, shaderIDs.data(), shaderIDs.size());
+
+	//		if (ImGui::Button("Change Shader") && selectedShaderID2 != -1 && selectedMeshIndex != -1 && selectedMeshIndex < meshVector.size()) {
+	//			meshVector[selectedMeshIndex]->shaderProgram = customShaders[selectedShaderID2]->shaderProgramID;
+	//			meshVector[selectedMeshIndex]->customShaderProgramID = customShaders[selectedShaderID2]->shaderProgramID;
+
+	//		}
+	//		// This line was missing
+
+	//	}
+
+
+
+	//	ImGui::Text(std::to_string(meshVector[selectedMeshIndex]->customShaderProgramID).c_str());
+	//	if (ImGui::Button("Reset Transformations")) {
+	//		// Reset transformations to identity matrix
+	//		meshVector[selectedMeshIndex]->SetScale(glm::vec3(1.0f));
+	//		meshVector[selectedMeshIndex]->SetRotation(glm::vec3(0.0f));
+	//		meshVector[selectedMeshIndex]->SetTranslation(glm::vec3(0.0f));
+	//	}
+
+	//	if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex]->scale.x, 0.1f, 10.0f)) {
+	//		meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+	//	}
+
+	//	if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex]->scale.y, 0.1f, 10.0f)) {
+	//		meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+	//	}
+
+	//	if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex]->scale.z, 0.1f, 10.0f)) {
+	//		meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+	//	}
+
+	//	// For SetRotation
+	//	if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex]->rotation.x, -180.0f, 180.0f)) {
+	//		meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+	//	}
+
+	//	if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex]->rotation.y, -180.0f, 180.0f)) {
+	//		meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+	//	}
+
+	//	if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex]->rotation.z, -180.0f, 180.0f)) {
+	//		meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+	//	}
+
+	//	// For SetTranslation
+	//	if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex]->translation.x)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+
+	//	if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex]->translation.y)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+
+	//	if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex]->translation.z)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+	//	if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex]->translation.x, -800.0f, 800.0f)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+
+	//	if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex]->translation.y, -800.0f, 800.0f)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+
+	//	if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex]->translation.z, -800.0f, 800.0f)) {
+	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+	//	}
+
+
+	}
+	////	ImGui::EndCombo();
+
+
+ImGui::End();
+
+
+		ImGui::End();
 
 		//
 		ImGui::Begin("Create SSBO for Mesh");
@@ -1971,30 +2166,19 @@ void drawUI()
 			newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
 			newInstancedMesh->cameraPtr = &camera;
 
+	
+			SSBO* instancedSSBO;
+			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
+			instancedSSBO->instanceAmount = meshCountInstanced;
+			instancedSSBO->instancedMesh = newInstancedMesh;
+			SSBOVector.push_back(instancedSSBO);
+			
+
 			//if name is wrong causes errors.
 			instancedMeshVector.push_back(newInstancedMesh);
 
-			
-		//	if (selectedMeshIndex == -1)
-			//	selectedMeshIndex = 0; //when all meshes are deleted it is set to -1, when we load a new one here, it should be set to the first
-			// Clear the input fields after loading
-
-			// Update the meshNames vector
-			//create 'instanced' mesh names vector here
-			//Mesh::meshNames.push_back(meshNameBuffer); // Use emplace_back to construct the string directly
-
-
-			SSBO* instancedSSBO;
-			
-			//bindingIndexCount++;
-
-
-			//cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
-
-			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
-			instancedSSBO->instanceAmount = meshCountInstanced;
-			SSBOVector.push_back(instancedSSBO);
-			generateSSBOInstance(meshCountInstanced);
+		
+			generateSSBOInstance(meshCountInstanced, newInstancedMesh->meshName);
 			
 			//need to load  mesh into new vector (pointer)
 			// need to create instances (do random positions based on amount first // then make it Y relative for grass etc)
@@ -2020,6 +2204,7 @@ void drawUI()
 
 		ImGui::End();
 	
+		ImGui::Begin("Edit SSBOs");
 
 		// Assuming 'mesh.scene' is the Assimp root node
 
@@ -2077,7 +2262,7 @@ void drawUI()
 			std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
 		}
 		if (!mesh.scenePtr) {
-			std::cout << "Assimp scene is not loaded." << std::endl;
+			//std::cout << "Assimp scene is not loaded." << std::endl;
 			ImGui::Text("Assimp scene is not loaded.");
 
 		}
@@ -2256,7 +2441,7 @@ void drawUI()
 
 		}
 		ImGui::End();
-	}
+	
 	if (drawIMGUI) {
 		ImGui::Begin("Style Settings");
 
@@ -3172,7 +3357,7 @@ void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor) {
 	style.Colors[ImGuiCol_Button] = buttonColor;
 }
 
-void generateSSBOInstance(int count) {
+void generateSSBOInstance(int count, std::string name) {
 	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
 	sharedBoxShape->setMargin(0.1f);
@@ -3236,7 +3421,18 @@ void generateSSBOInstance(int count) {
 	}
 	//cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
 	SSBOVector[SSBOVector.size() - 1]->Bind();
+
+	//DOCS::Originally in the parent function the SSBO is created with a larger vector, but it is reset here and so should be optomised already.
+	//DOCS::The SSBO function below only takes the one instance and not all previously loaded meshes
 	SSBOVector[SSBOVector.size()-1]->updateData(instanceDataVector.data(), sizeof(instanceDataVector[0]) * instanceDataVector.size());
+	SSBOVector[SSBOVector.size() - 1]->setDataVector(instanceDataVector);
+	SSBO* key = SSBOVector.back();
+	key->SSBOName = name;
+	// Check if the key is already present in the map
+
+		// If the key is not present, insert a new key-value pair
+	mapSSBOMeshInstanceVector.insert(std::make_pair(*key, instanceDataVector));
+
 	GLenum error;
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after updating SSBO: " << error << std::endl;

@@ -59,6 +59,16 @@ void SSBO::clearSSBO()
 	std::cout << "\nssbo object ID: " << ssboID << std::endl;
 }
 
+void SSBO::setDataVector(std::vector<World::cubeInstance> data)
+{
+	this->instanceDataVector = data;
+}
+
+std::vector<World::cubeInstance> SSBO::getDataVector()
+{
+	return this->instanceDataVector;
+}
+
 SSBO::~SSBO()
 {
 	//glDeleteBuffers(1, &ssboID);
