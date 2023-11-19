@@ -5,6 +5,7 @@
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/gtx/matrix_decompose.hpp>
 #include "Mesh.h"
 #include "Lights.h"
 class Mesh;
@@ -21,6 +22,9 @@ public:
 	void updateData(const void* newData, size_t dataSize);
 	void clearSSBO();
 	void setDataVector(std::vector<World::cubeInstance> data);
+	void setRotation(int item, const glm::vec3&);
+	void setTranslation(int item, const glm::vec3& translation);
+	void setScale(int item, const glm::vec3& scale);
 	std::vector<World::cubeInstance> getDataVector();
 	int bindIndex;
 	GLuint instanceAmount = 1;

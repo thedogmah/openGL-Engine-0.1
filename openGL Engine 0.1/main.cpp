@@ -1970,9 +1970,9 @@ void drawUI()
 			}
 			if (tempSelectedSSBO != nullptr) {
 				selectedSSBO = const_cast<SSBO*>(tempSelectedSSBO);
-			ImGui::EndCombo();
+		
 		}
-
+				ImGui::EndCombo();
 		}
 //		mapSSBOMeshInstanceVector[
 		// Second Loop
@@ -2004,47 +2004,66 @@ void drawUI()
 
 			int kk = 0;
 
-			if (ImGui::BeginCombo("##ThirdCombo", "SSBO Items - Direct Vector Access")) {
-				std::vector<World::cubeInstance> vectorToIterate = selectedSSBO->getDataVector();
+				if (ImGui::BeginCombo("##ThirdCombo", "SSBO Items - Direct Vector Access")) {
+					std::vector<World::cubeInstance> vectorToIterate = selectedSSBO->getDataVector();
 
-				for (int idx = 0; idx < vectorToIterate.size(); ++idx) {
-					const auto& vectorItem = vectorToIterate[idx];
-					std::string label = std::to_string(vectorItem.ID) + ": " + selectedSSBO->SSBOName;
-					boolSSBOCombo3isSelected = (idx == intSelectedmapSSBOMeshInstance);
+					for (int idx = 0; idx < vectorToIterate.size(); ++idx) {
+						const auto& vectorItem = vectorToIterate[idx];
+						std::string label = std::to_string(vectorItem.ID) + ": " + selectedSSBO->SSBOName;
+						boolSSBOCombo3isSelected = (idx == intSelectedmapSSBOMeshInstance);
 
-					if (ImGui::Selectable(label.c_str(), boolSSBOCombo3isSelected)) {
-						// Update the selected index
-						intSelectedmapSSBOMeshInstance = idx;
-						std::cout << "Option Selected is:" << idx << ": " << intSelectedmapSSBOMeshInstance << std::endl;
+						if (ImGui::Selectable(label.c_str(), boolSSBOCombo3isSelected)) {
+							// Update the selected index
+							intSelectedmapSSBOMeshInstance = idx;
+							std::cout << "Option Selected is:" << idx << ": " << intSelectedmapSSBOMeshInstance << std::endl;
 
-						// Copy the model matrix to the global matrix
-						globalModelMatrix = vectorItem.modelMatrix;
+							// Copy the model matrix to the global matrix
+							globalModelMatrix = vectorItem.modelMatrix;
 
-						// Assuming quaternionRotation is in radians, convert it to degrees before passing to ImGui
+							// Assuming quaternionRotation is in radians, convert it to degrees before passing to ImGui
 
-						// Extract translation, rotation, and scale components
+							// Extract translation, rotation, and scale components
 					
+						}
 					}
+
+					
+					ImGui::EndCombo();
 				}
-
-				ImGui::EndCombo();
-
-			}
+				
 		}
 
-		glm::vec3 translation, rotation, scale;
-		glm::quat quaternionRotation; // for rotation
-		glm::vec3 eulerRotationDegrees = glm::degrees(glm::eulerAngles(quaternionRotation));
+			glm::vec3 translation, rotation, scale;
+			glm::quat quaternionRotation; // for rotation
+			glm::vec3 eulerRotationDegrees = glm::degrees(glm::eulerAngles(quaternionRotation));
 
-		// Decompose the model matrix
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(globalModelMatrix, scale, quaternionRotation, translation, skew, perspective);
+			// Decompose the model matrix
+			glm::vec3 skew;
+			glm::vec4 perspective;
+			glm::decompose(globalModelMatrix, scale, quaternionRotation, translation, skew, perspective);
 
-		// Update ImGui sliders based on the global matrix
-		ImGui::SliderFloat3("Translation", glm::value_ptr(translation), -10.0f, 10.0f);
-		ImGui::SliderFloat3("Rotation", &eulerRotationDegrees[0], -180.0f, 180.0f);
-		ImGui::SliderFloat3("Scale", glm::value_ptr(scale), 0.1f, 2.0f);
+			// Update ImGui sliders based on the global matrix
+		// Translation slider
+			//ImGui::SliderFloat3("Translation", glm::value_ptr(translation), -1.0f, 1.0f);
+			if (ImGui::SliderFloat3("Translation", &translation[0], -2.0f, 2.0f)) {
+				selectedSSBO->setTranslation(intSelectedmapSSBOMeshInstance, translation);
+			}
+
+			// Rotation slider
+			if (ImGui::SliderFloat3("Rotation", &rotation[0], -180.0f, 180.0f)) {
+				selectedSSBO->setRotation(intSelectedmapSSBOMeshInstance, rotation);
+			}
+
+			// Scale slider
+			if (ImGui::SliderFloat3("Scale", &scale[0], 0.1f, 2.0f)) {
+				selectedSSBO->setScale(intSelectedmapSSBOMeshInstance, scale);
+			}
+
+			// Update globalModelMatrix with the latest values
+			globalModelMatrix = glm::translate(glm::mat4(1.0f), translation) *
+				glm::mat4_cast(glm::quat(glm::radians(rotation))) *
+				glm::scale(glm::mat4(1.0f), scale);
+
 		// Console information
 		std::cout << "\nTranslation: (" << translation.x << ", " << translation.y << ", " << translation.z << ")\n";
 		std::cout << "Rotation (Euler): (" << eulerRotationDegrees.x << ", "
@@ -2134,15 +2153,15 @@ void drawUI()
 	//		meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
 	//	}
 
-
+		ImGui::End();
 	}
 	////	ImGui::EndCombo();
 
 
-ImGui::End();
 
 
-		ImGui::End();
+
+	//	ImGui::End();
 
 		//
 		ImGui::Begin("Create SSBO for Mesh");
@@ -2204,7 +2223,7 @@ ImGui::End();
 
 		ImGui::End();
 	
-		ImGui::Begin("Edit SSBOs");
+		//ImGui::Begin("Edit SSBOs");
 
 		// Assuming 'mesh.scene' is the Assimp root node
 
