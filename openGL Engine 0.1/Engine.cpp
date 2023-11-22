@@ -340,6 +340,31 @@ void Terrain::render()
 
 	ImGui::End();
 
+	static int inputX = 0;
+	static int inputZ = 0;
+	static bool showHeight = false;
+	static unsigned char heightValue = 0;
+
+	ImGui::Begin("Height Check");
+
+	// Input fields for (x, z) coordinates
+	ImGui::InputInt("X", &inputX);
+	ImGui::InputInt("Z", &inputZ);
+
+	if (!heightmapData.heights.empty()) {
+		// Call your getTrueHeightAtPoint function
+		heightValue = getTrueHeightAtPoint(inputX, inputZ);
+
+		// Display the Y value
+		ImGui::Text("Height at (%d, %d): %u", inputX, inputZ, heightValue);
+	}
+	else {
+		// Display a message if heights vector is empty
+		ImGui::Text("Heights vector is empty");
+	}
+
+	ImGui::End();
+
 	if (heightmapData.heights.size() > 0) {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -699,25 +724,25 @@ bool Terrain::createTerrainMesh()
 
 		
 
-	glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
-	for (size_t i = 0; i < vertices.size(); i += 3) {
-		center.x += vertices[i];
-		center.y += vertices[i + 1];
-		center.z += vertices[i + 2];
-	}
-	center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
+	//glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
+	//for (size_t i = 0; i < vertices.size(); i += 3) {
+	//	center.x += vertices[i];
+	//	center.y += vertices[i + 1];
+	//	center.z += vertices[i + 2];
+	//}
+	//center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
 
-	// Calculate the translation needed to move the center to the local origin
-	float translationX = -center.x;
-	float translationY = -center.y;
-	float translationZ = -center.z;
+	//// Calculate the translation needed to move the center to the local origin
+	//float translationX = -center.x;
+	//float translationY = -center.y;
+	//float translationZ = -center.z;
 
-	// Apply the translation to all the vertices
-	for (size_t i = 0; i < vertices.size(); i += 3) {
-		vertices[i] += translationX;
-		vertices[i + 1] += translationY;
-		vertices[i + 2] += translationZ;
-	}
+	//// Apply the translation to all the vertices
+	//for (size_t i = 0; i < vertices.size(); i += 3) {
+	//	vertices[i] += translationX;
+	//	vertices[i + 1] += translationY;
+	//	vertices[i + 2] += translationZ;
+	//}
 
 
 	glm::vec3 transformedVertex = glm::vec3(modelMatrix * glm::vec4(vertices[0], vertices[1], vertices[2], 1.0f));

@@ -52,19 +52,9 @@ void main() {
         FragColorOutput = vec4(mouseColour, 1.0);
     } else {
 
-
-    vec3 textureColor = vec3(1.0); // Default color if no texture is present
-if (texture(texture1, textureCoords).r > 0.0 || texture(texture1, textureCoords).g > 0.0 || texture(texture1, textureCoords).b > 0.0)
-{
-    textureColor = texture(texture1, textureCoords).rgb; // Sample texture color
-}
-
-vec3 diffuse = material.diffuse;
-
-if (texture(texture1, textureCoords).r > 0.0 || texture(texture1, textureCoords).g > 0.0 || texture(texture1, textureCoords).b > 0.0) {
-    diffuse *= textureColor; // Multiply by texture color only when the texture is present
-}
-
+vec4 texSample = texture(texture1, textureCoords);
+vec3 textureColor = (texSample.rgb.r > 0.0 || texSample.rgb.g > 0.0 || texSample.rgb.b > 0.0) ? texSample.rgb : vec3(1.0);
+vec3 diffuse = material.diffuse * textureColor;
 //        vec3 diffuse = material.diffuse * texture(texture1, textureCoords).rgb; // Diffuse
 
 

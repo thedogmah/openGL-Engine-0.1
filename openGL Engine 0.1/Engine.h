@@ -115,12 +115,12 @@ public:
 
 	//A function to get the true height value (0-255) at a point
 	inline unsigned char getTrueHeightAtPoint(int x, int z) {
-		return (heightmapData.heightData[(z*size)+x]);
+		return (heightmapData.heights[(z*size)+x]);
 	
 	}
 	//Retrieve the scaled height at a given point
 	inline float getScaledHeightAtPoint(int x, int z) {
-		return (heightmapData.heightData[(z * size) + x]) * heightScale;
+		return (heightmapData.heights[(z * size) + x]) * heightScale;
 	
 	}
 

@@ -41,10 +41,10 @@ void Mesh::Render(unsigned int shader)
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//this->shaderProgram = shader;
-	GLenum error = glGetError();
+	/*GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
 		std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
-	}
+	}*/
 	// Query the uniform location for modelUniform
 	GLuint modelMatrixLocation = glGetUniformLocation(this->customShaderProgramID, "modelUniform");
 
@@ -81,46 +81,46 @@ void Mesh::Render(unsigned int shader)
 	for (int i = 0; i < 13; i++) {
 		glActiveTexture(GL_TEXTURE0 + i); // Set the active texture unit
 		glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture
-	}	error = glGetError();
-	if (error != GL_NO_ERROR) {
+	}//	error = glGetError();
+	/*if (error != GL_NO_ERROR) {
 		std::cerr << "OpenGL error before binding shaderprogram: " << error << std::endl;
-	}
+	}*/
 
 	
-	error = glGetError();
+	/*error = glGetError();
 	if (error != GL_NO_ERROR) {
 		std::cerr << "Error directly after binding shader program in mesh.cpp render " << error << std::endl;
-	}
+	}*/
 
 	glBindVertexArray(VAO);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	error = glGetError();
+	/*error = glGetError();
 	if (error != GL_NO_ERROR) {
 		std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-	}
+	}*/
 
 	glActiveTexture(GL_TEXTURE0);
 	//std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
 	for (unsigned int i = 0; i < meshes.size(); i++) {
 		unsigned int materialIndex = meshes[i].materialIndex;
 		//std::cout << "\nLoop iteration: " << i;
-		error = glGetError();
+	/*	error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error before assert: " << error << std::endl;
-		}
+		}*/
 		assert(materialIndex < textures.size());
-		GLenum error = glGetError();
+		/*GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error before bind texture unit: " << error << std::endl;
-		}
+		}*/
 		if (textures[materialIndex]) {//Checks if there is a material without a diffuse texture.
 			textures[materialIndex]->Bind(COLOUR_TEXTURE_UNIT);
 			//std::cout << "\nBound texture unit: " << i;
 		}
-		error = glGetError();
+		/*error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error after binding texture unit: " << error << std::endl;
-		}
+		}*/
 		//std::cout << "\nChecked texture.";
 		//GLDrawElBaseVertex allows us to draw sub regions. We provide an offset below (void * sizeof etc)
 		glDrawElementsBaseVertex(GL_TRIANGLES, meshes[i].numIndices, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * meshes[i].baseIndex),
@@ -150,11 +150,11 @@ void Mesh::Render(unsigned int shader)
 		//glEnable(GL_BLEND);
 		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		//this->shaderProgram = shader;
-		GLenum error = glGetError();
-		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
-		}
-		// Query the uniform location for modelUniform
+		//GLenum error = glGetError();
+		//if (error != GL_NO_ERROR) {
+		//	std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
+		//}
+		//// Query the uniform location for modelUniform
 		GLuint modelMatrixLocation = glGetUniformLocation(shader, "modelUniform");
 
 		// Create a translation matrix based on the provided translation vector
@@ -192,23 +192,23 @@ void Mesh::Render(unsigned int shader)
 		for (int i = 0; i < 13; i++) {
 			glActiveTexture(GL_TEXTURE0 + i); // Set the active texture unit
 			glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture
-		}	error = glGetError();
+		}	/*error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error before binding shaderprogram: " << error << std::endl;
-		}
+		}*/
 
 
-		error = glGetError();
-		if (error != GL_NO_ERROR) {
-			std::cerr << "Error directly after binding shader program in mesh.cpp render " << error << std::endl;
-		}
+		//error = glGetError();
+		//if (error != GL_NO_ERROR) {
+		//	std::cerr << "Error directly after binding shader program in mesh.cpp render " << error << std::endl;
+		//}
 
 		glBindVertexArray(VAO);
 		glBindTexture(GL_TEXTURE_2D, 0);
-		error = glGetError();
+	/*	error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-		}
+		}*/
 
 		glActiveTexture(GL_TEXTURE0);
 		//std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
@@ -218,7 +218,7 @@ void Mesh::Render(unsigned int shader)
 			//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboID);	
 
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboID);
-			for (unsigned int i = 0; i < amount; i++) {
+			for (unsigned int i = 0; i < 1; i++) {
 				
 				unsigned int materialIndex = meshes[h].materialIndex;
 				//std::cout << "\nLoop iteration: " << i;
@@ -237,17 +237,17 @@ void Mesh::Render(unsigned int shader)
 
 
 				//glBindTexture(GL_TEXTURE_2D, 0);
-				error = glGetError();
+			/*	error = glGetError();
 				if (error != GL_NO_ERROR) {
 					std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-				}
+				}*/
 
 			//	std::cout << "\nFirst draw call success " << i;
 			}
-			error = glGetError();
+		/*	error = glGetError();
 			if (error != GL_NO_ERROR) {
 				std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-			}
+			}*/
 
 		}
 	

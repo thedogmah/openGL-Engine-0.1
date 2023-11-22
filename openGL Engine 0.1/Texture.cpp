@@ -77,18 +77,18 @@ void Texture::Bind(GLenum textureUnit) const
 {
     //std::cout << "...ENTERING BIND FUNCTION";
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
+   /* if (error != GL_NO_ERROR) {
         std::cerr << "OpenGL error before activate texture unit: " << error << std::endl;
-    }
+    }*/
     glActiveTexture(GL_TEXTURE0);//this must be a texture unit.
      error = glGetError();
-    if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL error after activate texture unit: " << error << std::endl;
-    }
+    //if (error != GL_NO_ERROR) {
+    //    std::cerr << "OpenGL error after activate texture unit: " << error << std::endl;
+    //}
     glBindTexture(type, textureID);
-    if (error != GL_NO_ERROR) {
+ /*   if (error != GL_NO_ERROR) {
         std::cerr << "OpenGL error after bind texture unit: " << error << std::endl;
-    }
+    }*/
 
     //std::cout << "...EXIT TEXTURE BIND FUNCTION";
 }

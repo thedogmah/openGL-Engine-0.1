@@ -94,6 +94,8 @@ Character* character = nullptr;
 //forward declarations
 
  void generateSSBOInstance(int count, std::string ssboname); //function used to create instance date for dynamic mesh ssbos
+ void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name); //Generate SSBO instances to the Y value of the terrain mesh[0]
+
  void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
@@ -1947,7 +1949,11 @@ void drawUI()
 
 		drawShaderManager();
 		ImGui::Begin("SSBO Map Viewer");
-
+		if (ImGui::Button("Clear SSBOs")) {
+			SSBOVector.clear();
+			//ssbo
+			mapSSBOMeshInstanceVector.clear();
+		}
 		// First Loop
 		int ii = 0;
 		//bool showSecondDropdown = false;
@@ -2065,12 +2071,12 @@ void drawUI()
 				glm::scale(glm::mat4(1.0f), scale);
 
 		// Console information
-		std::cout << "\nTranslation: (" << translation.x << ", " << translation.y << ", " << translation.z << ")\n";
+		/*std::cout << "\nTranslation: (" << translation.x << ", " << translation.y << ", " << translation.z << ")\n";
 		std::cout << "Rotation (Euler): (" << eulerRotationDegrees.x << ", "
 			<< eulerRotationDegrees.y << ", "
 			<< eulerRotationDegrees.z << ")\n";
 		std::cout << "Scale: (" << scale.x << ", " << scale.y << ", " << scale.z << ")\n";
-		//DOCS:: SSBO instance model matrices edit tools
+		*///DOCS:: SSBO instance model matrices edit tools
 
 	//	if (customShaders.size() > 0) {
 	//		shaderIDStrings.clear();
@@ -2169,6 +2175,36 @@ void drawUI()
 		ImGui::InputText("Mesh Name", &meshNameBufferInstanced[0], 10000);
 		ImGui::InputInt("Mesh Count", &meshCountInstanced);
 
+		if (ImGui::Button("Create SSBO For Terrain Y")) {
+		
+
+			Mesh* newInstancedMesh;
+			newInstancedMesh = new Mesh;
+			newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
+			newInstancedMesh->shaderProgram = 3;
+			newInstancedMesh->customShaderProgramID = 3;
+			if (customShaders.size() == 0)
+				newInstancedMesh->customShaderProgramID = 3;
+			else
+				newInstancedMesh->customShaderProgramID = 3;
+
+			newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
+			newInstancedMesh->cameraPtr = &camera;
+
+
+			SSBO* instancedSSBO;
+			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
+			instancedSSBO->instanceAmount = meshCountInstanced;
+			instancedSSBO->instancedMesh = newInstancedMesh;
+			SSBOVector.push_back(instancedSSBO);
+
+
+			//if name is wrong causes errors.
+			instancedMeshVector.push_back(newInstancedMesh);
+
+
+			generateSSBOInstanceToY(terrain.heightmapData.heights, terrain.size, meshCountInstanced, -1, -1, newInstancedMesh->meshName);
+		}
 		if (ImGui::Button("Create SSBO"))
 		{
 
@@ -3402,6 +3438,13 @@ void generateSSBOInstance(int count, std::string name) {
 
 		// Apply translation
 		modelMatrix = glm::translate(modelMatrix, instancePosition);
+		float angleX = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+		float angleY = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+		float angleZ = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+
+		modelMatrix = glm::rotate(modelMatrix, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
 
 		// No rotation is applied in this version
 		
@@ -3458,3 +3501,158 @@ void generateSSBOInstance(int count, std::string name) {
 	}
 }
 
+
+
+
+
+void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name) {
+	//Terrain vector is : terrain.heightmapData.heights
+
+	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+	sharedBoxShape->setMargin(0.1f);
+	std::vector<World::cubeInstance>instanceDataVector;
+	for (int i = 0; i < numberOfMeshes; i++)
+	{
+		glm::vec3 instancePosition;
+		// Assuming you have a vector of terrain heights named 'terrainHeights'
+		float xPos = static_cast<float>(rand() % terrainSize);
+		float zPos = static_cast<float>(rand() % terrainSize);
+
+		// Map the 2D terrain coordinates to the 3D world coordinates
+		instancePosition.x = xPos;
+		instancePosition.y = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];
+		instancePosition.z = zPos;
+	
+		// Map the 2D terrain coordinates to the 1D array index
+		int terrainIndex = static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize;
+
+		// Ensure that the calculated positions are within the terrain bounds
+		xPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), xPos));
+		zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
+
+		// Extract the Y position from the terrain heights
+		float yPos = terrainHeights[terrainIndex];
+
+		// Apply any offset or adjustment to yPos for realism
+		// For example, sink the meshes into the ground a little
+
+		//yPos -= /* your desired offset */;
+
+		
+
+		//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
+		glm::vec3 instanceScale;
+		float randomScale = glm::linearRand(0.001f, 0.02f);
+		instanceScale.x = randomScale;
+		instanceScale.y = randomScale;
+		instanceScale.z = randomScale;
+
+		//glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
+	//	glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(xPos, yPos, zPos));
+		instancePosition.x = xPos;
+		instancePosition.y = yPos;
+		instancePosition.z = zPos;
+		
+		// Initialize the model matrix as an identity matrix
+		glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), instancePosition);
+		// Apply scale
+		modelMatrix = glm::scale(modelMatrix, instanceScale);
+
+		// Apply translation
+		//modelMatrix = glm::translate(modelMatrix, instancePosition);
+		float angleX = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+		float angleY = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+		float angleZ = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+
+		modelMatrix = glm::rotate(modelMatrix, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
+
+		// No rotation is applied in this version
+
+		World::cubeInstance instance;
+		instance.modelMatrix = modelMatrix;
+		//cube pushed back into vector after rigid body creation to pass ptr to body into same ssbo vector so each cube can
+			//access its RB
+
+		glm::vec3 cubePosition = instancePosition;
+		glm::vec3 scale = instanceScale;
+
+		// Set initial position and orientation
+		btTransform startTransform;
+		startTransform.setIdentity();
+		startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
+
+		// Create a rigid body
+		btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
+		btVector3 localInertia(0, 0, 0);
+		sharedBoxShape->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
+
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, sharedBoxShape, localInertia);
+		btRigidBody* rigidBody = new btRigidBody(rbInfo);
+
+		//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
+		btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
+		rigidBody->setAngularVelocity(angularVelocity);
+
+
+		// Add rigid body to the dynamics world
+		//dynamicsWorldPtr->addRigidBody(rigidBody);
+		instance.rigidBody = rigidBody;
+		//rigidBodies.push_back(rigidBody);
+		instanceDataVector.push_back(instance);
+
+	}
+	//cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+	SSBOVector[SSBOVector.size() - 1]->Bind();
+
+	//DOCS::Originally in the parent function the SSBO is created with a larger vector, but it is reset here and so should be optomised already.
+	//DOCS::The SSBO function below only takes the one instance and not all previously loaded meshes
+	SSBOVector[SSBOVector.size() - 1]->updateData(instanceDataVector.data(), sizeof(instanceDataVector[0]) * instanceDataVector.size());
+	SSBOVector[SSBOVector.size() - 1]->setDataVector(instanceDataVector);
+	SSBO* key = SSBOVector.back();
+	key->SSBOName = name;
+	// Check if the key is already present in the map
+
+		// If the key is not present, insert a new key-value pair
+	mapSSBOMeshInstanceVector.insert(std::make_pair(*key, instanceDataVector));
+
+	GLenum error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error after updating SSBO: " << error << std::endl;
+	}
+}
+
+std::vector<glm::mat4> generateModelMatricesFromTerrain(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY) {
+	std::vector<glm::mat4> modelMatrices;
+
+	// Generate model matrices for each mesh
+	for (int i = 0; i < numberOfMeshes; ++i) {
+		// Calculate X and Z positions based on terrain dimensions
+		float xPos = static_cast<float>(rand() % terrainSize);  // Example: Random X position within terrain size
+		float zPos = static_cast<float>(rand() % terrainSize);  // Example: Random Z position within terrain size
+
+		// Map the 2D terrain coordinates to the 1D array index
+		int terrainIndex = static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize;
+
+		// Ensure that the calculated positions are within the terrain bounds
+		xPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), xPos));
+		zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
+
+		// Extract the Y position from the terrain heights
+		float yPos = terrainHeights[terrainIndex];
+
+		// Apply any offset or adjustment to yPos for realism
+		// For example, sink the meshes into the ground a little
+		
+		//yPos -= /* your desired offset */;
+
+		glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(xPos, yPos, zPos));
+
+		// Add the model matrix to the vector
+		modelMatrices.push_back(modelMatrix);
+	}
+
+	return modelMatrices;
+}
