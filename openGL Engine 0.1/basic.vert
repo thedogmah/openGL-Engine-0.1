@@ -29,6 +29,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform mat4 modelUniform;
 uniform int isInstanced;
+uniform float drawDistance;
 out vec2 textureCoords;
 out vec3 Normal;
 out vec3 FragPosWorld;
@@ -48,7 +49,21 @@ mat4 rotateY(float angle) {
 }
 
 void main() {
-    if (isInstanced != 0) {
+
+vec3 cameraPosition = vec3(inverse(view)[3]);
+float cameraX = cameraPosition.x;
+float cameraZ = cameraPosition.z;
+//DIFFERNET LOD METHODS AND BILLBOARDS.
+if (isInstanced != 0) {
+    // Calculate distance from the camera's x, z position
+    float distanceToCamera = distance(vec2(cameraX, cameraZ), vec2(instanceData[gl_InstanceID].modelMatrix[3].x, instanceData[gl_InstanceID].modelMatrix[3].z));
+
+    // Move the vertex to a position that effectively discards it
+    if (distanceToCamera > drawDistance) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);  // Move to the center of clip space
+        return;
+    }
+    else{
         FragColor = aColor;
         mouseColour = instanceData[gl_InstanceID].objectColour;
         mat4 model = instanceData[gl_InstanceID].modelMatrix;
@@ -59,6 +74,7 @@ void main() {
         textureCoords = texCoords;
         Normal = mat3(transpose(inverse(view * model))) * aNormal;
         FragPosWorld = vec3(model * vec4(aPos, 1.0));
+        }
     }
     else {
         // Non-instanced data handling here

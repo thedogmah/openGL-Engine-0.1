@@ -25,7 +25,10 @@
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include "BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
 
-
+void calculateGradients(const std::vector<float>& terrain, int width, int height,
+	std::vector<float>& gradientX, std::vector<float>& gradientY);
+void createNormalMap(const std::vector<float>& gradientX, const std::vector<float>& gradientY,
+	int width, int height, std::vector<glm::vec3>& normalMap);
 
 class Engine
 {
@@ -131,9 +134,19 @@ public:
 	std::vector<glm::vec2> uvs;
 	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO;
 	GLenum error;
+	
 	// Reserve space for vertices (assuming m_iSize is the size of your heightmap)
 
+	//gradients for terrain for normal mapping calculations
+	std::vector<float> gradientX, gradientY;
+	//norrmal map
 
+	float drawDistance = 100.0f;
+	bool useNormalMap = 0;
+	bool useDetailMap = 0;
+	GLuint normalMapTexture;
+	GLuint detailMapTexture;
+	std::vector<glm::vec3> normalMap;
 	//Shader variables
 	glm::vec3  rockyColor, ambientColor, diffuseColor, specularColor;
 	glm::vec3 waterColor = glm::vec3(0.0, 0.2, 0.8);

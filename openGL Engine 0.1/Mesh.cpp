@@ -255,7 +255,7 @@ void Mesh::Render(unsigned int shader)
 		//std::cout << "\nFinished mesh draw call function successfully";
 		glBindVertexArray(0);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
-		glUniform1i(isInstancedBool, 0);
+		//glUniform1i(isInstancedBool, 0);
 	}
 
 void Mesh::loadMesh(const std::string filename, GLuint shader)

@@ -1,7 +1,10 @@
+
 #define _CRT_SECURE_NO_WARNINGS 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #define BT_USE_DOUBLE_PRECISION
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include "stb_image_write.h"
 #include <stb/stb_image.h>
 #include "imgui.h"
@@ -45,6 +48,8 @@
 #include <filesystem>
 #include "Mesh.h"
 #include "Texture.h"
+#include "OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh"
+typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
 
 //Customer shader variables
 std::string customVertexShaderCode;
@@ -53,8 +58,7 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
  int selectedShaderID = 0; //initalisation for shader ID selected where loading meshes
  int selectedShaderID2 = 0;
 
-
- 
+ float scalemin, scalemax;
   int meshCountInstanced;
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
   std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
@@ -94,7 +98,7 @@ Character* character = nullptr;
 //forward declarations
 
  void generateSSBOInstance(int count, std::string ssboname); //function used to create instance date for dynamic mesh ssbos
- void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name); //Generate SSBO instances to the Y value of the terrain mesh[0]
+ void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name, float scalemin, float scalemax); //Generate SSBO instances to the Y value of the terrain mesh[0]
 
  void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
@@ -111,6 +115,11 @@ std::vector<Cube> instVector;
 
 //Terrain and Noise Generation Varaibles
 Terrain terrain;
+
+void calculateGradients(const std::vector<float>& terrain, int width, int height,
+	std::vector<float>& gradientX, std::vector<float>& gradientY);
+void createNormalMap(const std::vector<float>& gradientX, const std::vector<float>& gradientY,
+	int width, int height, std::vector<glm::vec3>& normalMap);
 //Must generate dynamicsworld ptr for terrain also
 glm::vec2 Grid(10, 10); //slider for grid visualisation size in imgui window 
 bool boolDrawHeightMap = true;
@@ -177,6 +186,12 @@ int main()
 {
 // Replace with your model file path
 	//const aiScene* scene = aiImportFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
+	MyMesh mesh;
+	//MyMesh::VertexHandle vhandle[4];
+	//vhandle[0] = mesh.add_vertex(MyMesh::Point(-1, -1, 1));
+	//vhandle[1] = mesh.add_vertex(MyMesh::Point(1, -1, 1));
+	//vhandle[2] = mesh.add_vertex(MyMesh::Point(1, 1, 1));
+	//vhandle[3] = mesh.add_vertex(MyMesh::Point(-1, 1, 1));
 
 	// Load the 3D model
 	//const aiScene* scene = importer.ReadFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -1825,17 +1840,17 @@ int main()
 
 		// Swap buffers
 		glfwSwapBuffers(window);
-		if (boolShowGLErrors) {
+		/*if (boolShowGLErrors) {
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "\nopenGL Error at: before poll events";
 			}
-		}
+		}*/
 		glfwPollEvents();
-		if (boolShowGLErrors) {
+	/*	if (boolShowGLErrors) {
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "\nopenGL Error at: after poll events";
 			}
-		}
+		}*/
 		//clear colour buffer
 	
 		//glClearColor(192.0f / 255.0f, 192.0f / 255.0f, 192.0f / 255.0f, 1.0f);
@@ -1944,15 +1959,26 @@ void drawUI()
 
 	if (drawIMGUI) {
 
+		// Declare the uniform location in your rendering code
+		GLint drawDistanceLocation = glGetUniformLocation(*defaultShaderProgramPtr, "drawDistance");
 
+		// ...
 
+		// In your rendering loop
+		glUseProgram(*defaultShaderProgramPtr);
 
+		// Update the draw distance uniform
+	
+		ImGui::SliderFloat("Draw Distance", &terrain.drawDistance, 10.0f, 4000.0f);
+		glUniform1f(drawDistanceLocation, terrain.drawDistance);
 		drawShaderManager();
 		ImGui::Begin("SSBO Map Viewer");
 		if (ImGui::Button("Clear SSBOs")) {
 			SSBOVector.clear();
 			//ssbo
 			mapSSBOMeshInstanceVector.clear();
+			meshNameBufferInstanced.clear();
+			instancedMeshVector.clear();
 		}
 		// First Loop
 		int ii = 0;
@@ -2174,7 +2200,9 @@ void drawUI()
 
 		ImGui::InputText("Mesh Name", &meshNameBufferInstanced[0], 10000);
 		ImGui::InputInt("Mesh Count", &meshCountInstanced);
-
+		ImGui::InputFloat("Scale Min", &scalemin);
+		ImGui::InputFloat("Max", &scalemax);
+		ImGui::Text("Import Mesh onto landscape (Y Axis)");
 		if (ImGui::Button("Create SSBO For Terrain Y")) {
 		
 
@@ -2203,7 +2231,7 @@ void drawUI()
 			instancedMeshVector.push_back(newInstancedMesh);
 
 
-			generateSSBOInstanceToY(terrain.heightmapData.heights, terrain.size, meshCountInstanced, -1, -1, newInstancedMesh->meshName);
+			generateSSBOInstanceToY(terrain.heightmapData.heights, terrain.size, meshCountInstanced, 0, 0, newInstancedMesh->meshName, scalemin, scalemax);
 		}
 		if (ImGui::Button("Create SSBO"))
 		{
@@ -3505,7 +3533,7 @@ void generateSSBOInstance(int count, std::string name) {
 
 
 
-void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name) {
+void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name, float scalemin, float scalemax) {
 	//Terrain vector is : terrain.heightmapData.heights
 
 	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -3543,7 +3571,7 @@ void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrai
 
 		//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
 		glm::vec3 instanceScale;
-		float randomScale = glm::linearRand(0.001f, 0.02f);
+		float randomScale = glm::linearRand(scalemin, scalemax);
 		instanceScale.x = randomScale;
 		instanceScale.y = randomScale;
 		instanceScale.z = randomScale;
@@ -3565,9 +3593,9 @@ void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrai
 		float angleY = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
 		float angleZ = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
 
-		modelMatrix = glm::rotate(modelMatrix, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
-		modelMatrix = glm::rotate(modelMatrix, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
-		modelMatrix = glm::rotate(modelMatrix, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
+		//modelMatrix = glm::rotate(modelMatrix, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
+		//modelMatrix = glm::rotate(modelMatrix, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
+		//modelMatrix = glm::rotate(modelMatrix, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
 
 		// No rotation is applied in this version
 
@@ -3655,4 +3683,48 @@ std::vector<glm::mat4> generateModelMatricesFromTerrain(const std::vector<float>
 	}
 
 	return modelMatrices;
+}
+
+
+
+void calculateGradients(const std::vector<float>& terrain, int width, int height,
+	std::vector<float>& gradientX, std::vector<float>& gradientY) {
+	// Initialize vectors to store gradients
+	gradientX.resize(terrain.size());
+	gradientY.resize(terrain.size());
+
+	// Calculate gradients
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			// Calculate finite differences for x and y
+			float dx = terrain[y * width + std::min(x + 1, width - 1)] - terrain[y * width + x];
+			float dy = terrain[std::min(y + 1, height - 1) * width + x] - terrain[y * width + x];
+
+			// Store the gradients
+			gradientX[y * width + x] = dx;
+			gradientY[y * width + x] = dy;
+		}
+	}
+}
+
+
+// Function to create a normal map from gradients
+void createNormalMap(const std::vector<float>& gradientX, const std::vector<float>& gradientY,
+	int width, int height, std::vector<glm::vec3>& normalMap) {
+	// Initialize vector to store the normal map
+	normalMap.resize(gradientX.size());
+
+	// Create normal map
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			// Calculate normalized normal vector
+			float len = std::sqrt(1.0f + gradientX[y * width + x] * gradientX[y * width + x] +
+				gradientY[y * width + x] * gradientY[y * width + x]);
+
+			// Convert the normal vector to the [0, 1] range for storage in a texture
+			normalMap[y * width + x].x = 0.5f * gradientX[y * width + x] / len + 0.5f;
+			normalMap[y * width + x].y = 0.5f * gradientY[y * width + x] / len + 0.5f;
+			normalMap[y * width + x].z = 0.5f;
+		}
+	}
 }

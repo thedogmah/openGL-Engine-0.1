@@ -12,6 +12,8 @@ extern bool boolPathOverride;
 
 extern std::string meshNameBufferInstanced;
 extern int meshCountInstanced;
+extern float scalemin;
+extern float scalemax;
 static int bindingIndexCount;
 
 extern int selectedSSBOID ; ////variable to remember what item in the SSBO edit imgui is selected and its bools

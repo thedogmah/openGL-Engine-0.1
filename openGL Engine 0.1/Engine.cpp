@@ -11,12 +11,16 @@ Terrain::Terrain()
 	//vertices.reserve(size * size);
 	this->size = 256; //set a default terrain size.
 	this->heightmapData.size =16;
+
 }
 
 void Terrain::render()
 {
 	// Define a random number generator and initialize it with a seed
+
+
 	
+
 	//rng.seed(123);     // Set a fixed seed for repeatability (change this for variability)
 	//set time for shader functions
 	static double previousTime = glfwGetTime();
@@ -66,8 +70,17 @@ void Terrain::render()
 			createTerrainMesh();
 		}
 		ImGui::End();
-
 		glUseProgram(*this->shaderPtr);
+		ImGui::Checkbox("Use Normal Map", &useNormalMap);
+		ImGui::Checkbox("Use Detail Map", &useDetailMap);
+
+		// ...
+		GLint useNormalMapLocation = glGetUniformLocation(*this->shaderPtr, "useNormalMap");
+		GLint useDetailMapLocation = glGetUniformLocation(*this->shaderPtr, "useDetailMap");
+		// Later in your rendering code where you set the uniform
+		glUniform1i(useNormalMapLocation, useNormalMap);
+		glUniform1i(useDetailMapLocation, useDetailMap);
+		
 		GLint timeLocation = glGetUniformLocation(*this->shaderPtr, "time");
 		glUniform1f(timeLocation, currentTime);
 		GLint waterColorLocation = glGetUniformLocation(*this->shaderPtr, "waterColor");
@@ -365,6 +378,21 @@ void Terrain::render()
 
 	ImGui::End();
 
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, normalMapTexture);
+
+	glActiveTexture(GL_TEXTURE11);
+	glBindTexture(GL_TEXTURE_2D, detailMapTexture);
+
+	// Set the uniform in your shader to the texture unit index for the detail map
+	glUniform1i(glGetUniformLocation(*this->shaderPtr, "detailMap"), 11); // Use texture unit 2 for the detail map
+
+
+	// Set the uniform in your shader to the texture unit index (e.g., 1)
+	//glUseProgram(shaderProgram);
+	glUniform1i(glGetUniformLocation(*this->shaderPtr, "normalMap"), 1);
+
+
 	if (heightmapData.heights.size() > 0) {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -608,6 +636,26 @@ bool Terrain::loadHeightMap(char* filename, int isize)
 
 bool Terrain::createTerrainMesh()
 {
+
+
+	int detailMapWidth, detailMapHeight, detailMapChannels;
+	unsigned char* detailMapData = stbi_load("naturalstone.jpg", &detailMapWidth, &detailMapHeight, &detailMapChannels, 0);
+
+	// Generate and bind the texture
+	glGenTextures(1, &detailMapTexture);
+	glBindTexture(GL_TEXTURE_2D, detailMapTexture);
+
+	if (detailMapData) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, detailMapWidth, detailMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, detailMapData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		// Handle texture loading error
+		std::cerr << "Failed to load detail map" << std::endl;
+	}
+
+	// Free the image data
+	stbi_image_free(detailMapData);
 	vertices.clear();
 	normals.clear();
 	indices.clear();
@@ -732,7 +780,7 @@ bool Terrain::createTerrainMesh()
 	//}
 	//center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
 
-	//// Calculate the translation needed to move the center to the local origin
+	//// Calculate the translation needed to move the center to the local origin   
 	//float translationX = -center.x;
 	//float translationY = -center.y;
 	//float translationZ = -center.z;
@@ -887,6 +935,23 @@ bool Terrain::createTerrainMesh()
 	////	for (int i = 0; i < heightmapData.heights.size(); i += 3) {
 	////		std::cout << "Height " << i / 3 << ": " << heightmapData.heights[i] << ", " << heightmapData.heights[i + 1] << ", " << heightmapData.heights[i + 2] << std::endl;
 	//	}
+		calculateGradients(this->heightmapData.heights, this->size, this->size, gradientX, gradientY);
+
+		createNormalMap(this->gradientX, this->gradientY, this->size, this->size, this->normalMap);
+		glGenTextures(1, &normalMapTexture);
+		glBindTexture(GL_TEXTURE_2D, normalMapTexture);
+
+		// Set texture parameters (you might need to adjust these based on your requirements)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		// Provide the normal map data to the texture
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->size, this->size, 0, GL_RGB, GL_FLOAT, normalMap.data());
+
+		// Unbind the normal map texture
+		glBindTexture(GL_TEXTURE_2D, 0);
 	return true;
 }
 

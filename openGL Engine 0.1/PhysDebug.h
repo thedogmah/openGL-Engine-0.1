@@ -103,8 +103,8 @@ uniform sampler2D txHighGrass;
 uniform sampler2D txRock;
 uniform sampler2D txHighRock;
 uniform sampler2D txPeak;
-
-
+uniform sampler2D normalMap;
+uniform sampler2D detailMap;
 //WORLD UNIFORMS
 
 
@@ -123,10 +123,27 @@ uniform float rockyThreshold = 30;
 uniform float snowThreshold = 40;
 uniform float peakThreshold = 60;
 uniform float smoothStepFactor;
+
+uniform int useNormalMap;
+uniform int useDetailMap;
 // Define shininess factor for specular reflection (added)
 uniform float shininess;
 void main()
 {
+
+vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
+vec3 modifiedNormal;
+vec3 detailMapSample = texture(detailMap, uvsOut).xyz;
+
+  
+// Conditionally modify the normal vector based on the sampled values
+if (useNormalMap == 1) {
+    modifiedNormal = normalize(Normal + normalMapSample * 2.0 - 1.0);
+   // Normal = modifiedNormal;
+} else {
+    // If not using the normal map, keep the original normal
+    modifiedNormal = normalize(Normal);
+}
     // Calculate the height of the terrain at the fragment position
     float terrainHeight = fragPosition.y;
 
@@ -134,6 +151,7 @@ void main()
     vec3 resultColor = vec3(0.0);
 
  vec3 sampledColor = vec3(0.0);
+
 
 if (terrainHeight < waterThreshold) {
     sampledColor = texture(txGrass, uvsOut).rgb;
@@ -171,7 +189,7 @@ else if (terrainHeight >= peakThreshold){
    /*  float blendFactor = smoothstep(peakThreshold, peakThreshold + smoothStepFactor, terrainHeight);
     sampledColor = mix(texture(txHighRock, uvsOut).rgb, texture(txPeak, uvsOut).rgb, blendFactor);*/
 }
-    
+
 
 // Calculate the sun's direction based on spherical coordinates and time
 float sunAltitude = radians(90.0 - ((time / 24.0) * 180.0)); // Normalize time to 0-1 and convert to degrees
@@ -183,7 +201,7 @@ vec3 sunDirection = vec3(cos(sunAzimuth) * sin(sunAltitude), cos(sunAltitude), s
 vec3 sunColor =diffuseColor;// mix(vec3(1.0, 0.8, 0.6), vec3(1.0, 1.0, 1.0), abs(sunAltitude) / radians(45.0)); // Warm colors at sunrise/sunset, white at midday
 
 // Calculate the intensity of the sun's light
-float sunIntensity = max(dot(Normal, -sunDirection), 0.0); // Lambertian shading
+float sunIntensity = max(dot(modifiedNormal, -sunDirection), 0.0); // Lambertian shading
 
 // Use lightDirection, diffuseColor, and diffuseIntensity for sun-related variables
 vec3 sunAmbient = (ambientColor * 0.5) * diffuseColor; // Keep diffuseColor for ambient lighting
@@ -192,11 +210,13 @@ vec3 sunDiffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor ins
    
     // Calculate the reflection vector for the specular component
     vec3 viewDirection = normalize(-fragPosition.xyz);
-    vec3 reflectDirection = reflect(-sunDirection, Normal);
+    vec3 reflectDirection = reflect(-sunDirection, modifiedNormal);
 
     // Calculate the specular intensity (Phong reflection model)
     float specularIntensity = pow(max(dot(viewDirection, reflectDirection), 0.0), shininess);
-
+ if (useDetailMap == 1){
+    sampledColor *= detailMapSample * 0.5  ;
+}
  // Combine the sun's color and intensity with your existing lighting model
 vec3 ambient = (ambientColor * 0.4) * sampledColor;
 vec3 diffuse = (sunIntensity * sunBrightness) * sunColor * sampledColor; // Use sunColor for sunlight and apply sampled texture color
