@@ -14,7 +14,13 @@ PhysDebug::PhysDebug()
 		//new string copied over into a pointer to char to pass to the function.
 		const char* vertexSourcePtr = vertexString.c_str();
 
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at shader program PHys Debug class11 " << error << std::endl;
 
+
+
+		}
 		unsigned int basicVertex;
 		basicVertex = glCreateShader(GL_VERTEX_SHADER);
 
@@ -24,7 +30,13 @@ PhysDebug::PhysDebug()
 		int  success;
 		char infoLog[512];
 		glGetShaderiv(basicVertex, GL_COMPILE_STATUS, &success);
+		
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at shader program PHys Debug class22 " << error << std::endl;
 
+
+
+		}
 		if (!success) {
 			glGetShaderInfoLog(basicVertex, 512, NULL, infoLog);
 			std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
@@ -34,9 +46,9 @@ PhysDebug::PhysDebug()
 			std::cout << "Vertex shader compiled successfully";
 
 		}
-		GLenum error;
+		
 		while ((error = glGetError()) != GL_NO_ERROR) {
-			std::cout << "OpenGL Error at shader program PHys Debug class " << error << std::endl;
+			std::cout << "OpenGL Error at shader program PHys Debug class33 " << error << std::endl;
 
 
 

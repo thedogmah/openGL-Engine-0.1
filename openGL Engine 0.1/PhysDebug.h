@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 
 #define BT_USE_DOUBLE_PRECISION
 
@@ -54,22 +54,56 @@
  #version 330 core
 
 precision mediump float;
+
+struct TerrainInfo {
+    int isWater;
+    int isMountain;
+    int isForest;
+    int isDesert;
+};
+
+
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 layout(location = 2) in vec3 normals;
 layout(location = 3) in vec2 uvs;
+layout(location = 4) in int isWater;     // Attribute location for isWater
+layout(location = 5) in int isMountain;  // Attribute location for isMountain
+layout(location = 6) in int isForest;    // Attribute location for isForest
+layout(location = 7) in int isDesert; 
 out vec3 fColor; // Output color
 out vec3 Normal;  // Output normal in world space
 out vec4 fragPosition;
-
+out float modifiedY;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 uniform int applyModelTransform;
-
+uniform float heightScale; // Scale factor for height map
+uniform float heightOffset; // Offset to control base height
+uniform int riverPathIndices[5408];
+uniform float riverBed;
+uniform sampler2D detailMap;
+out vec2 fragResolution;
+uniform float time;
 out vec2 uvsOut;
+out vec2 TexCoord;  // Output texture coordinates for fragment shader
+
+flat out int isRiverVertex;
 void main()
 {
+
+fragResolution = vec2(2560.0, 1440.0);
+modifiedY = 0;
+  isRiverVertex = 0;
+
+if(isWater >0)
+    {
+       isRiverVertex = 1;
+     // Wave the river vertices based on time
+        gl_Position = vec4(position.x, position.y + sin(time * 2.0 + position.x * 5.0) * 0.1, position.z, 1.0);
+        TexCoord = uvs;
+    } 
 
  Normal = normals; // Pass normals to the fragment shader
 Normal = normalize(normals);
@@ -77,9 +111,31 @@ uvsOut = uvs;
    // fragPosition = projection * vec4(position,1.0f); 
 
  if (applyModelTransform == 1) {
-        gl_Position = projection * view * model * vec4(position, 1.0f);
-   fColor = color; // Pass color directly to the fragment shader
- fragPosition = projection *  vec4(position, 1.0f);
+
+     float heightMapValue = texture(detailMap, uvs).r;
+
+        // Calculate displacement based on the heightmap
+        float displacement = (heightMapValue * heightScale) + heightOffset;
+
+        // Apply displacement only to the Y-coordinate of the vertex position
+        vec3 displacedPosition = position + vec3(0.0, displacement, 0.0);
+  if (isRiverVertex == 1) {
+            displacedPosition.y -= riverBed; // Adjust this value based on your requirements
+modifiedY = displacedPosition.y;         
+   vec3 displacedNormal = normalize(mat3(transpose(inverse(model))) * normals);
+
+        // Pass the modified normal to the fragment shader
+        Normal = displacedNormal;
+
+}
+        // Transform the displaced vertex position
+        gl_Position = projection * view * model * vec4(displacedPosition, 1.0f);
+        fragPosition = projection * vec4(displacedPosition, 1.0f);
+        fColor = color;
+
+    //    gl_Position = projection * view * model * vec4(position, 1.0f);
+ //  fColor = color; // Pass color directly to the fragment shader
+// fragPosition = projection *  vec4(position, 1.0f);
 }
 else{
     gl_Position = projection * view * vec4(position, 1.0f);
@@ -94,27 +150,34 @@ in vec3 fColor; // Input color from vertex shader
 in vec3 Normal; // Input normal in world space from vertex shader
 in vec2 uvsOut; // UV coordinates from vertex shader
 out vec4 FragColor;
+in vec2 fragResolution;
 in vec4 fragPosition;
+vec2 iResolution = vec2(2560.0, 1440.0);
+
+flat in int isRiverVertex; 
 uniform vec3 ambientColor; // Ambient light color
 uniform float time;
-
+in float modifiedY; 
 uniform sampler2D txGrass;
 uniform sampler2D txHighGrass;
 uniform sampler2D txRock;
+
 uniform sampler2D txHighRock;
 uniform sampler2D txPeak;
 uniform sampler2D normalMap;
 uniform sampler2D detailMap;
+uniform sampler2D heightMap;
+
+uniform sampler2D waterTexture;
+uniform sampler2D mudTexture; 
+
 //WORLD UNIFORMS
-
-
 
 // Define light properties
 uniform vec3 lightDirection; // Sun direction (adjust as needed)
 uniform vec3 diffuseColor; // Diffuse light color
 uniform vec3 specularColor; // Specular light color (added)
 uniform float sunBrightness;
-
 
 // Define terrain height thresholds
 uniform float waterThreshold = 10;
@@ -123,117 +186,147 @@ uniform float rockyThreshold = 30;
 uniform float snowThreshold = 40;
 uniform float peakThreshold = 60;
 uniform float smoothStepFactor;
-
+uniform float slopeThreshold;
 uniform int useNormalMap;
 uniform int useDetailMap;
+
 // Define shininess factor for specular reflection (added)
 uniform float shininess;
+
+float avg(vec4 color) {
+    return (color.r + color.g + color.b)/3.0;
+}
+
+
 void main()
 {
+    vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
+    // Apply normal map to modify the normal vector
+    vec3 modifiedNormal = normalize(normalMapSample * 2.0 - 1.0);
+    vec3 detailMapSample = texture(detailMap, uvsOut).xyz;
+    float detailMapValue = texture(detailMap, uvsOut).r;
+    vec3 mudColor = texture(mudTexture, uvsOut * 100).rgb;
 
-vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
-vec3 modifiedNormal;
-vec3 detailMapSample = texture(detailMap, uvsOut).xyz;
+    // Calculate the dot product between the normal vector and the up vector
+    float slopeFactor = dot(modifiedNormal, vec3(0.0, 1.0, 0.0)) + modifiedY;
 
-  
-// Conditionally modify the normal vector based on the sampled values
-if (useNormalMap == 1) {
-    modifiedNormal = normalize(Normal + normalMapSample * 2.0 - 1.0);
-   // Normal = modifiedNormal;
-} else {
-    // If not using the normal map, keep the original normal
-    modifiedNormal = normalize(Normal);
-}
-    // Calculate the height of the terrain at the fragment position
-    float terrainHeight = fragPosition.y;
-
-    // Initialize the result color
-    vec3 resultColor = vec3(0.0);
-
- vec3 sampledColor = vec3(0.0);
+    // Define a threshold for the slope at which mud starts appearing
 
 
-if (terrainHeight < waterThreshold) {
-    sampledColor = texture(txGrass, uvsOut).rgb;
-    } 
+    // Blend based on slope and detail map value
+    float blendFactor = smoothstep(slopeThreshold - 0.4, slopeThreshold, slopeFactor);
 
-else if (terrainHeight >= waterThreshold && terrainHeight < grassThreshold) {
-    
-    float blendFactor = smoothstep(waterThreshold, waterThreshold + smoothStepFactor, terrainHeight);
-    sampledColor = mix(texture(txGrass, uvsOut).rgb, texture(txHighGrass, uvsOut).rgb, blendFactor);
-} 
+    // Preserve the original sampled color before height-based conditions
+    vec3 originalColor = vec3(0.0);
 
-else if (terrainHeight >= grassThreshold && terrainHeight < rockyThreshold) {
-   
-     float blendFactor = smoothstep(grassThreshold, grassThreshold +smoothStepFactor, terrainHeight);
-    sampledColor = mix(texture(txHighGrass, uvsOut).rgb, texture(txRock, uvsOut).rgb, blendFactor);
-}
+    // Height-based conditions to update originalColor
+    float terrainHeight = fragPosition.y + modifiedY;
 
-else if (terrainHeight >= rockyThreshold && terrainHeight < snowThreshold) {
-    
-    float blendFactor = smoothstep(rockyThreshold, rockyThreshold + smoothStepFactor, terrainHeight);
-    sampledColor = mix(texture(txRock, uvsOut).rgb, texture(txHighRock, uvsOut).rgb, blendFactor);
-}
+    if (terrainHeight < waterThreshold) {
+        originalColor = texture(txGrass, uvsOut * 200).rgb;
+    }
+    else if (terrainHeight >= waterThreshold && terrainHeight < grassThreshold) {
+        float factor = smoothstep(waterThreshold, waterThreshold + smoothStepFactor, terrainHeight);
+        originalColor = mix(texture(txGrass, uvsOut * 100).rgb, texture(txHighGrass, uvsOut * 200).rgb, factor);
+    }
+    else if (terrainHeight >= grassThreshold && terrainHeight < rockyThreshold) {
+        float factor = smoothstep(grassThreshold, grassThreshold + smoothStepFactor, terrainHeight);
+        originalColor = mix(texture(txHighGrass, uvsOut * 200).rgb, texture(txRock, uvsOut * 200).rgb, factor);
+    }
+    else if (terrainHeight >= rockyThreshold && terrainHeight < snowThreshold) {
+        float factor = smoothstep(rockyThreshold, rockyThreshold + smoothStepFactor, terrainHeight);
+        originalColor = mix(texture(txRock, uvsOut * 200).rgb, texture(txHighRock, uvsOut * 200).rgb, factor);
+    }
+    else if (terrainHeight >= snowThreshold && terrainHeight < peakThreshold) {
+        float factor = smoothstep(snowThreshold, snowThreshold + smoothStepFactor, terrainHeight);
+        originalColor = mix(texture(txHighRock, uvsOut * 100).rgb, texture(txPeak, uvsOut * 200).rgb, factor);
+    }
+    else if (terrainHeight >= peakThreshold) {
+        originalColor = texture(txPeak, uvsOut * 200).rgb;
+    }
 
-else if (terrainHeight >= snowThreshold && terrainHeight < peakThreshold) {
-    
-    float blendFactor = smoothstep(snowThreshold, snowThreshold + smoothStepFactor, terrainHeight);
-    sampledColor = mix(texture(txHighRock, uvsOut).rgb, texture(txPeak, uvsOut).rgb, blendFactor);
-}
+    // Blend colors using the mud color and detail map value
 
-else if (terrainHeight >= peakThreshold){
-
-    // No need for blending, just use the peak texture directly
-    sampledColor = texture(txPeak, uvsOut).rgb;
-
-   /*  float blendFactor = smoothstep(peakThreshold, peakThreshold + smoothStepFactor, terrainHeight);
-    sampledColor = mix(texture(txHighRock, uvsOut).rgb, texture(txPeak, uvsOut).rgb, blendFactor);*/
-}
+    vec3 sampledColor = originalColor;
+    // Check the slope factor for blending
+    if (slopeFactor < slopeThreshold) {
+        // Use mud color for steep slopes
+        sampledColor = mix(originalColor, mudColor, blendFactor);
+    }
+    else {
+        // Use the original color for not steep slopes
+        sampledColor = mix(mudColor, originalColor, blendFactor);
+    }
 
 
-// Calculate the sun's direction based on spherical coordinates and time
-float sunAltitude = radians(90.0 - ((time / 24.0) * 180.0)); // Normalize time to 0-1 and convert to degrees
 
-float sunAzimuth = radians(180.0); // You can adjust this based on your scene's orientation
-vec3 sunDirection = vec3(cos(sunAzimuth) * sin(sunAltitude), cos(sunAltitude), sin(sunAzimuth) * sin(sunAltitude));
+    // Calculate the sun's direction based on spherical coordinates and time
+    float sunAltitude = radians(90.0 - ((time / 24.0) * 180.0)); // Normalize time to 0-1 and convert to degrees
 
-// Calculate the sun's color based on time of day
-vec3 sunColor =diffuseColor;// mix(vec3(1.0, 0.8, 0.6), vec3(1.0, 1.0, 1.0), abs(sunAltitude) / radians(45.0)); // Warm colors at sunrise/sunset, white at midday
+    float sunAzimuth = radians(180.0); // You can adjust this based on your scene's orientation
+    vec3 sunDirection = vec3(cos(sunAzimuth) * sin(sunAltitude), cos(sunAltitude), sin(sunAzimuth) * sin(sunAltitude));
 
-// Calculate the intensity of the sun's light
-float sunIntensity = max(dot(modifiedNormal, -sunDirection), 0.0); // Lambertian shading
+    // Calculate the sun's color based on time of day
+    vec3 sunColor = diffuseColor;
 
-// Use lightDirection, diffuseColor, and diffuseIntensity for sun-related variables
-vec3 sunAmbient = (ambientColor * 0.5) * diffuseColor; // Keep diffuseColor for ambient lighting
-vec3 sunDiffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor instead of diffuseColor for sunlight
+    // Calculate the intensity of the sun's light
+    float sunIntensity = max(dot(normalMapSample, -sunDirection), 0.0); // Lambertian shading
 
-   
+    // Use lightDirection, diffuseColor, and diffuseIntensity for sun-related variables
+    vec3 sunAmbient = (ambientColor * 0.5) * diffuseColor; // Keep diffuseColor for ambient lighting
+    vec3 sunDiffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor instead of diffuseColor for sunlight
+
     // Calculate the reflection vector for the specular component
     vec3 viewDirection = normalize(-fragPosition.xyz);
-    vec3 reflectDirection = reflect(-sunDirection, modifiedNormal);
+    vec3 reflectDirection = reflect(-sunDirection, Normal);
 
     // Calculate the specular intensity (Phong reflection model)
     float specularIntensity = pow(max(dot(viewDirection, reflectDirection), 0.0), shininess);
- if (useDetailMap == 1){
-    sampledColor *= detailMapSample * 0.5  ;
-}
- // Combine the sun's color and intensity with your existing lighting model
-vec3 ambient = (ambientColor * 0.4) * sampledColor;
-vec3 diffuse = (sunIntensity * sunBrightness) * sunColor * sampledColor; // Use sunColor for sunlight and apply sampled texture color
-vec3 specular = (specularIntensity * 0.05) * specularColor; // Use specular color directly
 
-
+    // Combine the sun's color and intensity with your existing lighting model
+    vec3 ambient = (ambientColor * 0.4);
+    vec3 diffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor for sunlight and apply sampled texture color
+    vec3 specular = (specularIntensity * 0.05) * specularColor; // Use specular color directly
 
     // Final color output
-    vec3 finalColor = ambient + diffuse + specular;
- 
-//untag for HRD range method - Reinhard method. (balances ultra bright colours
-// finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
+    vec3 blendedColor = mix(sampledColor, mudColor, smoothstep(slopeThreshold - 0.6, slopeThreshold, slopeFactor));
 
-    FragColor = vec4(finalColor, 1.0f);
+    vec3 finalColor = ambient + diffuse + specular;;
+
+    // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
+    // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
+    if (useDetailMap == 1) {
+        FragColor = vec4(finalColor + sampledColor, 1.0f);
+    }
+    else {
+        FragColor = vec4(finalColor * blendedColor, 1.0f);
+    }
+
+  vec3 waterColor = vec3(0.0, 0.5, 0.9); // Adjust the RGB values for the water color
+    float transparency = 0.7; // Adjust the transparency level
+
+   if (isRiverVertex > 0) {
+        // Apply wavy effect to the texture coordinates
+        vec2 wavyCoords = uvsOut + vec2(0.0, sin(time * 2.0 + uvsOut.x * 5.0) * 0.1);
+        
+        // Sample the water texture using the wavy coordinates
+        FragColor = texture(waterTexture, wavyCoords);}
+
 }
+
     )";
        
 
     };
 
+
+    //if (isRiverVertex == 1) {
+    //    FragColor = vec4(0.0, 1.0, 0.0, 1.0); // Green color for river path fragments
+    //}
+    //if (isRiverVertex == 2) {
+    //    FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red color for non-river path fragments
+    //}
+    //if (isRiverVertex == 0) {
+    //    FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Red color for non-river path fragments
+    //}
+   

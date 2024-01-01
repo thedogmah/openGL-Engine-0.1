@@ -49,6 +49,9 @@
 #include "Mesh.h"
 #include "Texture.h"
 #include "OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh"
+#include "waterRenderer.h"
+#include "waterShader.h"
+#include "waterTile.h"
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
 
 //Customer shader variables
@@ -764,7 +767,7 @@ int main()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after setting up FBO textures: " << error << std::endl;
@@ -1128,11 +1131,20 @@ int main()
 		//fps details
 	
 	static std::vector<double> frameTimes;
-	
-
+	Loader waterLoader;
+	waterShader watershade;
+	WaterRenderer waterRendererProgram(waterLoader, watershade, projection);
+	WaterTile watertile(75, -75, 0);
+	WaterTile watertile2(175, -175, 0);
+	WaterTile watertile3(275, 175, 0);
+	WaterTile watertile4(-175, 175, 0);
+	std::vector <WaterTile> waterTileVector;
+	waterTileVector.push_back(watertile);
+	waterTileVector.push_back(watertile2);
+	waterTileVector.push_back(watertile3);
+	waterTileVector.push_back(watertile4);
 	while (!glfwWindowShouldClose(window))
 	{
-
 
 		//Get frame time
 		currentTime = glfwGetTime();
@@ -1823,14 +1835,17 @@ int main()
 			std::cout << item << "\n";
 		
 		}*/
+	
 		debugger.SetMatrices(camera.getViewMatrix(), projection);
+		waterRendererProgram.render(waterTileVector, camera);
+
 		if (!terrain.init) terrain.initalise();
 		if(terrain.ready)
 		terrain.render();
-			glUseProgram(shaderProgram);
+			
 	
-		
-		ImGui::Render();
+			glUseProgram(shaderProgram);
+			ImGui::Render();
 		 
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		
@@ -2875,6 +2890,7 @@ void drawUI()
 		if (boolDrawHeightMap) {
 			// Button to export the heightmap to a raw file
 			if (ImGui::Button("Export to Raw")) {
+				terrain.riverPath.clear();
 				std::ofstream file("map.raw", std::ios::binary);
 				if (!file.is_open()) {
 					std::cerr << "Failed to open file for writing." << std::endl;
@@ -3726,5 +3742,12 @@ void createNormalMap(const std::vector<float>& gradientX, const std::vector<floa
 			normalMap[y * width + x].y = 0.5f * gradientY[y * width + x] / len + 0.5f;
 			normalMap[y * width + x].z = 0.5f;
 		}
+	}
+}
+
+void checkGLError(const char* functionName) {
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cerr << "OpenGL error in function " << functionName << ": " << error << std::endl;
 	}
 }

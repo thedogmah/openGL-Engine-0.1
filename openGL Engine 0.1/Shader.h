@@ -20,8 +20,14 @@ public:
 
 	template <typename T>
 	void setUniform(const std::string name, const T &value) const;
+	void setMatrixUniform(const GLint& name, const glm::mat4& matrix) const;
+	void unbind();
 	void use();
 	void setProgramID(unsigned int ID);// ID is set in the constructor, returned from gl function
 	void checkCompileErrors(GLuint shader, std::string type);
+	
+	virtual void bindAttributes();
+	virtual void getAllUniformLocations();
+
 };
 

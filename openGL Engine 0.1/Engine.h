@@ -19,7 +19,7 @@
 #include <random>
 #include "globals.h"
 #include <vector>
-
+#include <algorithm>
 #include "btBulletDynamicsCommon.h"
 
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
@@ -52,7 +52,7 @@ public:
 	//height map values;
 	float frequency = 3.0f; // Adjust this to control the scale of details
 	float amplitude = 12.0f;
-public:
+
 	
 	Terrain();
 	unsigned int* shaderPtr = nullptr;
@@ -69,6 +69,9 @@ public:
 	bool saveHeightMap(char* filename);
 	bool unloadHeightMap();
 	void generateHeightMap();
+	std::pair<int, int> indexToCoordinates(int index);//function converts 1d index to 2d coordinates
+	int coordinatesToIndex(int i, int j); //converts 2d coordinates to 1d index;
+	int findHighestPoint(const std::vector<GLfloat>& vertices);
 	std::mt19937 rng;  // Mersenne Twister PRNG
 	int numOctaves = 5; // for heightmap
 	void createUVs();
@@ -88,6 +91,20 @@ public:
 	void voxelateTerrain();
 	void firSmoothTerrain();
 	float mountain_scaling = 1.5f;  // Adjust to control mountain height
+	
+	//Terrain Buffer Data
+	struct TerrainInfo {
+	int isWater =0;
+	int isMountain=0;
+	int isForest=0;
+	int isDesert=0;
+};
+	//River members
+	void generateRiver(std::vector<GLfloat>& vertices, int startPointIndex, int finalPointIndex, int numMidPoints);
+	float riverBedValue = 0.0f; // You can set an initial value here
+	std::random_device rd;//FOR GENERATING RIVER VARIABLES / PATHS
+	
+	std::vector<int> riverPath;
 
 	void mountainsTerrain();
 	void renderTextureLoader();
@@ -106,6 +123,12 @@ public:
 	"txHighRock",
 	"txPeak"
 	};
+	GLuint waterTextureID;
+	//terrain displacemtnuniforms
+		// Control for heightOffset
+	float slopeThreshold = 0.1;
+	 float theightScale = 1.0f;  // Initial value
+	 float heightOffset = 0.0f;  // Initial value
 	float smoothStep;
 	inline void setHeightScale(float fScale) {
 		heightScale = fScale;
@@ -132,7 +155,7 @@ public:
 	//std::vector<Vertex> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> uvs;
-	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO;
+	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO;
 	GLenum error;
 	
 	// Reserve space for vertices (assuming m_iSize is the size of your heightmap)
@@ -146,6 +169,7 @@ public:
 	bool useDetailMap = 0;
 	GLuint normalMapTexture;
 	GLuint detailMapTexture;
+	GLuint mudMapTexture;
 	std::vector<glm::vec3> normalMap;
 	//Shader variables
 	glm::vec3  rockyColor, ambientColor, diffuseColor, specularColor;
@@ -181,6 +205,7 @@ public:
 	//terrain members
 	std::vector<GLfloat> vertices; //vertices of the terrain itself
 	std::vector<GLuint> indices; //for vertices of terrain
+	std::vector<TerrainInfo> terrainInfoVector;
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	 float translationX = 0.0f;
 	 float translationY = 0.0f;

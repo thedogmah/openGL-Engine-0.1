@@ -87,6 +87,7 @@ void Shader::Shader::use() {
 	
 	//activate the ID assigned;
 	glUseProgram(ID);
+	std::cout << "Shader ID:" << ID;
 }
 template <typename T>
 void Shader::setUniform(const std::string name, const T& value) const
@@ -121,4 +122,27 @@ void Shader::setUniform(const std::string name, const T& value) const
  else if constexpr (std::is_same<T, glm::vec4>::value) {
 	 glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
 	}
+
+}
+
+// Function for matrix uniforms
+void Shader::setMatrixUniform(const GLint& location, const glm::mat4& matrix) const
+{
+	//GLint location = glGetUniformLocation(ID, name.c_str());
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+}
+
+void Shader::unbind()
+{
+	glUseProgram(0);
+}
+
+void Shader::bindAttributes() {
+	// Implementation of bindAttributes
+	// Example: glBindAttribLocation(ID, 0, "position");
+}
+
+void Shader::getAllUniformLocations() {
+	// Implementation of getAllUniformLocations
+	// Example: location_modelMatrix = glGetUniformLocation(ID, "modelMatrix");
 }

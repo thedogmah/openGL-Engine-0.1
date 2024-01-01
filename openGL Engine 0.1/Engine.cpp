@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include <glad/glad.h>
+#include <algorithm>
 #include <GLFW/glfw3.h>
 Terrain::Terrain() 
 {
@@ -11,7 +12,7 @@ Terrain::Terrain()
 	//vertices.reserve(size * size);
 	this->size = 256; //set a default terrain size.
 	this->heightmapData.size =16;
-
+	std::mt19937 gen(rd()); //for generate river variables.
 }
 
 void Terrain::render()
@@ -19,7 +20,11 @@ void Terrain::render()
 	// Define a random number generator and initialize it with a seed
 
 
-	
+		 	GLenum error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error at engine::render start: " << error << std::endl;
+
+			}
 
 	//rng.seed(123);     // Set a fixed seed for repeatability (change this for variability)
 	//set time for shader functions
@@ -27,6 +32,7 @@ void Terrain::render()
 	double currentTime = glfwGetTime();
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
+	glUseProgram(*this->shaderPtr);
 	renderTextureLoader();
 	if (drawIMGUI) {
 		ImGui::Begin("Terrain Settings");
@@ -46,6 +52,10 @@ void Terrain::render()
 			}
 		}		// Update the Y-axis scale factor when the slider changes
 
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at ::render after binding buffer: " << error << std::endl;
+		}
+
 		ImGui::End();
 
 		// Create input fields for the values
@@ -61,6 +71,8 @@ void Terrain::render()
 		ImGui::Checkbox("Trim Terrain Edges", &boolTrimEdges);
 		ImGui::SliderFloat("Mountain Scaling", &mountain_scaling, 0.0, 100);  // Adjust to control mountain height
 
+
+
 		if (ImGui::Button("Generate Terrain")) {
 			// Call terrain generation function with the updated values
 			//
@@ -70,9 +82,21 @@ void Terrain::render()
 			createTerrainMesh();
 		}
 		ImGui::End();
-		glUseProgram(*this->shaderPtr);
+		
 		ImGui::Checkbox("Use Normal Map", &useNormalMap);
 		ImGui::Checkbox("Use Detail Map", &useDetailMap);
+		
+		GLint riverPathIndicesLocation = glGetUniformLocation(*shaderPtr, "riverPathIndices");
+		GLint riverPathIndicesSizeLocation = glGetUniformLocation(*shaderPtr, "riverPathIndicesSize");
+		GLint riverBedLocation = glGetUniformLocation(*shaderPtr, "riverBed");
+		
+		// Assuming riverPath is a std::vector<int> containing the generated river path indices
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at ::render near start: " << error << std::endl;
+		}
+
+		glUniform1iv(riverPathIndicesLocation, riverPath.size(), reinterpret_cast<const GLint*>(riverPath.data()));
+		glUniform1i(riverPathIndicesSizeLocation, riverPath.size());
 
 		// ...
 		GLint useNormalMapLocation = glGetUniformLocation(*this->shaderPtr, "useNormalMap");
@@ -129,6 +153,37 @@ void Terrain::render()
 		// Use ImGui to display the lowest and highest Y-values as text labels
 		ImGui::Text("Lowest Y: %.2f", lowestY);
 		ImGui::Text("Highest Y: %.2f", highestY);
+
+		ImGui::Text("Shader Uniforms:");
+
+		// Assuming your shader program is already active
+		GLint heightScaleLocation = glGetUniformLocation(*this->shaderPtr, "heightScale");
+		GLint heightOffsetLocation = glGetUniformLocation(*this->shaderPtr, "heightOffset");
+		GLint slopeThresholdLocation = glGetUniformLocation(*this->shaderPtr, "slopeThreshold");
+
+		// Control for heightScale
+		if (ImGui::SliderFloat("River Bed", &riverBedValue, -10.0f, 10.0f)) {
+			// Assuming shaderPtr is your shader program pointer
+			GLint riverBedLocation = glGetUniformLocation(*shaderPtr, "riverBed");
+			glUseProgram(*shaderPtr);
+			glUniform1f(riverBedLocation, riverBedValue);
+		}
+		if (ImGui::SliderFloat("Slope Threshold", &slopeThreshold, -1.0f, 1.0f)) {		// Update the shader uniform
+			glUniform1f(slopeThresholdLocation, slopeThreshold);
+		}
+
+		if (ImGui::SliderFloat("Slope Threshold2", &slopeThreshold, 10.0f, 1000.0f)) {		// Update the shader uniform
+			glUniform1f(slopeThresholdLocation, slopeThreshold);
+		}
+		std::cout << "\nslope threshold: " << slopeThreshold;
+		ImGui::SliderFloat("Height Scale", &theightScale, 0.1f, 30.0f);
+		// Update the shader uniform
+		glUniform1f(heightScaleLocation, theightScale);
+
+		
+		ImGui::SliderFloat("Height Offset", &heightOffset, -10.0f, 20.0f);
+		// Update the shader uniform
+		glUniform1f(heightOffsetLocation, heightOffset);
 		if (ImGui::SliderFloat("Water Stop Threshold", &waterStopThreshold, -220.0f, 570.0f)) {
 			glUniform1f(waterStopThresholdLocation, waterStopThreshold);
 		}
@@ -171,7 +226,7 @@ void Terrain::render()
 		//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
 
 		//}
-
+			//timeOfDay = 18.0;
 		if (ImGui::SliderFloat("Time", &timeOfDay, 0.0f, 24.0f)) {
 
 			glUniform1f(timeLocation, timeOfDay);
@@ -383,22 +438,33 @@ void Terrain::render()
 
 	glActiveTexture(GL_TEXTURE11);
 	glBindTexture(GL_TEXTURE_2D, detailMapTexture);
-
+	
 	// Set the uniform in your shader to the texture unit index for the detail map
 	glUniform1i(glGetUniformLocation(*this->shaderPtr, "detailMap"), 11); // Use texture unit 2 for the detail map
+	
+	glActiveTexture(GL_TEXTURE10);
+	glBindTexture(GL_TEXTURE_2D, mudMapTexture);
+	glUniform1i(glGetUniformLocation(*this->shaderPtr, "mudTexture"), 10); // Use texture unit 2 for the detail map
+
 
 
 	// Set the uniform in your shader to the texture unit index (e.g., 1)
 	//glUseProgram(shaderProgram);
 	glUniform1i(glGetUniformLocation(*this->shaderPtr, "normalMap"), 1);
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error at ::render just before DRAW: " << error << std::endl;
+	}
+
 
 
 	if (heightmapData.heights.size() > 0) {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
-		
 
+	
+
+	
 		//loop through the Z axis of the terrain
 
 			//loop through the X axis of the terrain
@@ -415,7 +481,9 @@ void Terrain::render()
 
 	//sets an int 'bool' to tell the shader to stop using the terrains model matrix
 	glUniform1i(applyModelTransform, 0);
-
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error at ::render end: " << error << std::endl;
+	}
 	//if (modelLoc == -1 || viewLoc == -1 || projectionLoc == -1 || applyModelTransformLoc == -1) {
 }
 
@@ -567,6 +635,7 @@ bool Terrain::loadHeightMap(char* filename, int isize)
 		iZ + 1);*/
 	}
 	//end the triangle strip
+	// 	GLenum error;
 	//while ((error = glGetError()) != GL_NO_ERROR) {
 	//	std::cout << "OpenGL Error at game loop start: " << error << std::endl;
 
@@ -636,17 +705,19 @@ bool Terrain::loadHeightMap(char* filename, int isize)
 
 bool Terrain::createTerrainMesh()
 {
-
-
+	GLuint error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error at start of create terrain mesh function: " << error << std::endl;
+	}
 	int detailMapWidth, detailMapHeight, detailMapChannels;
-	unsigned char* detailMapData = stbi_load("naturalstone.jpg", &detailMapWidth, &detailMapHeight, &detailMapChannels, 0);
+	unsigned char* detailMapData = stbi_load("pmossheight.jpg", &detailMapWidth, &detailMapHeight, &detailMapChannels, 0);
 
 	// Generate and bind the texture
 	glGenTextures(1, &detailMapTexture);
 	glBindTexture(GL_TEXTURE_2D, detailMapTexture);
 
 	if (detailMapData) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, detailMapWidth, detailMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, detailMapData);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, detailMapWidth, detailMapHeight, 0, GL_RED, GL_UNSIGNED_BYTE, detailMapData);
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	else {
@@ -654,11 +725,31 @@ bool Terrain::createTerrainMesh()
 		std::cerr << "Failed to load detail map" << std::endl;
 	}
 
+
+	
+	glGenTextures(1, &mudMapTexture);
+	glBindTexture(GL_TEXTURE_2D, mudMapTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int mudMapWidth, mudMapHeight, mudMapChannels;
+	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+
+	if (mudMapData) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		// Handle texture loading error
+		std::cerr << "Failed to load mud map" << std::endl;
+	}
 	// Free the image data
 	stbi_image_free(detailMapData);
 	vertices.clear();
 	normals.clear();
 	indices.clear();
+	terrainInfoVector.clear();
 	/*std::vector<GLfloat> vertices;
 	std::vector<GLuint> indices;*/
 	std::vector<GLfloat> colours;
@@ -680,6 +771,8 @@ bool Terrain::createTerrainMesh()
 	glm::vec3 upperColor(0.8, 0.8, 0.8);
 	float minHeight = 0.1, maxHeight =0.2;
 	// Generate terrain vertices with scaling
+	TerrainInfo terrainEntry;
+	
 	for (int z = 0; z < size; ++z) {
 		for (int x = 0; x < size; ++x) {
 			float xPos = static_cast<float>(x) * scaleX;
@@ -690,7 +783,11 @@ bool Terrain::createTerrainMesh()
 			vertices.push_back(xPos);
 			vertices.push_back(yPos); // Apply Y-axis scaling
 			vertices.push_back(zPos);
-		
+
+			//Below we are creating one 'terrainEntry' for each vertices of terrain this allows to then edit these vertices
+			//and allocate some of them as water etc. This data is passed to the vertex shader in to a 'location attrib buffer'
+			//and only one entry per 3 vertices is required, since 3 vertices corrosponds to one height, or one x,y,z
+			terrainInfoVector.push_back(terrainEntry);
 			if (yPos < minHeight)
 				minHeight = yPos;
 			if (yPos > maxHeight)
@@ -848,6 +945,23 @@ bool Terrain::createTerrainMesh()
 
 		glEnableVertexAttribArray(3);
 		glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (GLvoid*)0);
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at start of terrain mesh binding : " << error << std::endl;
+		}
+		glEnableVertexAttribArray(4);
+		glEnableVertexAttribArray(5);
+		glEnableVertexAttribArray(6);
+		glEnableVertexAttribArray(7);
+		glGenBuffers(1, &terrainVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
+		glBufferData(GL_ARRAY_BUFFER, terrainInfoVector.size() * sizeof(TerrainInfo), terrainInfoVector.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(4, 1, GL_INT, GL_FALSE, sizeof(TerrainInfo), (void*)offsetof(TerrainInfo, isWater));
+		glVertexAttribPointer(5, 1, GL_INT, GL_FALSE, sizeof(TerrainInfo), (void*)offsetof(TerrainInfo, isMountain));
+		glVertexAttribPointer(6, 1, GL_INT, GL_FALSE, sizeof(TerrainInfo), (void*)offsetof(TerrainInfo, isForest));
+		glVertexAttribPointer(7, 1, GL_INT, GL_FALSE, sizeof(TerrainInfo), (void*)offsetof(TerrainInfo, isDesert));
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error at start of create terrain mesh function: " << error << std::endl;
+		}
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1009,18 +1123,58 @@ void Terrain::generateHeightMap()
 //Consider having noise in the range of -1 to 1 (result *  2 - 1)
 }
 
+std::pair<int, int> Terrain::indexToCoordinates(int index)
+{
+	int i = index / this->size;
+	int j = index % this->size;
+	return std::make_pair(i, j);
+}
+
+int Terrain::coordinatesToIndex(int i, int j)
+{
+	return i * this->size + j;
+}
+
+int Terrain::findHighestPoint(const std::vector<GLfloat>& vertices)
+{
+	size_t numVertices = vertices.size() / 3; // Assuming vertices are in groups of three (X, Y, Z)
+
+	if (numVertices == 0) {
+		// Handle the case where there are no vertices
+		return -1; // Or some other sentinel value
+	}
+
+	// Initialize variables to keep track of the maximum Y value and its index
+	float maxY = vertices[1]; // Initial maximum Y value
+	int maxYIndex = 0; // Initial index of the maximum Y value
+
+	// Iterate through the Y values
+	for (size_t i = 1; i < numVertices; ++i) {
+		float currentY = vertices[i * 3 + 1]; // Assuming Y values are at indices 1, 4, 7, ...
+
+		// Check if the current Y value is greater than the maximum Y value
+		if (currentY > maxY) {
+			maxY = currentY;
+			maxYIndex = static_cast<int>(i + 1); // Update the index
+		}
+	}
+
+	std::cout << "Max Heigiht is: " << vertices[maxYIndex];
+	return maxYIndex;
+}
+
 void Terrain::createUVs()
 {
 	// Initialize variables to store minimum and maximum vertex positions for UV calculation
 	   // Initialize variables to store minimum and maximum vertex positions
-	
-	uvs.clear();
-	// Calculate the minimum and maximum values of the x and z coordinates
 	float minX = std::numeric_limits<float>::max();
 	float maxX = std::numeric_limits<float>::min();
 	float minZ = std::numeric_limits<float>::max();
 	float maxZ = std::numeric_limits<float>::min();
 
+	uvs.clear();
+
+	// Calculate the minimum and maximum values of the x and z coordinates
 	for (size_t i = 0; i < vertices.size(); i += 3) {
 		float x = vertices[i + 0]; // Access x component
 		float y = vertices[i + 1]; // Access y component
@@ -1032,15 +1186,15 @@ void Terrain::createUVs()
 		if (z > maxZ) maxZ = z;
 	}
 
-	
+	// Calculate UV coordinates based on the vertex position
 	for (int i = 0; i < vertices.size(); i += 3) {
 		// The vertex data layout assumes [x, y, z, x, y, z, ...]
 		float x = vertices[i];
 		float z = vertices[i + 2];
 
 		// Calculate UVs based on the vertex position
-		float u = (x - minX) / ((maxX - minX) / repeatFactor);
-		float v = (z - minZ) / ((maxZ - minZ) / repeatFactor);
+		float u = (x - minX) / ((maxX - minX) / 1);
+		float v = (z - minZ) / ((maxZ - minZ) / 1);
 
 		// Store the UV coordinates
 		uvs.push_back(glm::vec2(u, v));
@@ -1248,6 +1402,99 @@ void Terrain::firSmoothTerrain()
 	
 }
 
+void Terrain::generateRiver(std::vector<GLfloat>& vertices, int startPointIndex, int finalPointIndex, int numMidPoints)
+{
+	int width, height, channels;
+	unsigned char* image = stbi_load("water.jpg", &width, &height, &channels, 3);
+	if (!image) {
+		// Handle texture loading failure
+		std::cerr << "Failed to load water texture" << std::endl;
+		return;
+	}
+	glGenTextures(1, &waterTextureID);
+	glBindTexture(GL_TEXTURE_2D, waterTextureID);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		// Handle OpenGL error
+		std::cerr << "OpenGL error: " << error << std::endl;
+
+		// Clean up and return
+		stbi_image_free(image);
+		glDeleteTextures(1, &waterTextureID);
+		return;
+	}
+	stbi_image_free(image);
+	riverPath.clear();
+
+	// Generate a random endpoint
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<int> endPointDistribution(0, vertices.size() / 3 - 1);
+	finalPointIndex = endPointDistribution(gen);
+
+	riverPath.push_back(startPointIndex);
+
+	// Generate random midpoints
+	std::vector<int> midpoints;
+	midpoints.push_back(startPointIndex);
+
+	for (int i = 0; i < numMidPoints; ++i) {
+		int randomIndex = endPointDistribution(gen) * 3;  // Assuming vertices are in the format x, y, z
+		midpoints.push_back(randomIndex / 3);
+	}
+
+	// Connect midpoints to create the path
+	for (size_t i = 0; i < midpoints.size() - 1; ++i) {
+		int currentPoint = midpoints[i];
+		int nextPoint = midpoints[i + 1];
+
+		// Create the path by adding each step (index) along the way
+		int deltaX = nextPoint % size - currentPoint % size;
+		int deltaY = nextPoint / size - currentPoint / size;
+		int steps = std::max(std::abs(deltaX), std::abs(deltaY));
+
+		for (int step = 1; step <= steps; ++step) {
+			int stepX = currentPoint % size + step * deltaX / steps;
+			int stepY = currentPoint / size + step * deltaY / steps;
+
+			// Ensure stepX and stepY are within bounds
+			stepX = std::max(0, std::min(size - 1, stepX));
+			stepY = std::max(0, std::min(size - 1, stepY));
+
+			int stepIndex = stepY * size + stepX;
+			riverPath.push_back(stepIndex);
+			terrainInfoVector[stepIndex].isWater = 1;  // Update the terrainInfoVector for the water flag
+
+			// Lower the Y value by -10 for the corresponding vertex in the vertices vector
+			vertices[stepIndex * 3 + 1] -= 10.0f;
+			vertices[stepIndex * 3 + 2] -= 10.0f; // Assuming vertices are in the format x, y, z
+		}
+	}
+
+	// Connect the last midpoint to the final point
+	riverPath.push_back(finalPointIndex);
+	terrainInfoVector[finalPointIndex].isWater = 1;
+
+	glBindVertexArray(VAO);
+
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+	
+	glBindVertexArray(VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
+	glBufferData(GL_ARRAY_BUFFER, terrainInfoVector.size() * sizeof(TerrainInfo), terrainInfoVector.data(), GL_STATIC_DRAW);
+//	glBufferSubData(GL_ARRAY_BUFFER, 0, terrainInfoVector.size() * sizeof(TerrainInfo), terrainInfoVector.data());
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void Terrain::mountainsTerrain()
 {
 	for (int i = 0; i < vertices.size(); i += 3) {
@@ -1272,6 +1519,48 @@ void Terrain::renderTextureLoader()
 
 
 
+	ImGui::Begin("Rivers and Paths");
+
+	if ((ImGui::Button("Generate River"))){
+		//riverPath.clear();
+		std::srand(std::time(0));
+
+		// Initialize terrain vertices
+		if (vertices.size() > 0) {
+			// Generate a river from the highest point to a logical final point
+			int startPointIndex = findHighestPoint(vertices);
+
+			// Set the final point to the maximum height vertex
+			//int finalPointIndex = findMaxHeightPoint(vertices);
+
+			// Adjust the number of midpoints as needed
+			int numMidPoints = 10;
+
+			generateRiver(vertices, startPointIndex, 1, numMidPoints);
+		}
+	
+
+	}
+
+	if ((ImGui::Button("Widen River"))) {
+		size_t ss = riverPath.size();
+		for (size_t i = 0; i < ss; ++i) {
+			// Add the original float
+			float originalFloat = riverPath[i];
+
+			// Add the second float (original + givenNumber)
+			terrainInfoVector[i + this->size].isWater = 1;
+			riverPath.push_back(originalFloat + this->size);
+		}
+	}
+	ImGui::Text("River Path Indices:");
+	/*for (int index : riverPath) {
+		ImGui::Text("%d", index);
+	}*/
+
+
+
+	ImGui::End();
 	ImGui::Begin("Texture Manager");
 	
 	// Load Texture button
@@ -1351,7 +1640,15 @@ void Terrain::renderTextureLoader()
 
 		}
 	}
+	// Activate texture unit 0 (you can choose a different one if needed)
+	glActiveTexture(GL_TEXTURE7);
 
+	// Bind the water texture to texture unit 0
+	glBindTexture(GL_TEXTURE_2D, waterTextureID);
+
+	// Set the waterTexture uniform in the shader to use texture unit 0
+	GLint waterTextureLoc = glGetUniformLocation(*this->shaderPtr, "waterTexture");
+	glUniform1i(waterTextureLoc, 0);
 	ImGui::End(); // Texture Manager window
 
 }

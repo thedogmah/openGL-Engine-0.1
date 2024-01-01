@@ -99,6 +99,18 @@
     <ClCompile Include="variablesIMGUI.cpp">
       <Filter>Header Files</Filter>
     </ClCompile>
+    <ClCompile Include="waterRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="waterShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="waterTile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cube.h">
@@ -194,6 +206,18 @@
     <ClInclude Include="ImGuiVariables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="waterRenderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="waterShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="waterTile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="basic.frag">
@@ -214,5 +238,13 @@
     <Image Include="..\..\..\..\Desktop\me.jpg">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="waterVertex.txt">
+      <Filter>Source Files\Shaders</Filter>
+    </Text>
+    <Text Include="waterFragment.txt">
+      <Filter>Source Files\Shaders</Filter>
+    </Text>
   </ItemGroup>
 </Project>
