@@ -4,18 +4,18 @@
 #include <vector>
 
 namespace DoMath {
-	glm::vec3 calculateNormal(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3)
-	{
-	
-		glm::vec3 edge1 = v2 - v1;
-		glm::vec3 edge2 = v3 - v1;
-		return glm::normalize(glm::cross(edge1, edge2));
-	
-	}
+    glm::vec3 calculateNormal(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3)
+    {
+    
+        glm::vec3 edge1 = v2 - v1;
+        glm::vec3 edge2 = v3 - v1;
+        return glm::normalize(glm::cross(edge1, edge2));
+    
+    }
 
     //Generate normals from GLM vec3 and indices
-	std::vector<glm::vec3> generateNormalVector(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices)
-	{
+    std::vector<glm::vec3> generateNormalVector(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices)
+    {
         std::vector<glm::vec3> normals(vertices.size(), glm::vec3(0.0f));
 
         for (size_t i = 0; i < indices.size(); i += 3) {
@@ -36,7 +36,7 @@ namespace DoMath {
 
         return normals;
     
-	}
+    }
 
     //Generate normals from float vector and indices
     std::vector<glm::vec3> generateNormalVector(const std::vector<float>& vertices, const std::vector<unsigned int>& indices)

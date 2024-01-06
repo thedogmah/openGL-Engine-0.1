@@ -1,6 +1,9 @@
 //#pragma once
 
-#define BT_USE_DOUBLE_PRECISION
+
+
+
+BT_USE_DOUBLE_PRECISION
 
 #include <LinearMath/btIDebugDraw.h>
 #include <LinearMath/btVector3.h>
@@ -88,7 +91,7 @@ out vec2 fragResolution;
 uniform float time;
 out vec2 uvsOut;
 out vec2 TexCoord;  // Output texture coordinates for fragment shader
-
+uniform vec4 plane;
 flat out int isRiverVertex;
 void main()
 {
@@ -96,12 +99,16 @@ void main()
 fragResolution = vec2(2560.0, 1440.0);
 modifiedY = 0;
   isRiverVertex = 0;
+  vec4 worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
+
+    // Set the clip distance based on the world position
+    gl_ClipDistance[0] = dot(worldPosition, plane);
 
 if(isWater >0)
     {
        isRiverVertex = 1;
      // Wave the river vertices based on time
-        gl_Position = vec4(position.x, position.y + sin(time * 2.0 + position.x * 5.0) * 0.1, position.z, 1.0);
+        gl_Position = vec4(position.x, position.y, position.z, 1.0);
         TexCoord = uvs;
     } 
 

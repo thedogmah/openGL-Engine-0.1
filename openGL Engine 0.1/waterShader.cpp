@@ -1,5 +1,7 @@
 #include "waterShader.h"
-
+#include "stb_image_write.h"
+#include <stb/stb_image.h>
+#include "Camera.h"
 waterShader::waterShader() : Shader("waterVertex.txt", "waterFragment.txt"), shader("waterVertex.txt", "waterFragment.txt") {
 
     getAllUniformLocations();

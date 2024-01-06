@@ -89,7 +89,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 		glfwGetFramebufferSize(window, &width, &height);
 		glfwGetCursorPos(window, &xpos, &ypos);
-		
+
+
+	
+		void debugPrintPixels(const unsigned char* pixels, int width, int height);//function for checking pixel array for screen buffer values 
 	/*	if (lastposX == xpox && lastposY == ypos )
 		{
 			lMouseClicked = true;
@@ -210,4 +213,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 	}
 
 
+}
+
+GLuint getCurrentFramebuffer() {
+	GLint currentFBO;
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
+	return static_cast<GLuint>(currentFBO);
 }

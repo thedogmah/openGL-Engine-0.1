@@ -5,8 +5,6 @@
 #define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a)/sizeof(a[0])) //first element must always exist to use this
 #define ASSIMP_LOAD_FLAG (   aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
 
-
-
 #include "Cube.h"
 #include <set>
 #include <map>

@@ -1,13 +1,13 @@
+#pragma once
 
+#include "Loader.h"
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
 #include "globals.h"
-#include "Loader.h"
-
+#include "stb_image_write.h"
 #include <stb/stb_image.h>
-#include <iostream>
 
 GLuint Loader::loadToVao(const std::vector<GLfloat>& positions,
     const std::vector<GLfloat>& textureCoords,
@@ -47,6 +47,10 @@ GLuint Loader::loadToVao(std::vector<GLfloat>& positions, int dimensions) {
 
 GLuint Loader::loadTexture(const std::string& textureFile) {
     int width, height, channels;
+    
+    
+    
+    
     stbi_set_flip_vertically_on_load(true); // Flip the image vertically
     unsigned char* image = stbi_load(("res/" + textureFile).c_str(), &width, &height, &channels, STBI_rgb_alpha);
 

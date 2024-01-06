@@ -1,8 +1,9 @@
 #pragma once
 
 
-#include "globals.h"
+
 #include "Shader.h"
+#include "Camera.h"
 void checkGLError(const char* functionName);
 class waterShader : public Shader {
 public:

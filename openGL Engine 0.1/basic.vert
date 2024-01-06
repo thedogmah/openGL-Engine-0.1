@@ -96,5 +96,5 @@ if (isInstanced != 0) {
         textureCoords = texCoords;
         Normal = mat3(transpose(inverse(view * model))) * aNormal;
         FragPosWorld = vec3(model * vec4(aPos, 1.0));
-    }
+    }   
 }

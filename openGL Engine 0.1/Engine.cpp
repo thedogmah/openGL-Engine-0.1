@@ -2,6 +2,8 @@
 #include <glad/glad.h>
 #include <algorithm>
 #include <GLFW/glfw3.h>
+#include "stb_image_write.h"
+#include <stb/stb_image.h>
 Terrain::Terrain() 
 {
 	
@@ -477,6 +479,7 @@ void Terrain::render()
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+
 
 
 	//sets an int 'bool' to tell the shader to stop using the terrains model matrix

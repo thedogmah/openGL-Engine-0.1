@@ -181,6 +181,7 @@
     <ClCompile Include="SSBO.cpp" />
     <ClCompile Include="stb.cpp" />
     <ClCompile Include="Texture.cpp" />
+    <ClCompile Include="UIManager.cpp" />
     <ClCompile Include="variablesIMGUI.cpp" />
     <ClCompile Include="waterRenderer.cpp" />
     <ClCompile Include="waterShader.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="Cube.h" />
     <ClInclude Include="cubeData.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="frameBufferObject.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="ImGuiVariables.h" />
     <ClInclude Include="libraries\include\assimp\config.h" />
@@ -220,6 +222,8 @@
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SSBO.h" />
     <ClInclude Include="Texture.h" />
+    <ClInclude Include="UIManager.h" />
+    <ClInclude Include="waterFrameBuffer.h" />
     <ClInclude Include="waterRenderer.h" />
     <ClInclude Include="waterShader.h" />
     <ClInclude Include="waterTile.h" />
@@ -231,6 +235,8 @@
     <None Include="packages.config" />
     <None Include="PhysDebug.vert" />
     <None Include="PhysDebut.frag" />
+    <None Include="UIfrag.glsl" />
+    <None Include="UIvertex.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg" />

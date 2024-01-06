@@ -1,9 +1,8 @@
-#ifndef WATER_TILE_HPP
-#define WATER_TILE_HPP
+#pragma once
 
 class WaterTile {
 public:
-    static constexpr float TILE_SIZE = 60.0f;
+    static constexpr float TILE_SIZE = 10.0f;
 
     WaterTile(float centerX, float centerZ, float height)
         : x(centerX), z(centerZ), height(height) {}
@@ -20,9 +19,11 @@ public:
         return z;
     }
 
+    float getSize() const {
+        return TILE_SIZE;
+    }
+
 private:
     float height;
     float x, z;
 };
-#endif // WATER_TILE_HPP
-

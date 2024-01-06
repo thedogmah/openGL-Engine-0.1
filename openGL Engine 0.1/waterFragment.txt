@@ -4,9 +4,20 @@ in vec2 textureCoords;
 
 out vec4 out_Color;
 
+uniform sampler2D fboTexture;
 
 void main(void) {
+    // Sample the reflection color from the texture
 
-	out_Color = vec4(0.0, 0.0, 1.0, 1.0);
+     vec2 flippedCoords = vec2(1.0 - textureCoords.x,  textureCoords.y);
 
+    vec4 reflectionColor = texture(fboTexture, flippedCoords);
+
+    // Mix the reflection color with a blue tint
+    vec3 blueTint = vec3(0.0, 0.3, 1.0);  // Adjust the values for your desired blue tint
+    vec3 mixedColor = mix(reflectionColor.rgb, blueTint, 0.55);  // Adjust the mix factor (0.5 for equal mix)
+
+    // Output the final color
+      //out_Color = vec4(mixedColor, 1.0);
+    out_Color = vec4(mixedColor, reflectionColor.a);
 }

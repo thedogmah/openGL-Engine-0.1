@@ -68,7 +68,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 	glAttachShader(ID, vertex);//attach each shader individually
 	glAttachShader(ID, fragment);
 	glLinkProgram(ID);//link the whole program when complete  so it can be executed by CPU
-
+	
 //print any link errors
 	glGetProgramiv(ID, GL_LINK_STATUS, &success);
 	if (!success)
@@ -79,8 +79,9 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 
 	//delete the shaders since they are linked to the program and not necessary.
 	glDeleteShader(vertex);
-	glDeleteShader(fragment);
-
+	glDeleteShader(fragment); std::cout << "Paths: " << fragmentPath << ", " << vertexPath;
+	std::cout << "\nShader constructor, program ID is:" << ID;
+	
 }
 
 void Shader::Shader::use() {

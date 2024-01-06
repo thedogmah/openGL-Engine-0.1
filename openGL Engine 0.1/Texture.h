@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stb/stb_image.h>
+
 #include <vector>
 #include <iostream>
 #include "globals.h"
@@ -17,11 +17,13 @@ class Texture {
         bool Load();
         void Bind(GLenum textureUnit) const;
         void Unbind() const;
+        float sizeX, sizeY, posX, posY;
 
     private:
         GLuint textureID; // OpenGL texture ID
         GLenum type;     // Texture type (e.g., GL_TEXTURE_2D)
         std::string filePath;
+        
   };
 
 
