@@ -34,7 +34,8 @@ void Terrain::render()
 	double currentTime = glfwGetTime();
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
-	glUseProgram(*this->shaderPtr);
+//	glUseProgram(*this->shaderPtr);
+
 	renderTextureLoader();
 	if (drawIMGUI) {
 		ImGui::Begin("Terrain Settings");

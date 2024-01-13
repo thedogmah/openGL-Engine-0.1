@@ -28,7 +28,7 @@ class UIManager {
 private:
     std::vector<UITexture> uiTextures;
     FrameBufferObject fbo;
-    GLuint shaderProgram;
+    GLuint UIshaderProgram;
 
 public:
     UIManager(int screenWidth, int screenHeight, bool useDepthBuffer = true);

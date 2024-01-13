@@ -147,6 +147,10 @@ void Mesh::Render(unsigned int shader)
 		//std::cout << "\nSSBO ID to render: " << ssboID << "Amount of times is " << amount << std::endl;
 		//std::cout << "\n" << meshName << std::endl << "\n";
 		glUseProgram(shader);
+		GLint view = glGetUniformLocation(shader, "view");
+
+		glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+
 		//glEnable(GL_BLEND);
 		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		//this->shaderProgram = shader;

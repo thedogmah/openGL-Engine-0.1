@@ -22,6 +22,7 @@ public:
 	void updatePhysics();
 	void update();
 	void debug();
+	void setLocation(float x, float y, float z);
 	btRigidBody* getRigidBody();
 	bool characterActive = false;
 private:

@@ -70,7 +70,8 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
   int meshCountInstanced;
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
   std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
-
+  std::vector <WaterTile> waterTileVector;
+  std::set<std::pair<float, float>> waterBounds;//locations for not creating land objects
   std::vector<customShader*> customShaders; //declaring from globals.h once for all 
 std::vector<World::meshInstance*> meshInstancesVector;
 //customer shader manager varaibles ends
@@ -105,10 +106,10 @@ Character* character = nullptr;
 
 //forward declarations
  void debugPrintPixels(const unsigned char* pixels, int width, int height);//function for checking pixel array for screen buffer values 
- 
+ void CC(std::string location, std::string comment = "debug");
  void generateSSBOInstance(int count, std::string ssboname); //function used to create instance date for dynamic mesh ssbos
  void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name, float scalemin, float scalemax); //Generate SSBO instances to the Y value of the terrain mesh[0]
-
+ void printMatrix(glm::mat4 matrix, std::string location); //to print matrices to the console 
  void initialise(float x, float y, float z, GLFWwindow* window);
 //function for returning shape type as string
 std::string GetShapeTypeString(int shapeType);
@@ -1132,7 +1133,7 @@ int main()
 
 	//initalise game / variables and start location
 
-	initialise(1.0, 2.0, 1.0, window);
+	initialise(-17.0, -17.0, 37.0, window);
 
 		//fps details
 	
@@ -1141,13 +1142,13 @@ int main()
 	waterShader watershade;
 	WaterRenderer waterRendererProgram(waterLoader, watershade, projection);
 	waterFrameBuffers waterFBOS; 
+	
 
-
-	WaterTile watertile(5, 0, 0);
-	//WaterTile watertile2(-50, 0, 0);
+	WaterTile watertile(0, 0, -1);
+	//WaterTile watertile2(-50, 0, 0); S
 	WaterTile watertile3(25, 0, 0);
 	//WaterTile watertile4(-75, 0, 0);
-	std::vector <WaterTile> waterTileVector;
+	
 	waterTileVector.push_back(watertile);
 //	waterTileVector.push_back(watertile2);
 	//waterTileVector.push_back(watertile3);
@@ -1156,10 +1157,11 @@ int main()
 	uimanager->addTextureFromFBO(waterFBOS.getReflectionTexture(), 100, 100, -0.7,0.85, 0.35, 0.35);
 	uimanager->addTextureFromFBO(waterFBOS.getRefractionTexture(), 100, 100, 0.4, 0.85, 0.45, 0.45);
 //	uimanager->addTextureFromFBO(waterFBOS.getReflectionBufferID(), 100, 100, 0.4, 0.85, 0.45, 0.45);
-
+	waterRendererProgram.reflectionTextureID = waterFBOS.getReflectionTexture();
+	waterRendererProgram.refractionTextureID = waterFBOS.getRefractionTexture();
+	camera.setViewMatrix();
 	while (!glfwWindowShouldClose(window))
 	{
-		
 		//Get frame time
 		currentTime = glfwGetTime();
 		// Calculate the elapsed time since the start of the loop
@@ -1303,7 +1305,7 @@ int main()
 		//camera.setViewMatrix();
 			ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
 
-		//glUseProgram(shaderProgram);
+		glUseProgram(shaderProgram);
 		camera.update();
 		
 	
@@ -1766,7 +1768,7 @@ int main()
 
 		
 		// Render ImGui UI
-		debugger.SetMatrices(camera.getViewMatrix(), projection);
+	//	debugger.SetMatrices(camera.getViewMatrix(), projection);
 		if (boolRigidBody) { dynamicsWorld->debugDrawWorld(); }// If to draw the physics debug wireframes
 		glUseProgram(shaderProgram);
 		glBindVertexArray(VAO);
@@ -1791,7 +1793,7 @@ int main()
 		glBindVertexArray(0);
 		glUniform1i(isInstancedBool,0);
 		
-		cubeTest.draw();
+		//cubeTest.draw();
 		
 	
 		
@@ -1859,122 +1861,84 @@ int main()
 		if (terrain.ready)
 		{
 			
-			std::cout << "\nCurrently bound FBO ID before first pass: " << getCurrentFramebuffer() << std::endl;
-			GLint clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
-
-			glUniform4f(clipPlaneLocation, 0.0f, 1.0f, 0.0f, 0.0f); // Assuming the plane is along the y-axis
-
+			glUseProgram(debugger.shaderProgram);
+			waterFBOS.bindReflectionFrameBuffer();
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glEnable(GL_CLIP_DISTANCE0);
-			waterFBOS.bindReflectionFrameBuffer();
-		
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		
-			//std::cout << "\nReflection buffer ID: " << waterFBOS.getReflectionBufferID() << "Texture ID: " << waterFBOS.reflectionTextureID;
-			//std::cout << "\nRefraction buffer ID: " << waterFBOS.getRfractionBufferID() << "Texture ID: " << waterFBOS.refractionTextureID;
-			//glBindFramebuffer(GL_FRAMEBUFFER, waterFBOS.getReflectionBufferID());
-			//waterRendererProgram.render(waterTileVector, camera);
-			
+	
+			GLint clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
+			GLint view = glGetUniformLocation(debugger.shaderProgram, "view");
+			glUniform4f(clipPlaneLocation, 0.0f, 1.0f, 0.0f, 0.0f); // Assuming the plane is along the y-axis
+			camera.flipPitch();
+			//camera.setViewMatrix();
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+			printMatrix(camera.mViewMatrix, "first iteration ");
 			instancedInt = 0;
+			glUseProgram(shaderProgram);
+			glUniform1i(isInstancedBool, 1);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			for (auto& each : SSBOVector)
 			{
-				//binds each ssbo which corresponds to the index position (intanceInt of the equivalent mesh)
-				//this mesh is then rendered.
-				//each->Bind();
-			//instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
-				//std::cout << "\n" << each->ssboID << " is the bound SSBO ID\n";
-		//		instancedInt++;
-				//each->Unbind();
-			}
-			waterFBOS.bindReflectionFrameBuffer();
-			terrain.render();
-			
-			//std::cout << "\nCurrently bound FBO ID before second pass: " << getCurrentFramebuffer() << std::endl;
-			// Capture Reflection
-			//terrain.render();
-			ImGui::Begin("screenshot fbo");
-			if (ImGui::Button("screenshot")) {
-				unsigned char* pixelsReflection = new unsigned char[widthreflection * heightreflection * 4];
-
-				glReadPixels(0, 0, widthreflection, heightreflection, GL_RGBA, GL_UNSIGNED_BYTE, pixelsReflection);
-				stbi_flip_vertically_on_write(1);
-				stbi_write_png("reflection.png", widthreflection, heightreflection, 4, pixelsReflection, 0);
-				//debugPrintPixels(pixelsReflection, widthreflection, heightreflection);
-				delete[] pixelsReflection;
-			}
-		
-			//glDisable(GL_CLIP_DISTANCE0);
-			waterFBOS.unbindCurrentFrameBuffer();
-			clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
-
-			glUniform4f(clipPlaneLocation, 0.0f, -1.0f, 0.0f, 0.0f); // Assuming the plane is along the y-axis
-
-			waterFBOS.bindRefractionFrameBuffer();
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			//std::cout << "\nReflection buffer ID: " << waterFBOS.getReflectionBufferID() << "Texture ID: " << waterFBOS.reflectionTextureID;
-			//std::cout << "\nRefraction buffer ID: " << waterFBOS.getRfractionBufferID() << "Texture ID: " << waterFBOS.refractionTextureID;
-			//glBindFramebuffer(GL_FRAMEBUFFER, waterFBOS.getReflectionBufferID());
-			//waterRendererProgram.render(waterTileVector, camera);
-
-			instancedInt = 0;
-			for (auto& each : SSBOVector)
-			{
-				//binds each ssbo which corresponds to the index position (intanceInt of the equivalent mesh)
-				//this mesh is then rendered.
-				//each->Bind();
 				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
-				//std::cout << "\n" << each->ssboID << " is the bound SSBO ID\n";
+				instancedInt++;
+			}
+			waterFBOS.bindReflectionFrameBuffer();
+
+			glUseProgram(debugger.shaderProgram);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "GL error: " << error << std::endl;
+
+			}
+			
+			glUniform1i(isInstancedBool, 0);
+			glUseProgram(debugger.shaderProgram);
+			waterFBOS.bindReflectionFrameBuffer();
+	//		watershade.setMatrixUniform(debugger.shaderProgram, camera.mViewMatrix);
+			terrain.render();
+			glUseProgram(debugger.shaderProgram);
+			ImGui::Begin("screenshot fbo");
+		
+			
+			waterFBOS.bindRefractionFrameBuffer();
+		
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			camera.flipPitch();
+		//	camera.setViewMatrix();
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		
+			clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
+			glUniform4f( clipPlaneLocation, 0.0f, -1.0f, 0.0f, 0.0f); // Assuming the plane is along the y-axis
+	
+			instancedInt = 0;
+			glUseProgram(shaderProgram);
+			glUniform1i(isInstancedBool, 1);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			for (auto& each : SSBOVector)
+			{
+				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
 			instancedInt++;
-				//each->Unbind();
 			}
 			waterFBOS.bindRefractionFrameBuffer();
+			glUniform1i(isInstancedBool, 0);
+			glUseProgram(debugger.shaderProgram);
+			waterFBOS.bindRefractionFrameBuffer();
 			terrain.render();
-
-			////std::cout << "\nCurrently bound FBO ID before second pass: " << getCurrentFramebuffer() << std::endl;
-			//// Capture Reflection
-			////terrain.render();
-			////ImGui::Begin("screenshot fbo");
-			////if (ImGui::Button("screenshot")) {
-			////	unsigned char* pixelsReflection = new unsigned char[widthreflection * heightreflection * 4];
-
-			////	glReadPixels(0, 0, widthreflection, heightreflection, GL_RGBA, GL_UNSIGNED_BYTE, pixelsReflection);
-			////	stbi_flip_vertically_on_write(1);
-			////	stbi_write_png("reflection.png", widthreflection, heightreflection, 4, pixelsReflection, 0);
-			////	//debugPrintPixels(pixelsReflection, widthreflection, heightreflection);
-			////	delete[] pixelsReflection;
-			////}
-
-			//glDisable(GL_CLIP_DISTANCE0);
-				//glBindFramebuffer(GL_FRAMEBUFFER, waterFBOS.getReflectionBufferID());
-
+			glUseProgram(debugger.shaderProgram);
 			waterFBOS.unbindCurrentFrameBuffer();
 			glDisable(GL_CLIP_DISTANCE0);
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-				//glBindFramebuffer(GL_FRAMEBUFFER, waterFBOS.getReflectionBufferID());
-
-			waterRendererProgram.render(waterTileVector, camera);
-
-			terrain.render();
-			uimanager->renderUI();
-		//	uimanager->renderUI();
-			// Capture Refraction
-			//waterFBOS.bindRefractionFrameBuffer();
-			//terrain.render();
-			/*unsigned char* pixelsRefraction = new unsigned char[widthreflection * heightreflection * 3];
-			glReadPixels(0, 0, widthreflection, heightreflection, GL_RGB, GL_UNSIGNED_BYTE, pixelsRefraction);
-			stbi_flip_vertically_on_write(1);
-			stbi_write_png("refraction.png", widthreflection, heightreflection, 3, pixelsRefraction, 0);
-			debugPrintPixels(pixelsRefraction, widthreflection, heightreflection);*/
-
-			// Clean up
 		
-			//	delete[] pixelsRefraction;
 
-			// Unbind framebuffer after capturing both reflection and refraction
-			
+			CC("before loading view in render", "debug");
+			glUseProgram(debugger.shaderProgram);
+			terrain.render();
+			glUseProgram(debugger.shaderProgram);
+			//uimanager->renderUI();
+			waterRendererProgram.render(waterTileVector, camera);
+		
+				
 		}
+		glUseProgram(shaderProgram);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			glUseProgram(shaderProgram);
 			ImGui::Render();
 		 
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -3680,124 +3644,97 @@ void generateSSBOInstance(int count, std::string name) {
 
 
 
+void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name, float scalemin, float scalemax) {
+	// Terrain vector is: terrain.heightmapData.heights
 
-void generateSSBOInstanceToY(const std::vector<float>&terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY, std::string name, float scalemin, float scalemax) {
-	//Terrain vector is : terrain.heightmapData.heights
+	std::set<std::pair<float, float>> waterBounds;
 
-	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
-	sharedBoxShape->setMargin(0.1f);
-	std::vector<World::cubeInstance>instanceDataVector;
-	for (int i = 0; i < numberOfMeshes; i++)
-	{
-		glm::vec3 instancePosition;
-		// Assuming you have a vector of terrain heights named 'terrainHeights'
-		float xPos = static_cast<float>(rand() % terrainSize);
-		float zPos = static_cast<float>(rand() % terrainSize);
-
-		// Map the 2D terrain coordinates to the 3D world coordinates
-		instancePosition.x = xPos;
-		instancePosition.y = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];
-		instancePosition.z = zPos;
+	// Add the entire bounds of each water tile to the set
 	
-		// Map the 2D terrain coordinates to the 1D array index
-		int terrainIndex = static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize;
 
-		// Ensure that the calculated positions are within the terrain bounds
-		xPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), xPos));
-		zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
+		std::set<std::pair<float, float>> usedPositions;
 
-		// Extract the Y position from the terrain heights
-		float yPos = terrainHeights[terrainIndex];
+		glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		btBoxShape* sharedBoxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+		sharedBoxShape->setMargin(0.1f);
+		std::vector<World::cubeInstance> instanceDataVector;
 
-		// Apply any offset or adjustment to yPos for realism
-		// For example, sink the meshes into the ground a little
+		for (int i = 0; i < numberOfMeshes; ++i) {
+			glm::vec3 instancePosition;
 
-		//yPos -= /* your desired offset */;
+			// Generate random positions until a valid one is found
+		 
+				float xPos = static_cast<float>(rand() % terrainSize);
+				float zPos = static_cast<float>(rand() % terrainSize);
 
+				// Check if the position is outside water bounds
+			
+					instancePosition = glm::vec3(xPos, terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize], zPos);
+
+					// Map the 2D terrain coordinates to the 3D world coordinates
+					instancePosition.x = xPos;
+					instancePosition.y = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];
+					instancePosition.z = zPos;
+
+					// Map the 2D terrain coordinates to the 1D array index
+					int terrainIndex = static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize;
+
+					// Ensure that the calculated positions are within the terrain bounds
+					xPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), xPos));
+					zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
+
+					// Extract the Y position from the terrain heights
+					float yPos = terrainHeights[terrainIndex];
+
+					// Apply any offset or adjustment to yPos for realism
+					// For example, sink the meshes into the ground a little
+					// yPos -= /* your desired offset */;
+
+					glm::vec3 instanceScale;
+					float randomScale = glm::linearRand(scalemin, scalemax);
+					instanceScale.x = randomScale;
+					instanceScale.y = randomScale;
+					instanceScale.z = randomScale;
+
+					// Initialize the model matrix as an identity matrix
+					glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), instancePosition);
+
+					// Apply scale
+					modelMatrix = glm::scale(modelMatrix, instanceScale);
+
+					World::cubeInstance instance;
+					instance.modelMatrix = modelMatrix;
+
+					// Set initial position and orientation
+					btTransform startTransform;
+					startTransform.setIdentity();
+					startTransform.setOrigin(btVector3(instancePosition.x, instancePosition.y, instancePosition.z));
+
+					// Create a rigid body
+					btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
+					btVector3 localInertia(0, 0, 0);
+					sharedBoxShape->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
+
+					btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, sharedBoxShape, localInertia);
+					btRigidBody* rigidBody = new btRigidBody(rbInfo);
+
+					btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
+					rigidBody->setAngularVelocity(angularVelocity);
+
+					instance.rigidBody = rigidBody;
+					instanceDataVector.push_back(instance);
+
+					// Break out of the loop once a valid position is found
+					
+				
+			
+		}
+
+		// Cleanup
 		
+	
 
-		//	instancePosition.y = glm::linearRand((1.0f), 34.0f);
-		glm::vec3 instanceScale;
-		float randomScale = glm::linearRand(scalemin, scalemax);
-		instanceScale.x = randomScale;
-		instanceScale.y = randomScale;
-		instanceScale.z = randomScale;
-
-		//glm::mat4 modelMatrix(1.0f); // Initialize the model matrix as an identity matrix
-	//	glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(xPos, yPos, zPos));
-		instancePosition.x = xPos;
-		instancePosition.y = yPos;
-		instancePosition.z = zPos;
-		
-		// Initialize the model matrix as an identity matrix
-		glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), instancePosition);
-		// Apply scale
-		modelMatrix = glm::scale(modelMatrix, instanceScale);
-
-		// Apply translation
-		//modelMatrix = glm::translate(modelMatrix, instancePosition);
-		float angleX = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
-		float angleY = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
-		float angleZ = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
-
-		//modelMatrix = glm::rotate(modelMatrix, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
-		//modelMatrix = glm::rotate(modelMatrix, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
-		//modelMatrix = glm::rotate(modelMatrix, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
-
-		// No rotation is applied in this version
-
-		World::cubeInstance instance;
-		instance.modelMatrix = modelMatrix;
-		//cube pushed back into vector after rigid body creation to pass ptr to body into same ssbo vector so each cube can
-			//access its RB
-
-		glm::vec3 cubePosition = instancePosition;
-		glm::vec3 scale = instanceScale;
-
-		// Set initial position and orientation
-		btTransform startTransform;
-		startTransform.setIdentity();
-		startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
-
-		// Create a rigid body
-		btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
-		btVector3 localInertia(0, 0, 0);
-		sharedBoxShape->calculateLocalInertia(1.0f, localInertia); // 1.0f is the mass
-
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(2.1f, motionState, sharedBoxShape, localInertia);
-		btRigidBody* rigidBody = new btRigidBody(rbInfo);
-
-		//rigidBody->setLinearVelocity(btVector3(xVel, yVel, zVel));
-		btVector3 angularVelocity(0.0f, 0.0f, 0.0f); // Adjust these values as desired
-		rigidBody->setAngularVelocity(angularVelocity);
-
-
-		// Add rigid body to the dynamics world
-		//dynamicsWorldPtr->addRigidBody(rigidBody);
-		instance.rigidBody = rigidBody;
-		//rigidBodies.push_back(rigidBody);
-		instanceDataVector.push_back(instance);
-
-	}
-	//cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-	SSBOVector[SSBOVector.size() - 1]->Bind();
-
-	//DOCS::Originally in the parent function the SSBO is created with a larger vector, but it is reset here and so should be optomised already.
-	//DOCS::The SSBO function below only takes the one instance and not all previously loaded meshes
-	SSBOVector[SSBOVector.size() - 1]->updateData(instanceDataVector.data(), sizeof(instanceDataVector[0]) * instanceDataVector.size());
-	SSBOVector[SSBOVector.size() - 1]->setDataVector(instanceDataVector);
-	SSBO* key = SSBOVector.back();
-	key->SSBOName = name;
-	// Check if the key is already present in the map
-
-		// If the key is not present, insert a new key-value pair
-	mapSSBOMeshInstanceVector.insert(std::make_pair(*key, instanceDataVector));
-
-	GLenum error;
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		std::cout << "OpenGL Error after updating SSBO: " << error << std::endl;
-	}
+	// Rest of your code...
 }
 
 std::vector<glm::mat4> generateModelMatricesFromTerrain(const std::vector<float>& terrainHeights, int terrainSize, int numberOfMeshes, float minY, float maxY) {
@@ -3903,4 +3840,19 @@ void debugPrintPixels(const unsigned char* pixels, int width, int height) {
 	}
 }
 
+void CC(std::string location, std::string comment) {
 
+	std::cout << "\n" << location << ": " << comment;
+}
+
+
+void printMatrix(glm::mat4 matrix, std::string location)
+{
+	std::cout << "\n\tMatrix at location:" << location << "\n";
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			std::cout << matrix[i][j] << " ";
+		}
+		std::cout << std::endl;
+	}
+}

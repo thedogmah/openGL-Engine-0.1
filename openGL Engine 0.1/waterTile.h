@@ -23,7 +23,7 @@ public:
         return TILE_SIZE;
     }
 
-private:
+
     float height;
     float x, z;
 };

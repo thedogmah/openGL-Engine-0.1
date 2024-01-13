@@ -30,7 +30,7 @@ extern float characterCameraYOffset;
 extern float characterCameraZOffset;
 class Camera;
 extern Camera camera;
-extern bool drawIMGUI;
+extern bool drawIMGUI;  
 class SSBO;
 extern glm::mat4 cubeModelMatrix;
 
@@ -38,6 +38,7 @@ extern glm::mat4 model;
 extern glm::mat4 view;// = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 extern glm::mat4 projection;// = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 400.0f);
 
+//no instances gnerates in water bounds for land objects
 class Mesh;
 extern GLuint* defaultShaderProgramPtr;
 extern int modelLoc ;

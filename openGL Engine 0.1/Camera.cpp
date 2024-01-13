@@ -1,8 +1,8 @@
 #include "Camera.h"
-
+#include <cmath>
 //#include <glm/glm.hpp>
 Camera::Camera()	:
-		mPosition(glm::vec3(0.0f, 0.5f, 3.0f)),
+		mPosition(glm::vec3(0.0f, 1.0f, 3.0f)),
 		mFront(glm::vec3(0.0f, 0.0f, -1.0f)),
 		mUp(glm::vec3(0.0f, 1.0f, 0.0f)),
 		mYaw(-90.0f),
@@ -10,10 +10,12 @@ Camera::Camera()	:
 		mMovementSpeed(0.35f),
 		mMouseSensitivity(0.00013f),
 		mZoom(45.0f)
+	
 {
 	
 }
 
+void printMatrix(glm::mat4, std::string);
 void Camera::Camera::update() {
 	
 	
@@ -26,13 +28,25 @@ void Camera::Camera::update() {
 
 glm::mat4 Camera::Camera::getViewMatrix() const {
 
-	return glm::lookAt(mPosition, mPosition + mFront, + mUp);
+	return glm::lookAt(mPosition, mPosition + mFront, +mUp);
 
 }
 
 void Camera::setViewMatrix()
 {
 	mViewMatrix = glm::lookAt(mPosition, mPosition + mFront, mUp);
+}
+
+glm::vec3& Camera::getPosition()
+{
+	//std::cout << "\nCamera Y is: " << mPosition.y;
+	return mPosition;
+}
+
+void Camera::setWaterEye()
+{
+	mPosition.y = mPosition.y * 2;
+
 }
 
 void Camera::Camera::updateOrientation() {
@@ -73,9 +87,10 @@ void Camera::Camera::updateOrientation() {
 		front.y = sin(glm::radians(mPitch));
 		front.z = sin(glm::radians(mYaw)) * cos(glm::radians(mPitch));
 		mFront = glm::normalize(front);
+
 		//glfwSetCursorPos(m_window, window_width / 2, window_height / 2);
 
-	
+
 	}
 	///glfwGetWindowSize(m_window, window_width, window_height);
 	
@@ -90,6 +105,35 @@ float Camera::getPitch()
 {
 	return this->mPitch;
 }
+
+void Camera::flipPitch()
+{
+	// Lower the camera position along the y-axis
+	mPosition.y -= (2.0f * mPosition.y);
+
+	// Flip the pitch
+	mPitch = -mPitch;
+	const float pitchClampMin = -89.0f;
+	const float pitchClampMax = 89.0f;
+	mPitch = glm::clamp(mPitch, pitchClampMin, pitchClampMax);
+
+	// Update mFront and mUp based on the new pitch
+	mFront = glm::normalize(glm::vec3(
+		cos(glm::radians(mYaw)) * cos(glm::radians(mPitch)),
+		sin(glm::radians(mPitch)),
+		sin(glm::radians(mYaw)) * cos(glm::radians(mPitch))
+	));
+//	mUp = glm::normalize(glm::cross(glm::vec3(cos(glm::radians(mYaw)), 0.0f, sin(glm::radians(mYaw))), mFront));
+
+	// Update the mViewMatrix using glm::lookAt
+	mViewMatrix = glm::lookAt(mPosition, mPosition + mFront, mUp);
+
+	// Print the updated mViewMatrix
+	printMatrix(mViewMatrix, "Reflection View Matrix");
+
+}
+
+
 
 
 

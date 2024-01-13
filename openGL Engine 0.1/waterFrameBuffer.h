@@ -61,14 +61,35 @@ public:
 		//glActiveTexture(GL_TEXTURE0);
 	//	glActiveTexture(GL_TEXTURE14);
 	//	glBindTexture(GL_TEXTURE_2D, reflectionTexture);
+		REFLECTION_WIDTH = window_width;
+		REFLECTION_HEIGHT = window_height;
 		bindFrameBuffer(reflectionFrameBuffer, REFLECTION_WIDTH, REFLECTION_HEIGHT);
+		glBindTexture(GL_TEXTURE_2D, reflectionTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, REFLECTION_WIDTH, REFLECTION_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glBindTexture(GL_TEXTURE_2D, 0);
 		std::cout << "\nReflection fbo ID: " << reflectionFrameBuffer;
 	//	glBindTexture(GL_TEXTURE_2D, 0);
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "GL error: " << error << std::endl;
+
+		}
 	}
 		
 	void bindRefractionFrameBuffer()  {
+		REFRACTION_WIDTH = window_width;
+		REFRACTION_HEIGHT = window_height;
 		bindFrameBuffer(refractionFrameBuffer, REFRACTION_WIDTH, REFRACTION_HEIGHT);
+		glBindTexture(GL_TEXTURE_2D, refractionTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, REFRACTION_WIDTH, REFRACTION_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
 		std::cout << "Refraction fbo ID: " << refractionFrameBuffer;
+		GLenum error;
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "GL error: " << error << std::endl;
+
+		}
 	}
 
 
@@ -76,8 +97,8 @@ public:
 
 	void initialiseReflectionFrameBuffer() {
 	
-		int width = window_width;
-		int height = window_height;
+		int width = 2560;
+		int height = 1334;
 	
 
 		glGenFramebuffers(1, &reflectionFrameBuffer);
@@ -87,17 +108,21 @@ public:
 		glGenTextures(1, &reflectionTexture);
 		glBindTexture(GL_TEXTURE_2D, reflectionTexture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, reflectionTexture, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  // Update to GL_CLAMP_TO_EDGE
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, reflectionTexture, 0);
 
 		// Depth Attachment (using a depth buffer attachment)
-		glGenRenderbuffers(1, &reflectionDepthBuffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, reflectionDepthBuffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, width, height);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, reflectionDepthBuffer);
+		glGenTextures(1, &reflectionDepthBuffer);
+		glBindTexture(GL_TEXTURE_2D, reflectionDepthBuffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, reflectionDepthBuffer, 0);
 
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
@@ -112,9 +137,9 @@ public:
 	}
 
 	void initialiseRefractionFrameBuffer() {
+		int width = 2560;
+		int height = 1334;
 
-		int width = window_width;
-		int height = window_height;
 		glGenFramebuffers(1, &refractionFrameBuffer);
 		glBindFramebuffer(GL_FRAMEBUFFER, refractionFrameBuffer);
 
@@ -149,24 +174,26 @@ public:
 	}
 
 	void bindFrameBuffer(GLuint frameBuffer, int width, int height) {
-		glViewport(0, 0, width, height);
+		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+		glViewport(0, 0, width, height);
+
 		//glActiveTexture(GL_TEXTURE14);
 		
-		if (frameBuffer == reflectionFrameBuffer)
-		{
-			glActiveTexture(GL_TEXTURE14);
-			glBindTexture(GL_TEXTURE_2D, 0);
-			glBindTexture(GL_TEXTURE_2D, reflectionTexture);
-			std::cout << "\nReflection texture bound";
-		}
-		else
-		{
-			glActiveTexture(GL_TEXTURE15);
-			glBindTexture(GL_TEXTURE_2D, 0);
-			glBindTexture(GL_TEXTURE_2D, refractionTexture);
-			std::cout << "\nRefraction texture bound";
-		}
+		//if (frameBuffer == reflectionFrameBuffer)
+		//{
+		//	glActiveTexture(GL_TEXTURE14);
+		//	glBindTexture(GL_TEXTURE_2D, 0);
+		//	glBindTexture(GL_TEXTURE_2D, reflectionTexture);
+		//	//std::cout << "\nReflection texture bound";
+		//}
+		//else
+		//{
+		//	glActiveTexture(GL_TEXTURE15);
+		//	glBindTexture(GL_TEXTURE_2D, 0);
+		//	glBindTexture(GL_TEXTURE_2D, refractionTexture);
+		////	std::cout << "\nRefraction texture bound";
+		//}
 	}
 
 	void unbindCurrentFrameBuffer(){
@@ -184,7 +211,7 @@ public:
 		glDrawBuffer(GL_COLOR_ATTACHMENT0);//Telling opengl which colorbuffer attchment 
 		//in the currently bound fbo we want to render to
 		checkGLError("Create Frame Buffer");
-		std::cout << "\nFrame buffer ID: " << frameBuffer << std::endl;
+	//	std::cout << "\nFrame buffer ID: " << frameBuffer << std::endl;
 		return frameBuffer;
 	}
 

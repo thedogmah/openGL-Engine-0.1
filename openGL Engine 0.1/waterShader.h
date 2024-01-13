@@ -11,17 +11,18 @@ public:
     const char* VERTEX_FILE = "waterVertex.txt";
     const char* FRAGMENT_FILE = "waterFragment.txt";
 
-    Shader shader;
+    //Shader shader;
     void loadProjectionMatrix(const glm::mat4& projection);
     void loadViewMatrix(const Camera& camera);
     void loadModelMatrix(const glm::mat4& modelMatrix);
-
+    void connectTextureUnits();
 
   
     GLint location_modelMatrix;
     GLint location_viewMatrix;
     GLint location_projectionMatrix;
-
+    GLint location_fboTextureReflection;    
+    GLint location_fboTextureRefraction;
     virtual void bindAttributes() override;
     virtual void getAllUniformLocations() override;
 };

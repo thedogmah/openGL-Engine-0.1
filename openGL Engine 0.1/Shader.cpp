@@ -127,10 +127,16 @@ void Shader::setUniform(const std::string name, const T& value) const
 }
 
 // Function for matrix uniforms
-void Shader::setMatrixUniform(const GLint& location, const glm::mat4& matrix) const
+void Shader::setMatrixUniform(const GLint& shaderid, const glm::mat4& matrix) const
 {
-	//GLint location = glGetUniformLocation(ID, name.c_str());
-	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+	
+	 GLuint location = glGetUniformLocation(shaderid,"view");
+	glUniformMatrix4fv(location,  1, GL_FALSE, glm::value_ptr(matrix));
+	GLenum error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "GL error: " << error << std::endl;
+
+	}
 }
 
 void Shader::unbind()

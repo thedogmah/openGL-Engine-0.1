@@ -11,7 +11,7 @@ class RawModel {
 public:
     RawModel(GLuint vaoID, GLsizei vertexCount, float x, float y, float width, float height)
         : vaoID(vaoID), vertexCount(vertexCount), x(x), y(y), width(width), height(height) {}
-
+   
     GLuint getVaoID() const { return vaoID; }
     GLsizei getVertexCount() const { return vertexCount; }
     float getX() const { return x; }
@@ -32,6 +32,8 @@ public:
     void unbind();
     void bindShader();
     GLuint getShaderID();
+    GLuint reflectionTextureID;
+    GLuint refractionTextureID;
 private:
     RawModel* quad;
     waterShader shader;

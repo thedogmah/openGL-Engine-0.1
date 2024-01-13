@@ -2,14 +2,14 @@
 #include "waterRenderer.h"
 
 UIManager::UIManager(int screenWidth, int screenHeight, bool useDepthBuffer)
-    : fbo(screenWidth, screenHeight, useDepthBuffer), shaderProgram(0) {
+    : fbo(screenWidth, screenHeight, useDepthBuffer), UIshaderProgram(0) {
 
    Shader UIShader("UIvertex.glsl", "UIfrag.glsl");
-   shaderProgram = UIShader.ID;
-   std::cout << "\nUI constructor shader ID:" << shaderProgram;
-   glUseProgram(shaderProgram);
+   UIshaderProgram = UIShader.ID;
+   std::cout << "\nUI constructor shader ID:" << UIshaderProgram;
+   glUseProgram(UIshaderProgram);
 
-   GLint uiTextureLocation = glGetUniformLocation(shaderProgram, "uiTexture");
+   GLint uiTextureLocation = glGetUniformLocation(UIshaderProgram, "uiTexture");
 
 }
 
@@ -32,12 +32,12 @@ void UIManager::addTextureFromFBO(GLuint fboTextureID, int width, int hight, flo
     uiTextures.push_back(entry);
     std::cout <<"\n" << entry.rawModel.getVaoID() << "< VAOID of quad and teture ID: " << entry.textureID;
     std::cout <<  "fbo ID passed to UI addtexture function: " << fboTextureID;
-    std::cout << "UI Manager Shader ID: " << this->shaderProgram;
+    std::cout << "UI Manager Shader ID: " << this->UIshaderProgram;
 }
 
 void UIManager::renderUI()
 {
-    glUseProgram(shaderProgram);
+    glUseProgram(UIshaderProgram);
     glViewport(0, 0, window_width, window_height);
    //glBindTexture(GL_TEXTURE_2D, 0);
     
@@ -55,11 +55,12 @@ void UIManager::renderUI()
    // glBindFrameBuffer(2, window_width, window_height);
 
     // Activate texture unit 14 and bind the reflection texture
-    glActiveTexture(GL_TEXTURE0 + 15);
+    glActiveTexture(GL_TEXTURE0 + 13);
     glBindTexture(GL_TEXTURE_2D, uiTextures[0].textureID);
-    std::cout << "\n" << uiTextures[0].textureID << " << bound texture ID <<";
+    //std::cout << "\n" << uiTextures[0].textureID << " << bound texture ID <<";
     // Set the "uiTexture" uniform in the shader to texture unit 14
-    glUniform1i(glGetUniformLocation(shaderProgram, "uiTexture"), 15);
+    glUniform1i(glGetUniformLocation(UIshaderProgram, "uiTexture"), 13);
+    glProgramUniform1i(UIshaderProgram, glGetUniformLocation(UIshaderProgram, "uiTexture"), 13);
 
     // Bind the VAO for the reflection UI element
     glBindVertexArray(uiTextures[0].rawModel.getVaoID());
@@ -72,16 +73,17 @@ void UIManager::renderUI()
   //  glBindFramebuffer(GL_FRAMEBUFFER, 3);
 
     // Activate texture unit 15 and bind the refraction texture
-    glActiveTexture(GL_TEXTURE0 + 15);
+    glActiveTexture(GL_TEXTURE0 + 13);
     glBindTexture(GL_TEXTURE_2D, uiTextures[1].textureID);
-    std::cout << "\n" << uiTextures[1].textureID << " << bound texture ID <<";
+    //std::cout << "\n" << uiTextures[1].textureID << " << bound texture ID <<";
     // Set the "uiTexture" uniform in the shader to texture unit 15
-    glUniform1i(glGetUniformLocation(shaderProgram, "uiTexture"), 15);
+    glUniform1i(glGetUniformLocation(UIshaderProgram, "uiTexture"), 13);
 
     // Bind the VAO for the refraction UI element
     glBindVertexArray(uiTextures[1].rawModel.getVaoID());
 
     // Draw the UI element for refraction
+    
     glDrawArrays(GL_TRIANGLES, 0, uiTextures[1].rawModel.getVertexCount());
 
     // Unbind Refraction FBO

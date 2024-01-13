@@ -14,16 +14,37 @@ WaterRenderer::WaterRenderer(Loader& loader, waterShader& shader, const glm::mat
 }
 
 void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& camera) {
+   // shader.use();
+    std::cout << "\ncam position in water render before "<< camera.mPosition.y;
     prepareRender(camera);
-    
-    glUniform1i(glGetUniformLocation(shader.ID, "fboTexture"), 14);  // Assuming texture unit 0
+    std::cout << "\ncam position in water render 2 " << camera.mPosition.y;
+    shader.connectTextureUnits();
+    // Activate texture unit 14 for reflection texture
+    glActiveTexture(GL_TEXTURE15);
 
+    // Bind your reflection texture to the active texture unit
+    glBindTexture(GL_TEXTURE_2D, reflectionTextureID);
+
+    // Set the uniform value for the reflection texture
+//    glUniform1i(glGetUniformLocation(shader.ID, "fboTextureReflection"), 15);
+    glProgramUniform1i(shader.ID, glGetUniformLocation(shader.ID, "fboTextureReflection"), 15);
+    // Activate texture unit 15 for refraction texture
+    glActiveTexture(GL_TEXTURE16);
+
+    // Bind your refraction texture to the active texture unit
+    glBindTexture(GL_TEXTURE_2D, refractionTextureID);
+
+    // Set the uniform value for the refraction texture
+    glProgramUniform1i(shader.ID, glGetUniformLocation(shader.ID, "fboTextureRefraction"), 16);
+   // glProgramUniform1i(glGetUniformLocation(shader.ID, "fboTextureRefraction"), 16);
+    //glUniform1i(glGetUniformLocation(shader.ID, "fboTexture"), 14);  // Assuming texture unit 0
+   
     // Set up generic projection and view matrices
     //glm::mat4  = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 1000.0f);
-    glm::mat4 projectionMatrix = glm::perspective(glm::radians(45.0f), (float)1400 / (float)800, 0.1f, 30000.0f);
-
-    glm::mat4 viewMatrix = camera.getViewMatrix();
-
+    glm::mat4 projectionMatrix = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+   // n = glm::perspective(glm::radians(45.0f) (float)window_width / (float)window_height, 0.1f, 30000.0f);
+    //glm::mat4 viewMatrix = camera.getViewMatrix();
+    ;
         for (const auto& tile : water) {
             // Center the model at the origin, scale it, and position it
             glm::vec3 tilePosition(tile.getX(), tile.getHeight(), tile.getZ());
@@ -36,9 +57,9 @@ void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& ca
 
         // Pass the matrices to the shader as uniforms
         shader.loadProjectionMatrix(projectionMatrix);
-        shader.loadViewMatrix(camera);
+    //    shader.setMatrixUniform(debugger.shaderProgram, camera);
         shader.loadModelMatrix(modelMatrix);
-
+        std::cout << "\ncam position in water render model matrix " << camera.mPosition.y;
         glDrawArrays(GL_TRIANGLES, 0, quad->getVertexCount());
         checkGLError("glDrawArrays");
     }
@@ -50,11 +71,12 @@ void WaterRenderer::prepareRender(const Camera& camera) {
     glUseProgram(shader.ID);
     std::cout << "Shader ID:" << shader.ID;
     shader.bindAttributes();
-
+    
     shader.loadViewMatrix(camera);
     glBindVertexArray(quad->getVaoID());
     glEnableVertexAttribArray(0);
-    checkGLError("prepareRender");
+
+
 }
 
 void WaterRenderer::unbind() {
@@ -66,7 +88,10 @@ void WaterRenderer::unbind() {
 
 void WaterRenderer::setUpVAO(Loader& loader) {
     // Just x and z vertex positions here, y is set to 0 in the vertex shader
-    std::vector<GLfloat> vertices = { -1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, 1 };
+    std::vector<GLfloat> vertices = { -1, -1, 1, -1, -1, 1,  // First triangle (clockwise)
+                                  1, -1, -1, 1, 1, 1 };  // Second triangle (clockwise)
+
+//std::vector<GLfloat> vertices = { -1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, 1 };
     quad = new RawModel(loader.loadToVao(vertices, 2), vertices.size() / 2,0,0,0,0);
     checkGLError("setUpVAO");
     shader.bindAttributes();
