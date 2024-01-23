@@ -17,12 +17,13 @@ public:
     void loadModelMatrix(const glm::mat4& modelMatrix);
     void connectTextureUnits();
 
-  
+    GLint location_DUDVmap;
     GLint location_modelMatrix;
     GLint location_viewMatrix;
     GLint location_projectionMatrix;
     GLint location_fboTextureReflection;    
     GLint location_fboTextureRefraction;
+    GLint locationTime;
     virtual void bindAttributes() override;
     virtual void getAllUniformLocations() override;
 };

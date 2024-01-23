@@ -144,20 +144,11 @@ void Mesh::Render(unsigned int shader)
 	void Mesh::renderInstance(unsigned int shader, GLuint ssboID, GLuint amount)
 	{
 	
-		//std::cout << "\nSSBO ID to render: " << ssboID << "Amount of times is " << amount << std::endl;
-		//std::cout << "\n" << meshName << std::endl << "\n";
 		glUseProgram(shader);
 		GLint view = glGetUniformLocation(shader, "view");
 
 		glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		//this->shaderProgram = shader;
-		//GLenum error = glGetError();
-		//if (error != GL_NO_ERROR) {
-		//	std::cerr << "OpenGL error before setting matrices: " << error << std::endl;
-		//}
 		//// Query the uniform location for modelUniform
 		GLuint modelMatrixLocation = glGetUniformLocation(shader, "modelUniform");
 
@@ -179,7 +170,7 @@ void Mesh::Render(unsigned int shader)
 
 
 		// Update the model matrix uniform in your shader
-	//	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransform));
+		glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransform));
 		//std::cout << "\nShader program for render functions is: " << shader << std::endl;
 
 		glm::mat4 viewMatrix; // Your view matrix
@@ -188,7 +179,7 @@ void Mesh::Render(unsigned int shader)
 		GLuint viewMatrixLocation = glGetUniformLocation(shader, "view");
 
 		// Pass the view matrix to the shader
-	//	glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, glm::value_ptr(cameraPtr->getViewMatrix()));
+		glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, glm::value_ptr(cameraPtr->getViewMatrix()));
 		GLuint isInstancedBool = glGetUniformLocation(shader, "isInstanced");
 
 		glUniform1i(isInstancedBool, 1);
@@ -202,18 +193,8 @@ void Mesh::Render(unsigned int shader)
 		}*/
 
 
-		//error = glGetError();
-		//if (error != GL_NO_ERROR) {
-		//	std::cerr << "Error directly after binding shader program in mesh.cpp render " << error << std::endl;
-		//}
-
 		glBindVertexArray(VAO);
 		glBindTexture(GL_TEXTURE_2D, 0);
-	/*	error = glGetError();
-		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-		}*/
-
 		glActiveTexture(GL_TEXTURE0);
 		//std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
 
@@ -240,11 +221,6 @@ void Mesh::Render(unsigned int shader)
 					(void*)(sizeof(unsigned int) * meshes[h].baseIndex), amount, meshes[h].baseVertex);
 
 
-				//glBindTexture(GL_TEXTURE_2D, 0);
-			/*	error = glGetError();
-				if (error != GL_NO_ERROR) {
-					std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
-				}*/
 
 			//	std::cout << "\nFirst draw call success " << i;
 			}
@@ -260,6 +236,102 @@ void Mesh::Render(unsigned int shader)
 		glBindVertexArray(0);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
 		//glUniform1i(isInstancedBool, 0);
+	}
+
+	void Mesh::renderInstanceStencilled(unsigned int shader, GLuint ssboID, GLuint amount)
+	{
+			glUseProgram(shader);
+			GLint view = glGetUniformLocation(shader, "view");
+
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+
+			//// Query the uniform location for modelUniform
+			GLuint modelMatrixLocation = glGetUniformLocation(shader, "modelUniform");
+
+			// Create a translation matrix based on the provided translation vector
+			glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), translation);
+
+			// Set the worldTransform to the identity matrix
+			worldTransform = glm::mat4(1.0f);
+
+			// Apply the transformations in the correct order: translation, rotation, scale
+			glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+			rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+			rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
+
+			// Update the world transform matrix with the scale, rotation, and translation
+			worldTransform = translationMatrix * rotationMatrix * scaleMatrix;
+
+
+
+			// Update the model matrix uniform in your shader
+			glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, glm::value_ptr(worldTransform));
+			//std::cout << "\nShader program for render functions is: " << shader << std::endl;
+
+			glm::mat4 viewMatrix; // Your view matrix
+
+			// Get the uniform location for the view matrix in the shader
+			GLuint viewMatrixLocation = glGetUniformLocation(shader, "view");
+
+			// Pass the view matrix to the shader
+			glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, glm::value_ptr(cameraPtr->getViewMatrix()));
+			GLuint isInstancedBool = glGetUniformLocation(shader, "isInstanced");
+
+			glUniform1i(isInstancedBool, 1);
+
+			for (int i = 0; i < 13; i++) {
+				glActiveTexture(GL_TEXTURE0 + i); // Set the active texture unit
+				glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture
+			}	/*error = glGetError();
+			if (error != GL_NO_ERROR) {
+				std::cerr << "OpenGL error before binding shaderprogram: " << error << std::endl;
+			}*/
+
+
+			glBindVertexArray(VAO);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glActiveTexture(GL_TEXTURE0);
+			//std::cout << "\nMesh debug output. Mesh vector size: " << meshes.size();
+
+
+			for (int h = 0; h < meshes.size(); h++) {
+				//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboID);	
+
+				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssboID);
+				for (unsigned int i = 0; i < 1; i++) {
+
+					unsigned int materialIndex = meshes[h].materialIndex;
+					//std::cout << "\nLoop iteration: " << i;
+
+					assert(materialIndex < textures.size());
+
+					if (textures[materialIndex]) {//Checks if there is a material without a diffuse texture.
+						textures[materialIndex]->Bind(COLOUR_TEXTURE_UNIT);
+						//std::cout << "\nBound texture unit: " << i;
+					}
+
+					//std::cout << "\nChecked texture.";
+					//GLDrawElBaseVertex allows us to draw sub regions. We provide an offset below (void * sizeof etc)
+					glDrawElementsInstancedBaseVertex(GL_TRIANGLES, meshes[h].numIndices, GL_UNSIGNED_INT,
+						(void*)(sizeof(unsigned int) * meshes[h].baseIndex), amount, meshes[h].baseVertex);
+
+
+
+					//	std::cout << "\nFirst draw call success " << i;
+				}
+				/*	error = glGetError();
+					if (error != GL_NO_ERROR) {
+						std::cerr << "OpenGL error before mesh loop: " << error << std::endl;
+					}*/
+
+			}
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+			//std::cout << "\nFinished mesh draw call function successfully";
+			glBindVertexArray(0);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
+			//glUniform1i(isInstancedBool, 0);
 	}
 
 void Mesh::loadMesh(const std::string filename, GLuint shader)
@@ -325,7 +397,7 @@ void Mesh::reserveSpace(unsigned int numVertices, unsigned int numIndices) {
 bool Mesh::initFromScene(const aiScene* scenePtr, const std::string filename) {
 
 	meshes.resize(scenePtr->mNumMeshes);
-	textures.resize(scenePtr->mNumTextures);
+	textures.resize(scenePtr->mNumMaterials);//set m varaibles for the amount of textures in scene etc.
 
 	unsigned int numVertices = 0;
 	unsigned int numIndices = 0;
@@ -396,8 +468,9 @@ bool Mesh::initMaterials(const aiScene* scenePtr, const std::string& filename)
 	else if (slashIndex == 0) {
 		dir = "/";
 	}
-	else
+	else{
 		dir = filename.substr(0, slashIndex);
+		}
 	bool ret = true;
 	textures.resize(scenePtr->mNumMaterials);
 	for (unsigned int i = 0; i < scenePtr->mNumMaterials; i++) {
@@ -442,7 +515,7 @@ void Mesh::clear()
 
 void Mesh::countVertandIndices(const aiScene* scenePtr, unsigned int& numVerts, unsigned int& numIndices)
 {
-
+	//For every mesh
 	for (unsigned int i = 0; i < meshes.size(); i++) {
 		meshes[i].materialIndex = scenePtr->mMeshes[i]->mMaterialIndex;
 		meshes[i].numIndices = scenePtr->mMeshes[i]->mNumFaces * 3; //Has already been triangulated in AIscene setup

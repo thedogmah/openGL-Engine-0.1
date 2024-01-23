@@ -52,7 +52,7 @@ GLuint Loader::loadTexture(const std::string& textureFile) {
     
     
     stbi_set_flip_vertically_on_load(true); // Flip the image vertically
-    unsigned char* image = stbi_load(("res/" + textureFile).c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    unsigned char* image = stbi_load((textureFile).c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     GLuint textureID = 0;
     if (image) {

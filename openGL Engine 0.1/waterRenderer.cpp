@@ -3,22 +3,40 @@
 #include "Loader.h"
 #include "stb_image_write.h"
 #include <stb/stb_image.h>
-
+#include <chrono>
+#include "globals.h"
 WaterRenderer::WaterRenderer(Loader& loader, waterShader& shader, const glm::mat4& projectionMatrix)
 {
     shader.use();
     shader.loadProjectionMatrix(projectionMatrix);
-    
+  
     setUpVAO(loader);
+    dudvTexture = loader.loadTexture(DUDVMap);
    // shader.unbind();
 }
 
 void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& camera) {
    // shader.use();
-    std::cout << "\ncam position in water render before "<< camera.mPosition.y;
+    auto currentTime = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime.time_since_epoch());
+
+    globalTime = duration.count();
+
+    //std::cout << "\ncam position in water render before "<< camera.mPosition.y;
     prepareRender(camera);
-    std::cout << "\ncam position in water render 2 " << camera.mPosition.y;
+   // std::cout << "\ncam position in water render 2 " << camera.mPosition.y;
     shader.connectTextureUnits();
+    
+    glActiveTexture(GL_TEXTURE14);
+
+    // Bind your reflection texture to the active texture unit
+    glBindTexture(GL_TEXTURE_2D, dudvTexture);
+
+    // Set the uniform value for the reflection texture
+//    glUniform1i(glGetUniformLocation(shader.ID, "fboTextureReflection"), 15);
+    glProgramUniform1i(shader.ID, glGetUniformLocation(shader.ID, "DUDVmap"), 14);
+ 
     // Activate texture unit 14 for reflection texture
     glActiveTexture(GL_TEXTURE15);
 
@@ -59,7 +77,7 @@ void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& ca
         shader.loadProjectionMatrix(projectionMatrix);
     //    shader.setMatrixUniform(debugger.shaderProgram, camera);
         shader.loadModelMatrix(modelMatrix);
-        std::cout << "\ncam position in water render model matrix " << camera.mPosition.y;
+        //std::cout << "\ncam position in water render model matrix " << camera.mPosition.y;
         glDrawArrays(GL_TRIANGLES, 0, quad->getVertexCount());
         checkGLError("glDrawArrays");
     }
@@ -70,6 +88,10 @@ void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& ca
 void WaterRenderer::prepareRender(const Camera& camera) {
     glUseProgram(shader.ID);
     std::cout << "Shader ID:" << shader.ID;
+    GLenum error;
+    while ((error = glGetError()) != GL_NO_ERROR) {
+        std::cout << "OpenGL Error: " << error << std::endl;
+    }
     shader.bindAttributes();
     
     shader.loadViewMatrix(camera);

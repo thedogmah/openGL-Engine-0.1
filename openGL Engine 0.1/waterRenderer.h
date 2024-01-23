@@ -34,10 +34,11 @@ public:
     GLuint getShaderID();
     GLuint reflectionTextureID;
     GLuint refractionTextureID;
+    GLuint dudvTexture;
 private:
     RawModel* quad;
     waterShader shader;
-
+    std::string DUDVMap = "dudv.jpg";
     void prepareRender(const Camera& camera);
 
     void setUpVAO(Loader& loader);

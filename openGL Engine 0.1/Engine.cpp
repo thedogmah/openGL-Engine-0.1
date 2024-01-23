@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include "stb_image_write.h"
 #include <stb/stb_image.h>
+#include "globals.h"
+
 Terrain::Terrain() 
 {
 	
@@ -108,14 +110,14 @@ void Terrain::render()
 		glUniform1i(useNormalMapLocation, useNormalMap);
 		glUniform1i(useDetailMapLocation, useDetailMap);
 		
-		GLint timeLocation = glGetUniformLocation(*this->shaderPtr, "time");
-		glUniform1f(timeLocation, currentTime);
+		GLint radiansTimeLocation = glGetUniformLocation(*this->shaderPtr, "radian");
+		glUniform1f(radiansTimeLocation, radiansTime);
 		GLint waterColorLocation = glGetUniformLocation(*this->shaderPtr, "waterColor");
 		GLint grassColorLocation = glGetUniformLocation(*this->shaderPtr, "grassColor");
 		GLint rockyColorLocation = glGetUniformLocation(*this->shaderPtr, "rockyColor");
 		GLint snowColorLocation = glGetUniformLocation(*this->shaderPtr, "snowColor");
 		GLint diffuseColorLocation = glGetUniformLocation(*this->shaderPtr, "diffuseColor");
-
+		GLint diffuseColorLocationWater = glGetUniformLocation(*globalWaterShader, "diffuseColor");
 		GLint smoothStepLocation = glGetUniformLocation(*this->shaderPtr, "smoothStepFactor");
 		GLint waterThresholdLocation = glGetUniformLocation(*this->shaderPtr, "waterThreshold");
 		GLint grassThresholdLocation = glGetUniformLocation(*this->shaderPtr, "grassThreshold");
@@ -208,6 +210,7 @@ void Terrain::render()
 
 		if (ImGui::ColorEdit3("- Light Colour - ", &diffuseColor.x)) {
 			glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
+			glProgramUniform3fv(*globalWaterShader, diffuseColorLocationWater, 1, &diffuseColor.x);
 		}
 
 		if (ImGui::SliderFloat("Shininess", &shininess, 0.2f, 100.0f)) {
@@ -230,9 +233,9 @@ void Terrain::render()
 
 		//}
 			//timeOfDay = 18.0;
-		if (ImGui::SliderFloat("Time", &timeOfDay, 0.0f, 24.0f)) {
+		if (ImGui::SliderFloat("Time", &radiansTime, 0.0f, 360.0f)) {
 
-			glUniform1f(timeLocation, timeOfDay);
+			glUniform1f(radiansTimeLocation, radiansTime);
 
 		}
 		ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
@@ -412,7 +415,7 @@ void Terrain::render()
 	ImGui::End();
 
 	static int inputX = 0;
-	static int inputZ = 0;
+	static int inputZ = 0;	
 	static bool showHeight = false;
 	static unsigned char heightValue = 0;
 
@@ -449,7 +452,13 @@ void Terrain::render()
 	glBindTexture(GL_TEXTURE_2D, mudMapTexture);
 	glUniform1i(glGetUniformLocation(*this->shaderPtr, "mudTexture"), 10); // Use texture unit 2 for the detail map
 
+	glActiveTexture(GL_TEXTURE12);
+	glBindTexture(GL_TEXTURE_2D, mudHeight);
+	glUniform1i(glGetUniformLocation(*this->shaderPtr, "mudHeight"), 12); // Use texture unit 2 for the detail map
 
+	glActiveTexture(GL_TEXTURE13);
+	glBindTexture(GL_TEXTURE_2D, mudNormals);
+	glUniform1i(glGetUniformLocation(*this->shaderPtr, "mudNormals"), 13); // Use texture unit 2 for the detail map
 
 	// Set the uniform in your shader to the texture unit index (e.g., 1)
 	//glUseProgram(shaderProgram);
@@ -497,6 +506,8 @@ void Terrain::initalise()
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &uvVBO);
+	initPickingBuffer();
+
 	init = true;
 	rockyColor = glm::vec3(0.5, 0.5, 0.5);      // Gray color
 	ambientColor = glm::vec3(0.2, 0.2, 0.2);    // Subtle grayish ambient light
@@ -730,7 +741,7 @@ bool Terrain::createTerrainMesh()
 	}
 
 
-	
+	//mudHeight = loadTexture("mudheight.jpg");
 	glGenTextures(1, &mudMapTexture);
 	glBindTexture(GL_TEXTURE_2D, mudMapTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -748,14 +759,51 @@ bool Terrain::createTerrainMesh()
 		// Handle texture loading error
 		std::cerr << "Failed to load mud map" << std::endl;
 	}
+	glGenTextures(1, &mudHeight);
+	glBindTexture(GL_TEXTURE_2D, mudHeight);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int mudHeightWidth, mudHeight, mudHeightChannels;
+	unsigned char* mudHeightData = stbi_load("mudheight.jpg", &mudHeightWidth, &mudHeight, &mudHeightChannels, 0);
+
+	if (mudHeightData) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, mudHeightWidth, mudHeight, 0, GL_RED, GL_UNSIGNED_BYTE, mudHeightData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		// Handle texture loading error
+		std::cerr << "Failed to load mud h map" << std::endl;
+	}
+
+	glGenTextures(1, &mudNormals);
+	glBindTexture(GL_TEXTURE_2D, mudNormals);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int mudNormalWidth, mudNormalHeight, mudNormalChannels;
+	unsigned char* mudNormalData = stbi_load("mudNormals.jpg", &mudNormalWidth, &mudNormalHeight, &mudNormalChannels, 0);
+
+	if (mudHeightData) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, mudNormalWidth, mudNormalHeight, 0, GL_RED, GL_UNSIGNED_BYTE, mudNormalData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		// Handle texture loading error
+		std::cerr << "Failed to load mud h map" << std::endl;
+	}
+
 	// Free the image data
 	stbi_image_free(detailMapData);
 	vertices.clear();
 	normals.clear();
 	indices.clear();
 	terrainInfoVector.clear();
-	/*std::vector<GLfloat> vertices;
-	std::vector<GLuint> indices;*/
+	verticesID.clear();//Unique IDs for terrain picking
+
+	
 	std::vector<GLfloat> colours;
 	//std::vector<glm::vec3> normals;
 
@@ -787,7 +835,9 @@ bool Terrain::createTerrainMesh()
 			vertices.push_back(xPos);
 			vertices.push_back(yPos); // Apply Y-axis scaling
 			vertices.push_back(zPos);
-
+			float id = xPos + yPos;
+			verticesID.push_back(id);//This will createa unique number since these values
+			//increase, then we just need the range
 			//Below we are creating one 'terrainEntry' for each vertices of terrain this allows to then edit these vertices
 			//and allocate some of them as water etc. This data is passed to the vertex shader in to a 'location attrib buffer'
 			//and only one entry per 3 vertices is required, since 3 vertices corrosponds to one height, or one x,y,z
@@ -818,7 +868,11 @@ bool Terrain::createTerrainMesh()
 		}
 	}
 
-	
+	// Find the minimum and maximum values
+	float minID = 0;
+	float maxID = 1;
+
+
 
 	fractalTerrain();
 	voxelateTerrain();
@@ -910,7 +964,20 @@ bool Terrain::createTerrainMesh()
 			terrainTop = transformedVertex.y;
 	}
 
+	//We need to loop through the vertices, each X<Y<Z and turn it into a unique value that is noralised (between 0 and 1,
+	//and pass that number to the colour
 
+	for (int i = 0; i < verticesID.size(); i+=3) {
+	//	std::cout << "\nBefore normalisation: " << i;//
+
+		float minValue = *std::min_element(verticesID.begin(), verticesID.end());
+		float maxValue = *std::max_element(verticesID.begin(), verticesID.end());
+
+		std::transform(verticesID.begin(), verticesID.end(), verticesID.begin(),
+			[&](float value) { return (value - minValue) / (maxValue - minValue); });
+	//	std::cout << "\tValue: " << verticesID[i];
+	
+	}
 	createUVs();
 
 
@@ -953,9 +1020,10 @@ bool Terrain::createTerrainMesh()
 			std::cout << "OpenGL Error at start of terrain mesh binding : " << error << std::endl;
 		}
 		glEnableVertexAttribArray(4);
-		glEnableVertexAttribArray(5);
-		glEnableVertexAttribArray(6);
-		glEnableVertexAttribArray(7);
+		//glEnableVertexAttribArray(5);
+	//	glEnableVertexAttribArray(6);
+	//	glEnableVertexAttribArray(7);
+		glEnableVertexAttribArray(8);
 		glGenBuffers(1, &terrainVBO);
 		glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
 		glBufferData(GL_ARRAY_BUFFER, terrainInfoVector.size() * sizeof(TerrainInfo), terrainInfoVector.data(), GL_STATIC_DRAW);
@@ -967,6 +1035,11 @@ bool Terrain::createTerrainMesh()
 			std::cout << "OpenGL Error at start of create terrain mesh function: " << error << std::endl;
 		}
 
+		//Vertice IDs sent in as floats, normalised. Phys.H file has the code for the shaders.
+		glGenBuffers(1, &verticesIDVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, verticesIDVBO);
+		glBufferData(GL_ARRAY_BUFFER, verticesID.size() * sizeof(GLfloat), verticesID.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(8, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)0);
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -1761,144 +1834,389 @@ GLuint Terrain::loadTexture(const char* path)
 	return FractalVertices;
 }
 
+	void Terrain::terrainEditUI(GLFWwindow* window)
+	{
+		//GLint drawDistanceLocation = glGetUniformLocation(*defaultShaderProgramPtr, "drawDistance");
 
-	//
-	//// Define your TerrainData and HeightMapData structures
-	//struct HeightMapData {
-	//	int size;
-	//	std::vector<float> heights;
-	//};
-	//
-	//struct TerrainData {
-	//	int size;
-	//	float frequency;
-	//	float amplitude;
-	//	HeightMapData heightmapData;
-	//};
-	//
-	//TerrainData terrain;
-	//
-	//// GLFW window and input callback functions
-	//GLFWwindow* window;
-	//
-	//void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	//	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-	//		glfwSetWindowShouldClose(window, GLFW_TRUE);
-	//	}
-	//}
-	//
-	//// OpenGL shader programs and rendering functions
-	//GLuint shaderProgram;
-	//GLuint VAO, VBO, EBO;
-	//
-	//void createTerrainMesh() {
-	//	// Create vertex and index data based on the heightmap
-	//	// This code assumes a regular grid of vertices based on terrain.size
-	//
-	//	std::vector<GLfloat> vertices;
-	//	std::vector<GLuint> indices;
-	//
-	//	for (int z = 0; z < terrain.size; ++z) {
-	//		for (int x = 0; x < terrain.size; ++x) {
-	//			float xPos = static_cast<float>(x);
-	//			float zPos = static_cast<float>(z);
-	//			float yPos = terrain.heightmapData.heights[x + z * terrain.size];
-	//
-	//			vertices.push_back(xPos);
-	//			vertices.push_back(yPos);
-	//			vertices.push_back(zPos);
-	//		}
-	//	}
-	//
-	//	for (int z = 0; z < terrain.size - 1; ++z) {
-	//		for (int x = 0; x < terrain.size - 1; ++x) {
-	//			int topLeft = x + z * terrain.size;
-	//			int topRight = (x + 1) + z * terrain.size;
-	//			int bottomLeft = x + (z + 1) * terrain.size;
-	//			int bottomRight = (x + 1) + (z + 1) * terrain.size;
-	//
-	//			indices.push_back(topLeft);
-	//			indices.push_back(topRight);
-	//			indices.push_back(bottomLeft);
-	//			indices.push_back(topRight);
-	//			indices.push_back(bottomRight);
-	//			indices.push_back(bottomLeft);
-	//		}
-	//	}
-	//
-	//	// Create OpenGL buffers
-	//	glGenVertexArrays(1, &VAO);
-	//	glBindVertexArray(VAO);
-	//
-	//	glGenBuffers(1, &VBO);
-	//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	//	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-	//
-	//	glGenBuffers(1, &EBO);
-	//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	//	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-	//
-	//	// Specify vertex attribute pointers
-	//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-	//	glEnableVertexAttribArray(0);
-	//
-	//	glBindVertexArray(0);
-	//}
-	//
-	//void initShaders() {
-	//	// Vertex shader source code
-	//	const char* vertexShaderSource = R"(
-	//        #version 330 core
-	//        layout (location = 0) in vec3 position;
-	//        uniform mat4 model;
-	//        uniform mat4 view;
-	//        uniform mat4 projection;
-	//        void main() {
-	//            gl_Position = projection * view * model * vec4(position, 1.0);
-	//        }
-	//    )";
-	//
-	//	// Fragment shader source code
-	//	const char* fragmentShaderSource = R"(
-	//        #version 330 core
-	//        out vec4 color;
-	//        void main() {
-	//            color = vec4(0.0, 1.0, 0.0, 1.0); // Green color for terrain (you can change this)
-	//        }
-	//    )";
-	//
-	//	// Compile shaders
-	//	GLuint vertexShader, fragmentShader;
-	//	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	//	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-	//	glCompileShader(vertexShader);
-	//
-	//	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	//	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-	//	glCompileShader(fragmentShader);
-	//
-	//	// Create shader program
-	//	shaderProgram = glCreateProgram();
-	//	glAttachShader(shaderProgram, vertexShader);
-	//	glAttachShader(shaderProgram, fragmentShader);
-	//	glLinkProgram(shaderProgram);
-	//
-	//	// Delete shaders (we don't need them anymore after linking)
-	//	glDeleteShader(vertexShader);
-	//	glDeleteShader(fragmentShader);
-	//}
-	//
-	//void renderTerrain(glm::mat4 model, glm::mat4 view, glm::mat4 projection) {
-	//	glUseProgram(shaderProgram);
-	//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-	//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-	//	glUniformMatrix4fv(glGetUniformLocaton(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-	//
-	//	glBindVertexArray(VAO);
-	//	glDrawElements(GL_TRIANGLES, (terrain.size - 1) * (terrain.size - 1) * 6, GL_UNSIGNED_INT, 0);
-	//	glBindVertexArray(0);
-	//}}
+		ImGui::Begin("Edit Terrain");
+		if (ImGui::Selectable("Terrain Tool On/Off", boolTerrainToolSwitch)) {
+			std::cout << "\nTerrain tool switched";
+			if (terrainPickingSwitch == 0)
+			{
+				terrainPickingSwitch = 1;
+				terrainRenderToFBO();
+				pickTerrain(window);//render to fbo whilst editing. also to world view 
+			}
+			else if (terrainPickingSwitch == 1)
+			{
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				terrainPickingSwitch = 0;
+				GLint editModeLocation = glGetUniformLocation(*this->shaderPtr, "terrainEditMode");
+				glUniform1i(editModeLocation, terrainPickingSwitch);
+				
+		}
+			//oops.
+			std::cout << "\nTerrain int value: " << terrainPickingSwitch;
+			
+		}
+		pickTerrain(window);
+		ImGui::SliderFloat("Draw Distance", &drawDistance, 10.0f, 4000.0f);
+		//glUniform1f(drawDistanceLocation, drawDistance);
 
+		ImGui::End();
+
+
+	}
+
+	void Terrain::initPickingBuffer()
+	{
+		//generate picking buffers and fbuffers - used in terrain selection functions
+		glGenFramebuffers(1, &terrainPickFBO);
+		glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+		glGenTextures(1, &terrainPickTexture);
+		glBindTexture(GL_TEXTURE_2D, terrainPickTexture);
+		//Set texture wrapping parameters and size - remember to resize on
+		//screen size change in main.cpp or elsewhere
+	/*	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrainPickTexture, 0);
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error after setting up Terrain FBO textures: " << error << std::endl;
+
+		}*/
+
+		// Create picking buffer texture attachment
+		glGenTextures(1, &terrainPickPickingBuffer);
+		glBindTexture(GL_TEXTURE_2D, terrainPickPickingBuffer);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, window_width, window_height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);;
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrainPickPickingBuffer, 0);
+
+
+	/*	glGenRenderbuffers(1, &terrainPickDepthBuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, terrainPickDepthBuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, window_width, window_height);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, terrainPickDepthBuffer);*/
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "\nFrame buffer not complete";
+		}
+		else std::cout << "\nTerrain buffer complete";
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+		std::cout << "\nend initPickingBuffer function";
+	
+	}
+
+	void Terrain::terrainRenderToFBO()
+	{
+		//issue may be the terrain shader has no uniform data
+		GLenum error;
+		GLint editModeLocation = glGetUniformLocation(*this->shaderPtr, "terrainEditMode");
+		glUniform1i(editModeLocation, terrainPickingSwitch);
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error: " << error << std::endl;
+		}
+		//glUniform1i(*shaderPtr, terrainPickingSwitch);
+		glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+		glViewport(0, 0, window_width, window_height);//First bind the TARGET
+		//FRAME BUFFER, this is the target that openGL will draw to.	
+		GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
+		glDrawBuffers(1, drawBuffers);
+		//glBindTexture(GL_TEXTURE_2D, terrainPickTexture);//not sure this is the problem
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error: " << error << std::endl;
+		}
+		if (heightmapData.heights.size() > 0) {
+			glBindVertexArray(VAO);
+			glBindTexture(GL_TEXTURE_2D, terrainPickTexture);//not sure this is the problem
+			glBindTexture(GL_TEXTURE_2D, terrainPickPickingBuffer);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+
+
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+
+			//loop through the Z axis of the terrain
+
+				//loop through the X axis of the terrain
+				//this is where the triangle strip is constructed
+			glDrawElements(GL_TRIANGLES, (this->size) * (this->size) * 6, GL_UNSIGNED_INT, 0);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			glDrawBuffer(GL_BACK);
+			//	glBindVertexArray(VAO); // Bind the VAO
+			glBindVertexArray(0); // Unbind the VAO
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+
+		//Screenshot of framebuffer for debugging
+		if (ImGui::Button("Screenshot Terrain Buffer"))
+		{
+			GLubyte* pixels = new GLubyte[window_width * window_height * 4]; // 4 channels (RGBA)
+			if (boolShowGLErrors) {
+				GLenum error;
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "\nopenGL Error at: BEFORE pixels for saving screenshot\NError creating pixels GLubyte" << error;
+				}
+			}
+			std::cout << "\nScreenshot parameters at time of taking: " << window_width << ", " << window_height << std::endl;
+			// Read the pixel data from the framebuffer
+			glReadPixels(0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+			if (boolShowGLErrors) {
+				GLenum error;
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "\nopenGL Error at: read pixels for saving screenshot" << error;
+				}
+			}
+			// Unbind the framebuffer
+
+			// Flip the pixel data vertically (OpenGL reads pixels from bottom to top)
+			GLubyte* flippedPixels = new GLubyte[window_width * window_height * 4];
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			for (int y = 0; y < window_height; ++y) {
+				for (int x = 0; x < window_width; ++x) {
+					int sourceIndex = (window_height - y - 1) * window_width + x;
+					int destIndex = y * window_width + x;
+
+					memcpy(flippedPixels + destIndex * 4, pixels + sourceIndex * 4, 4);
+				}
+			}
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			// Save the pixel data as an image using stb_image_write
+			stbi_write_png("terrainFBO.png", window_width, window_height, 4, flippedPixels, window_width * 4);
+
+			// Clean up
+			delete[] pixels;
+			delete[] flippedPixels;
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	
+		while ((error = glGetError()) != GL_NO_ERROR) {
+			std::cout << "OpenGL Error: " << error << std::endl;
+		}
+	}
+
+	void Terrain::pickTerrain(GLFWwindow* window)
+	{
+		if (terrainLMouseClicked && terrainPickingSwitch == 1)  {//this means if true
+			terrainLMouseClicked = false;
+
+			GLuint pixelColor[4];
+			GLuint pickpixelColor;
+			//std::cout << pickpixelColor;
+			double xpos, ypos;
+			int width, height;
+			GLuint* pixelData = new GLuint[window_width * window_height];
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwGetCursorPos(window, &xpos, &ypos);
+			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+			GLint currentFramebuffer;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			GLenum error;
+			//if (currentFramebuffer == terrainPickFBO) {
+				// The colorFBO is currently bound as the framebuffer. You can safely call glReadPixels here
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+				//glReadPixels(xpos, ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixelColor);
+			glReadPixels(static_cast<GLint>(xpos), static_cast<GLint>(ypos), 1, 1, GL_RED, GL_UNSIGNED_INT, &pickpixelColor);
+
+				//glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "OpenGL Error: " << error << std::endl;
+
+
+
+				}
+				//std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
+				std::cout << "Pick data: " << pickpixelColor;
+				std::cout << "\n" << static_cast<int>(pickpixelColor);// << "," << (pixelColor[1]) << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
+				rgbSelectedTerrain[0] = pixelColor[0];
+				rgbSelectedTerrain[1] = pixelColor[1];
+				rgbSelectedTerrain[2] = pixelColor[2];
+				rgbSelectedTerrain[3] = pixelColor[3];
+				std::cout << "\nRGB seleted: " << rgbSelectedTerrain[0] << ", " << rgbSelectedTerrain[1] << ", " << rgbSelectedTerrain[2];
+				glm::vec3 colour;
+				colour.r = rgbSelectedTerrain[0];
+
+				colour.g = rgbSelectedTerrain[1];
+				colour.b = rgbSelectedTerrain[2];
+
+				glReadBuffer(GL_COLOR_ATTACHMENT1);
+				//GLuint* pixelData = new GLuint[width * height];
+				//glReadPixels(0, 0, width, height, GL_RGBA_INTEGER, GL_UNSIGNED_INT, pixelData);
+
+			/*	glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
+				
+				while ((error = glGetError()) != GL_NO_ERROR) {
+					std::cout << "\nOpenGL Error at engine terrain picking / read pixels: " << error << std::endl;
+
+				}
+				std::cout << "Color Attachment 1: " << pickpixelColor;
+
+				std::cout << "Pause";*/
+				glReadBuffer(GL_COLOR_ATTACHMENT0);
+			}
+	//	}
+		terrainLMouseClicked = false;
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+		//
+		//// Define your TerrainData and HeightMapData structures
+		//struct HeightMapData {
+		//	int size;
+		//	std::vector<float> heights;
+		//};
+		//
+		//struct TerrainData {
+		//	int size;
+		//	float frequency;
+		//	float amplitude;
+		//	HeightMapData heightmapData;
+		//};
+		//
+		//TerrainData terrain;
+		//
+		//// GLFW window and input callback functions
+		//GLFWwindow* window;
+		//
+		//void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+		//	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		//		glfwSetWindowShouldClose(window, GLFW_TRUE);
+		//	}
+		//}
+		//
+		//// OpenGL shader programs and rendering functions
+		//GLuint shaderProgram;
+		//GLuint VAO, VBO, EBO;
+		//
+		//void createTerrainMesh() {
+		//	// Create vertex and index data based on the heightmap
+		//	// This code assumes a regular grid of vertices based on terrain.size
+		//
+		//	std::vector<GLfloat> vertices;
+		//	std::vector<GLuint> indices;
+		//
+		//	for (int z = 0; z < terrain.size; ++z) {
+		//		for (int x = 0; x < terrain.size; ++x) {
+		//			float xPos = static_cast<float>(x);
+		//			float zPos = static_cast<float>(z);
+		//			float yPos = terrain.heightmapData.heights[x + z * terrain.size];
+		//
+		//			vertices.push_back(xPos);
+		//			vertices.push_back(yPos);
+		//			vertices.push_back(zPos);
+		//		}
+		//	}
+		//
+		//	for (int z = 0; z < terrain.size - 1; ++z) {
+		//		for (int x = 0; x < terrain.size - 1; ++x) {
+		//			int topLeft = x + z * terrain.size;
+		//			int topRight = (x + 1) + z * terrain.size;
+		//			int bottomLeft = x + (z + 1) * terrain.size;
+		//			int bottomRight = (x + 1) + (z + 1) * terrain.size;
+		//
+		//			indices.push_back(topLeft);
+		//			indices.push_back(topRight);
+		//			indices.push_back(bottomLeft);
+		//			indices.push_back(topRight);
+		//			indices.push_back(bottomRight);
+		//			indices.push_back(bottomLeft);
+		//		}
+		//	}
+		//
+		//	// Create OpenGL buffers
+		//	glGenVertexArrays(1, &VAO);
+		//	glBindVertexArray(VAO);
+		//
+		//	glGenBuffers(1, &VBO);
+		//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		//	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+		//
+		//	glGenBuffers(1, &EBO);
+		//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		//	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+		//
+		//	// Specify vertex attribute pointers
+		//	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+		//	glEnableVertexAttribArray(0);
+		//
+		//	glBindVertexArray(0);
+		//}
+		//
+		//void initShaders() {
+		//	// Vertex shader source code
+		//	const char* vertexShaderSource = R"(
+		//        #version 330 core
+		//        layout (
+		// 
+		// 
+		//  = 0) in vec3 position;
+		//        uniform mat4 model;
+		//        uniform mat4 view;
+		//        uniform mat4 projection;
+		//        void main() {
+		//            gl_Position = projection * view * model * vec4(position, 1.0);
+		//        }
+		//    )";
+		//
+		//	// Fragment shader source code
+		//	const char* fragmentShaderSource = R"(
+		//        #version 330 core
+		//        out vec4 color;
+		//        void main() {
+		//            color = vec4(0.0, 1.0, 0.0, 1.0); // Green color for terrain (you can change this)
+		//        }
+		//    )";
+		//
+		//	// Compile shaders
+		//	GLuint vertexShader, fragmentShader;
+		//	vertexShader = glCreateShader(GL_VERTEX_SHADER);
+		//	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+		//	glCompileShader(vertexShader);
+		//
+		//	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+		//	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+		//	glCompileShader(fragmentShader);
+		//
+		//	// Create shader program
+		//	shaderProgram = glCreateProgram();
+		//	glAttachShader(shaderProgram, vertexShader);
+		//	glAttachShader(shaderProgram, fragmentShader);
+		//	glLinkProgram(shaderProgram);
+		//
+		//	// Delete shaders (we don't need them anymore after linking)
+		//	glDeleteShader(vertexShader);
+		//	glDeleteShader(fragmentShader);
+		//}
+		//
+		//void renderTerrain(glm::mat4 model, glm::mat4 view, glm::mat4 projection) {
+		//	glUseProgram(shaderProgram);
+		//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+		//	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+		//	glUniformMatrix4fv(glGetUniformLocaton(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+		//
+		//	glBindVertexArray(VAO);
+		//	glDrawElements(GL_TRIANGLES, (terrain.size - 1) * (terrain.size - 1) * 6, GL_UNSIGNED_INT, 0);
+		//	glBindVertexArray(0);
+		//}}
+	
 
 
 void drawShaderManager() {

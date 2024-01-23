@@ -23,14 +23,15 @@ void waterShader::getAllUniformLocations() {
     location_modelMatrix = glGetUniformLocation(this->ID, "model");
      location_fboTextureReflection = glGetUniformLocation(this->ID, "fboTextureReflection");
      location_fboTextureRefraction = glGetUniformLocation(this->ID, "fboTextureRefraction");
-
-
+     location_DUDVmap = glGetUniformLocation(this->ID, "DUDVmap");
+     locationTime = glGetUniformLocation(this->ID, "moveTime");
      glProgramUniformMatrix4fv(this->ID, location_projectionMatrix, 1, GL_FALSE, glm::value_ptr(projection));
      glProgramUniformMatrix4fv(this->ID, location_viewMatrix, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
      glProgramUniformMatrix4fv(this->ID, location_modelMatrix, 1, GL_FALSE, glm::value_ptr(model));
      glProgramUniform1i(this->ID, location_fboTextureReflection, 15);
      glProgramUniform1i(this->ID, location_fboTextureRefraction, 16);
-
+     glProgramUniform1i(this->ID, location_DUDVmap,14);
+     
     checkGLError("getAllUniformLocations");
 }
 
@@ -63,6 +64,6 @@ void waterShader::connectTextureUnits()
 
     glProgramUniform1i(ID, glGetUniformLocation(ID, "fboTextureReflection"), 15);
     glProgramUniform1i(ID, glGetUniformLocation(ID, "fboTextureRefraction"), 16);
-
-
+    glProgramUniform1i(ID, glGetUniformLocation(ID, "DUDVmap"), 14);
+    glProgramUniform1f(ID, glGetUniformLocation(ID, "moveTime"),globalTime);
 }

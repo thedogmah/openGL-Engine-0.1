@@ -33,6 +33,7 @@ public:
     ~Mesh();
     void Render(unsigned int shader);
     void renderInstance(unsigned int shader, GLuint ssboID, GLuint amount);
+    void renderInstanceStencilled(unsigned int shader, GLuint ssboID, GLuint amount);
     GLuint instancedAmount = 1;
     void loadMesh(const std::string filenane, GLuint shader);
     void Render(unsigned int numInstances, const glm::mat4 WVPmatrix, const glm::mat4 worldMatrix);

@@ -3,7 +3,7 @@
 
 #define BT_USE_DOUBLE_PRECISION
 #define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a)/sizeof(a[0])) //first element must always exist to use this
-#define ASSIMP_LOAD_FLAG (   aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
+#define ASSIMP_LOAD_FLAG (   aiProcess_Triangulate  | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
 
 #include "Cube.h"
 #include <set>
@@ -19,7 +19,8 @@
 //#include "Camera.h"
 
 class Texture;
-
+extern bool terrainLMouseClicked;
+extern float globalTime;
 extern bool boolShowGLErrors;
 extern bool boolDrawUI; //bool for drawing main UI in main.cpp (left Alt key on and off)
 extern bool lMouseClicked;
@@ -41,6 +42,8 @@ extern glm::mat4 projection;// = glm::perspective(glm::radians(45.0f), (float)wi
 //no instances gnerates in water bounds for land objects
 class Mesh;
 extern GLuint* defaultShaderProgramPtr;
+
+extern GLuint* globalWaterShader;
 extern int modelLoc ;
 extern int viewLoc ;
 extern int projectionLoc ;

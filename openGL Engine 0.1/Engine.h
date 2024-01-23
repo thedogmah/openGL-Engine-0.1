@@ -78,6 +78,13 @@ public:
 	float iHeight,
 	float iMinDelta,
 	float iMaxDelta);
+	void terrainEditUI(GLFWwindow* window);
+	void initPickingBuffer();
+	void terrainRenderToFBO();
+	int rgbSelectedTerrain[4];//for terrain picking colour
+	//extern bool terrainLMouseClicked = false;
+	void pickTerrain(GLFWwindow* window);
+	bool boolTerrainToolSwitch = false;//Use separate INT for shader if statement, since shaders dont use BOOLEANS
 	btRigidBody* getTerrainRigidBody();
 	btCollisionShape* getTerrainCollionShape();
 	btRigidBody* getTerrainMesh();
@@ -153,7 +160,9 @@ public:
 	//std::vector<Vertex> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> uvs;
-	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO;
+	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO, verticesIDVBO;
+	GLuint terrainPickFBO, terrainPickTexture, terrainPickDepthBuffer, terrainPickPickingBuffer; //Frame buffer for color / mouse picking / or ray cast solution.
+	GLuint terrainPickingSwitch = 0; //Switch this to a 1 to tell the shaders we're in terrain edit mode.
 	GLenum error;
 	
 	// Reserve space for vertices (assuming m_iSize is the size of your heightmap)
@@ -167,7 +176,7 @@ public:
 	bool useDetailMap = 0;
 	GLuint normalMapTexture;
 	GLuint detailMapTexture;
-	GLuint mudMapTexture;
+	GLuint mudMapTexture, mudHeight, mudNormals;
 	std::vector<glm::vec3> normalMap;
 	//Shader variables
 	glm::vec3  rockyColor, ambientColor, diffuseColor, specularColor;
@@ -184,6 +193,8 @@ public:
 	float shininess = 0.3;
 	float sunBrightness = 1.0;
 	float timeOfDay = 12.0f;
+	float radiansTime = 90;// time of day (radians)
+
 	float sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
 	float sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
 	glm::vec3 sunPosition;
@@ -202,6 +213,7 @@ public:
 	bool boolTrimEdges = false;
 	//terrain members
 	std::vector<GLfloat> vertices; //vertices of the terrain itself
+	std::vector<GLfloat> verticesID;
 	std::vector<GLuint> indices; //for vertices of terrain
 	std::vector<TerrainInfo> terrainInfoVector;
 	glm::mat4 modelMatrix = glm::mat4(1.0f);

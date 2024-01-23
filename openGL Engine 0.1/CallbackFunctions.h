@@ -67,21 +67,24 @@ void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
 }
 
 bool boolRigidBody = false;
-
+ //global terain mouse click switch
 std::vector<World::cubeInstance> cubesSSBOVector;
 GLuint colorFBO;
 GLuint colorTexture;
 GLuint depthrenderBuffer;
 int rgbSelected[4];
+
 SSBO* cubeSSBOptr = nullptr;
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 	
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
+	//Should add all picking functions to the call back.
 
+	//terrain.pick callback
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-
-
+		
+		terrainLMouseClicked = true;//sets terrain world to have been clicked also
 		lMouseClicked = true;
 
 		double xpos, ypos;
@@ -212,7 +215,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 	}
 
-
+	
 }
 
 GLuint getCurrentFramebuffer() {

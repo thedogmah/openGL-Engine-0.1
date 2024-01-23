@@ -2,30 +2,52 @@
 
 in vec2 textureCoords;
 in vec4 clipSpace;
-
+in vec3 toCameraVector;
 out vec4 out_Color;
-
+uniform float moveTime; //time * scalar.
 uniform sampler2D fboTextureReflection;
 uniform sampler2D fboTextureRefraction;
-
+uniform sampler2D DUDVmap;
+uniform vec3 diffuseColor;
+//const float tiling = 5.0;
 void main() {
     vec3 viewDirection = normalize(vec3(clipSpace.xy / clipSpace.w - vec2(0.5, 0.5), 1.0));
-
-    // Calculate normalized device coordinates (NDC)
+ 
+   float moveTimeScale = moveTime * 0.1;
+   vec2 distortion1 = texture(DUDVmap, vec2(textureCoords.x + moveTimeScale, textureCoords.y )).rg *2.0 - 1.0;
+   vec2 distortion2 = texture(DUDVmap, vec2(textureCoords.x + moveTimeScale, textureCoords.y + moveTimeScale )).rg *2.0 - 1.0;
+   vec2 totalDistortion = distortion1 + distortion2;
+   // Calculate normalized device coordinates (NDC)
     vec2 ndc = (clipSpace.xy / clipSpace.w) / 2.0 + 0.5;
 
     // Use NDC for both reflection and refraction texture coordinates
     vec2 refractTexCoords = vec2(ndc.x, ndc.y);
     vec2 reflectTexCoords =  vec2(ndc.x, ndc.y); 
    reflectTexCoords.y = 1.0 - reflectTexCoords.y;
+
+       refractTexCoords += totalDistortion *0.05;
+    refractTexCoords = clamp(refractTexCoords, 0.001, 0.999);
+    
+   //Add distortion from dudv sampler 2
+    reflectTexCoords += totalDistortion * 0.05;
+    reflectTexCoords = clamp(reflectTexCoords, 0.001, 0.999);
+    //reflectTexCoords.x = clamp(reflectTexCoords.x, -0.9999, -0.001);
+     
+
+
+
     vec4 reflectionColor = texture(fboTextureReflection, reflectTexCoords);
     vec4 refractionColor = texture(fboTextureRefraction, refractTexCoords);
 
-    // Adjust blending factors for reflection and water tint
-    vec3 waterColor = vec3(0.1, 0.53, 0.96);
-    vec3 finalColor = mix(reflectionColor.rgb, refractionColor.rgb, 0.5);
-  finalColor = mix(finalColor, waterColor, 0.33);
+    vec3 viewVector = normalize(toCameraVector);
+    float refractiveVector = dot(viewVector, vec3(0.0, 1.0, 0.0));
+
+   // Adjust blending factors for reflection and water tint
+    vec3 waterColor = vec3(0.0, 0.1, 0.3);// * (diffuseColor * 0.6);
+    vec3 finalColor = mix(reflectionColor.rgb, refractionColor.rgb, refractiveVector);
+  finalColor = mix(finalColor, waterColor, 0.1);
 
     // Output the final color
  out_Color = vec4(finalColor, 1.0);
+
 }

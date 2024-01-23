@@ -74,13 +74,20 @@ layout(location = 4) in int isWater;     // Attribute location for isWater
 layout(location = 5) in int isMountain;  // Attribute location for isMountain
 layout(location = 6) in int isForest;    // Attribute location for isForest
 layout(location = 7) in int isDesert; 
+layout(location = 8) in float verticesID; //Sending unique vertices ID for each traingle already
+
+
+out float verticesUniqueID;//unqiue IDs for terrain
 out vec3 fColor; // Output color
 out vec3 Normal;  // Output normal in world space
 out vec4 fragPosition;
+out vec2 vecIDs;//for vertice ID XZ coords;
 out float modifiedY;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
+
+
 uniform int applyModelTransform;
 uniform float heightScale; // Scale factor for height map
 uniform float heightOffset; // Offset to control base height
@@ -90,17 +97,23 @@ uniform sampler2D detailMap;
 out vec2 fragResolution;
 uniform float time;
 out vec2 uvsOut;
+uniform sampler2D mudHeight;
+uniform sampler2D mudNormals;
 out vec2 TexCoord;  // Output texture coordinates for fragment shader
 uniform vec4 plane;
 flat out int isRiverVertex;
+
+
+
 void main()
 {
-
+verticesUniqueID =verticesID;
 fragResolution = vec2(2560.0, 1440.0);
 modifiedY = 0;
   isRiverVertex = 0;
   vec4 worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
-
+vec4 clipspace =  projection * view * model * vec4(position, 1.0f);
+vecIDs = clipspace.xz;
     // Set the clip distance based on the world position
     gl_ClipDistance[0] = dot(worldPosition, plane);
 
@@ -114,8 +127,17 @@ if(isWater >0)
 
  Normal = normals; // Pass normals to the fragment shader
 Normal = normalize(normals);
+
+// Sample mud normals
+vec3 mudNormalsSample = normalize(texture(mudNormals, uvs.xy).xyz * 2.0 - 1.0);
+
+// Modify normals using mud normals
+
+Normal = normalize(normals + mudNormalsSample);
+
 uvsOut = uvs;
    // fragPosition = projection * vec4(position,1.0f); 
+float mudDisplacement = texture(mudHeight, uvs.xy).r * 2.0;
 
  if (applyModelTransform == 1) {
 
@@ -125,10 +147,10 @@ uvsOut = uvs;
         float displacement = (heightMapValue * heightScale) + heightOffset;
 
         // Apply displacement only to the Y-coordinate of the vertex position
-        vec3 displacedPosition = position + vec3(0.0, displacement, 0.0);
+        vec3 displacedPosition = position + vec3(0.0, mudDisplacement, 0.0) ;
   if (isRiverVertex == 1) {
-            displacedPosition.y -= riverBed; // Adjust this value based on your requirements
-modifiedY = displacedPosition.y;         
+       displacedPosition.y -= riverBed; // Adjust this value based on your requirements
+        modifiedY = displacedPosition.y;         
    vec3 displacedNormal = normalize(mat3(transpose(inverse(model))) * normals);
 
         // Pass the modified normal to the fragment shader
@@ -145,8 +167,17 @@ modifiedY = displacedPosition.y;
 // fragPosition = projection *  vec4(position, 1.0f);
 }
 else{
-    gl_Position = projection * view * vec4(position, 1.0f);
-    fColor = color; // Pass color directly to the fragment shader
+
+
+    // Apply displacement only to the Y-coordinate of the vertex position
+    vec3 displacedPosition = position + vec3(0.0, -mudDisplacement, 0.0);
+
+    gl_Position = projection * view * vec4(displacedPosition, 1.0f);
+    fragPosition = projection * vec4(displacedPosition, 1.0f);
+    fColor = color;
+
+ //   gl_Position = projection * view * vec4(position, 1.0f);
+   // fColor = color; // Pass color directly to the fragment shader
 }
 }
     )"; 
@@ -157,8 +188,11 @@ in vec3 fColor; // Input color from vertex shader
 in vec3 Normal; // Input normal in world space from vertex shader
 in vec2 uvsOut; // UV coordinates from vertex shader
 out vec4 FragColor;
+out int FragColor2;
 in vec2 fragResolution;
 in vec4 fragPosition;
+in vec2 vecIDs;
+in float verticesUniqueID; //id for vertices from shader for selecting terrain
 vec2 iResolution = vec2(2560.0, 1440.0);
 
 flat in int isRiverVertex; 
@@ -196,6 +230,10 @@ uniform float smoothStepFactor;
 uniform float slopeThreshold;
 uniform int useNormalMap;
 uniform int useDetailMap;
+uniform float radian;
+uniform int gridSize;
+//edit terrain mode switch
+uniform int terrainEditMode;
 
 // Define shininess factor for specular reflection (added)
 uniform float shininess;
@@ -207,12 +245,22 @@ float avg(vec4 color) {
 
 void main()
 {
+
+if (terrainEditMode == 1)
+{
+ FragColor = vec4(verticesUniqueID,0.1,0.1,0.0);//draw red world if this is switched
+
+ivec2 icoords = ivec2(vecIDs);
+FragColor2 = (icoords.x);//+ icoords.y* gridSize;
+    return;
+}
+
     vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
     // Apply normal map to modify the normal vector
     vec3 modifiedNormal = normalize(normalMapSample * 2.0 - 1.0);
     vec3 detailMapSample = texture(detailMap, uvsOut).xyz;
     float detailMapValue = texture(detailMap, uvsOut).r;
-    vec3 mudColor = texture(mudTexture, uvsOut * 100).rgb;
+    vec3 mudColor = texture(mudTexture, uvsOut * 5).rgb;
 
     // Calculate the dot product between the normal vector and the up vector
     float slopeFactor = dot(modifiedNormal, vec3(0.0, 1.0, 0.0)) + modifiedY;
@@ -230,26 +278,26 @@ void main()
     float terrainHeight = fragPosition.y + modifiedY;
 
     if (terrainHeight < waterThreshold) {
-        originalColor = texture(txGrass, uvsOut * 200).rgb;
+        originalColor = texture(txGrass, uvsOut * 5).rgb;
     }
     else if (terrainHeight >= waterThreshold && terrainHeight < grassThreshold) {
         float factor = smoothstep(waterThreshold, waterThreshold + smoothStepFactor, terrainHeight);
-        originalColor = mix(texture(txGrass, uvsOut * 100).rgb, texture(txHighGrass, uvsOut * 200).rgb, factor);
+        originalColor = mix(texture(txGrass, uvsOut *5).rgb, texture(txHighGrass, uvsOut *5).rgb, factor);
     }
     else if (terrainHeight >= grassThreshold && terrainHeight < rockyThreshold) {
         float factor = smoothstep(grassThreshold, grassThreshold + smoothStepFactor, terrainHeight);
-        originalColor = mix(texture(txHighGrass, uvsOut * 200).rgb, texture(txRock, uvsOut * 200).rgb, factor);
+        originalColor = mix(texture(txHighGrass, uvsOut * 5).rgb, texture(txRock, uvsOut * 5).rgb, factor);
     }
     else if (terrainHeight >= rockyThreshold && terrainHeight < snowThreshold) {
         float factor = smoothstep(rockyThreshold, rockyThreshold + smoothStepFactor, terrainHeight);
-        originalColor = mix(texture(txRock, uvsOut * 200).rgb, texture(txHighRock, uvsOut * 200).rgb, factor);
+        originalColor = mix(texture(txRock, uvsOut * 5).rgb, texture(txHighRock, uvsOut * 5).rgb, factor);
     }
     else if (terrainHeight >= snowThreshold && terrainHeight < peakThreshold) {
         float factor = smoothstep(snowThreshold, snowThreshold + smoothStepFactor, terrainHeight);
-        originalColor = mix(texture(txHighRock, uvsOut * 100).rgb, texture(txPeak, uvsOut * 200).rgb, factor);
+        originalColor = mix(texture(txHighRock, uvsOut * 5).rgb, texture(txPeak, uvsOut * 5).rgb, factor);
     }
     else if (terrainHeight >= peakThreshold) {
-        originalColor = texture(txPeak, uvsOut * 200).rgb;
+        originalColor = texture(txPeak, uvsOut * 5).rgb;
     }
 
     // Blend colors using the mud color and detail map value
@@ -268,8 +316,7 @@ void main()
 
 
     // Calculate the sun's direction based on spherical coordinates and time
-    float sunAltitude = radians(90.0 - ((time / 24.0) * 180.0)); // Normalize time to 0-1 and convert to degrees
-
+    float sunAltitude = radians(radian);
     float sunAzimuth = radians(180.0); // You can adjust this based on your scene's orientation
     vec3 sunDirection = vec3(cos(sunAzimuth) * sin(sunAltitude), cos(sunAltitude), sin(sunAzimuth) * sin(sunAltitude));
 
@@ -303,12 +350,15 @@ void main()
     // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
     // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
     if (useDetailMap == 1) {
-        FragColor = vec4(finalColor + sampledColor, 1.0f);
-    }
-    else {
-        FragColor = vec4(finalColor * blendedColor, 1.0f);
-    }
-
+         FragColor = vec4(0.0,verticesUniqueID,0.0, 0.5);
+            }
+    
+    else 
+            {
+            vec4 finalColors = mix(vec4(finalColor * blendedColor, verticesUniqueID), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID,verticesUniqueID), 0.3);
+           // vec4 blended = mix(vec4(finalColor,0.0), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID, 0.0), 0.5);
+            FragColor = vec4(finalColors);
+            }
   vec3 waterColor = vec3(0.0, 0.5, 0.9); // Adjust the RGB values for the water color
     float transparency = 0.7; // Adjust the transparency level
 

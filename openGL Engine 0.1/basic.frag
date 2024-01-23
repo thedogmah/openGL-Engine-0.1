@@ -44,18 +44,27 @@ uniform int mousePicking;
 in vec3 mouseColour; // comes from SSBO in vertex
 out vec4 FragColorOutput;
 vec4 resultWithAlpha = vec4(0.0);
-
+uniform int isStencil;
 uniform int arraySize;
 
 void main() {
     if (mousePicking == 1) {
         FragColorOutput = vec4(mouseColour, 1.0);
-    } else {
+    }
+    else {
+
+
+    if (isStencil == 1)
+                {
+        FragColorOutput += vec4(0.0, 0.0, 0.0, 0.8);
+        return;
+              }
+
 
 vec4 texSample = texture(texture1, textureCoords);
 vec3 textureColor = (texSample.rgb.r > 0.0 || texSample.rgb.g > 0.0 || texSample.rgb.b > 0.0) ? texSample.rgb : vec3(1.0);
 vec3 diffuse = material.diffuse * textureColor;
-//        vec3 diffuse = material.diffuse * texture(texture1, textureCoords).rgb; // Diffuse
+//    vec3 diffuse = material.diffuse * texture(texture1, textureCoords).rgb; // Diffuse
 
 
 
@@ -87,7 +96,13 @@ vec3 diffuse = material.diffuse * textureColor;
     // Combine ambient, diffuse, and specular lighting
     vec3 result = ambient + diffuseLight + specular;
 
+
+    if (isStencil==0)
+        {
     FragColorOutput += vec4(result, 1.0);
+        }
+
+  
 }
     }
 }   
