@@ -1210,7 +1210,7 @@ waterTileVector.push_back(watertile3);
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		update();
 		// Assuming you have the rigid body's position in 'rigidBodyPosition'
 		btVector3 rigidBodyPosition = character->getRigidBody()->getCenterOfMassPosition();
@@ -1947,11 +1947,62 @@ waterTileVector.push_back(watertile3);
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
 		//	uimanager->renderUI();
-			terrain.terrainEditUI(window);
+			
+
+			GLint currentFramebuffer;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			
+			//First bind the TARGET
+			//FRAME BUFFER, this is the target that openGL will draw to.	
+			
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
+			}
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(2, drawBuffers);
+			glUseProgram(debugger.shaderProgram);
+		
+			GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+			glUniform1i(editModeLocation, terrain.terrainPickingSwitch);
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "OpenGL Error: " << error << std::endl;
 			}
-			waterRendererProgram.render(waterTileVector, camera);
+			terrain.render();
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+		/*	GLenum defaultDrawBuffer = GL_BACK;
+			glDrawBuffer(defaultDrawBuffer);
+			glReadBuffer(defaultDrawBuffer);*/
+			//SEEMS TO BE an error when switching buffers, lets debug with this:
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+
+			//lets see if we still error once we have terrain setup and use the fbo
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			glUseProgram(debugger.shaderProgram);
+			terrain.terrainEditUI(window);
+
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			std::cout << "\ncurrent frame buffer after switching:" << currentFramebuffer;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			
+			// Reset the draw buffers to the default (back) buffer
+			
+			//waterRendererProgram.render(waterTileVector, camera);
 	
 		
 		}
@@ -2020,7 +2071,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 	// Update the color texture attachment
 	glBindTexture(GL_TEXTURE_2D, colorTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width,height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); // Update your global height
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width,height, 0, GL_RGB, GL_FLOAT, NULL); // Update your global height
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
 	std::cout << "\n\ncolorTexture  buffer ID is: " << colorTexture << "\n";
 	if (boolShowGLErrors) {
@@ -2057,20 +2108,28 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 // Set viewport
 glViewport(0, 0, width, height);
 
-// Bind texture for GL_COLOR_ATTACHMENT1
-glBindTexture(GL_TEXTURE_2D, terrain.terrainPickPickingBuffer);
-glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
-glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrain.terrainPickPickingBuffer, 0);
 
 // Bind texture for GL_COLOR_ATTACHMENT0 (assuming colorTexture is defined somewhere)
 glBindTexture(GL_TEXTURE_2D, terrain.terrainPickTexture);
-glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, terrain.terrainPickTexture, 0);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, nullptr);;
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrain.terrainPickTexture, 0);
 
 // Check framebuffer completeness
 if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     // Handle error, framebuffer is not complete
     std::cout << "Framebuffer not complete!" << std::endl;
+}
+
+
+glBindTexture(GL_TEXTURE_2D, terrain.terrainPickPickingBuffer);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, nullptr);;
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, terrain.terrainPickPickingBuffer, 0);
+while ((error = glGetError()) != GL_NO_ERROR) {
+	std::cout << "OpenGL Error after setting up Terrain FBO textures: " << error << std::endl;
+
+}
+if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+	std::cout << "Framebuffer is not complete after resize!" << std::endl;
 }
 
 // Unbind framebuffer
@@ -2083,23 +2142,6 @@ if (boolShowGLErrors) {
         std::cout << "OpenGL Error: " << error << std::endl;
     }
 }
-	//// Update the depth renderbuffer attachment
-	//glBindRenderbuffer(GL_RENDERBUFFER, terrain.terrainPickDepthBuffer);
-	//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
-	//glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderBuffer);
-	//std::cout << "\nDepth render buffer ID is: " << depthrenderBuffer << "\n";
-	//if (boolShowGLErrors) {
-	//	while ((error = glGetError()) != GL_NO_ERROR) {
-	//		std::cout << "OpenGL Error at fbo callback for Terrain picking: " << error << std::endl;
-	//	
-
-	//	}
-	//}
-	// Check framebuffer completeness (for debugging)
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "Terrain Framebuffer is not complete after resize!" << std::endl;
-	}
-
 	// Unbind objects
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -3070,7 +3112,7 @@ void drawUI()
 				terrain.loadHeightMap(map, terrain.size);
 				terrain.generateHeightMap();
 				GLuint gridsize = glGetUniformLocation(*terrain.shaderPtr, "gridSize");
-				glProgramUniform1i(*defaultShaderProgramPtr, gridsize, terrain.size);
+				glProgramUniform1i(*terrain.shaderPtr, gridsize, terrain.size);
 
 
 				if (terrain.terrainMeshRigidBody != nullptr) {

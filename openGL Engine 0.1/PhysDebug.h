@@ -77,11 +77,11 @@ layout(location = 7) in int isDesert;
 layout(location = 8) in float verticesID; //Sending unique vertices ID for each traingle already
 
 
-out float verticesUniqueID;//unqiue IDs for terrain
+ out float verticesUniqueID;//unqiue IDs for terrain
 out vec3 fColor; // Output color
 out vec3 Normal;  // Output normal in world space
 out vec4 fragPosition;
-out vec2 vecIDs;//for vertice ID XZ coords;
+out vec3 vecIDs;//for vertice ID XZ coords;
 out float modifiedY;
 uniform mat4 projection;
 uniform mat4 view;
@@ -113,7 +113,11 @@ modifiedY = 0;
   isRiverVertex = 0;
   vec4 worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
 vec4 clipspace =  projection * view * model * vec4(position, 1.0f);
-vecIDs = clipspace.xz;
+vec4 IDpass = projection * view * model * vec4(position, 1.0f);
+vecIDs.x = position.x;
+vecIDs.y = position.y;
+vecIDs.z = position.z;
+
     // Set the clip distance based on the world position
     gl_ClipDistance[0] = dot(worldPosition, plane);
 
@@ -187,12 +191,16 @@ else{
 in vec3 fColor; // Input color from vertex shader
 in vec3 Normal; // Input normal in world space from vertex shader
 in vec2 uvsOut; // UV coordinates from vertex shader
-out vec4 FragColor;
-out int FragColor2;
+in vec3 vecIDs;
+
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 FragColor2;
+
+
 in vec2 fragResolution;
 in vec4 fragPosition;
-in vec2 vecIDs;
-in float verticesUniqueID; //id for vertices from shader for selecting terrain
+
+ in float verticesUniqueID; //id for vertices from shader for selecting terrain
 vec2 iResolution = vec2(2560.0, 1440.0);
 
 flat in int isRiverVertex; 
@@ -245,16 +253,6 @@ float avg(vec4 color) {
 
 void main()
 {
-
-if (terrainEditMode == 1)
-{
- FragColor = vec4(verticesUniqueID,0.1,0.1,0.0);//draw red world if this is switched
-
-ivec2 icoords = ivec2(vecIDs);
-FragColor2 = (icoords.x);//+ icoords.y* gridSize;
-    return;
-}
-
     vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
     // Apply normal map to modify the normal vector
     vec3 modifiedNormal = normalize(normalMapSample * 2.0 - 1.0);
@@ -356,7 +354,7 @@ FragColor2 = (icoords.x);//+ icoords.y* gridSize;
     else 
             {
             vec4 finalColors = mix(vec4(finalColor * blendedColor, verticesUniqueID), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID,verticesUniqueID), 0.3);
-           // vec4 blended = mix(vec4(finalColor,0.0), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID, 0.0), 0.5);
+            vec4 blended = mix(vec4(finalColor,0.0), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID, 0.0), 0.5);
             FragColor = vec4(finalColors);
             }
   vec3 waterColor = vec3(0.0, 0.5, 0.9); // Adjust the RGB values for the water color
@@ -367,7 +365,19 @@ FragColor2 = (icoords.x);//+ icoords.y* gridSize;
         vec2 wavyCoords = uvsOut + vec2(0.0, sin(time * 2.0 + uvsOut.x * 5.0) * 0.1);
         
         // Sample the water texture using the wavy coordinates
-        FragColor = texture(waterTexture, wavyCoords);}
+        FragColor = texture(waterTexture, wavyCoords);
+
+}
+
+
+
+if (terrainEditMode == 1)
+{
+
+FragColor = vec4(vecIDs.x/127,vecIDs.y/127,0.0,0.5);
+FragColor2 = vec4(vecIDs.x/128,vecIDs.y/128, vecIDs.z/128, 0.0);
+
+}
 
 }
 

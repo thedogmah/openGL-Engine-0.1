@@ -81,6 +81,8 @@ public:
 	void terrainEditUI(GLFWwindow* window);
 	void initPickingBuffer();
 	void terrainRenderToFBO();
+	std::vector<GLfloat> terrainPickedLocationsVector;
+	int rgbSelected[4];//For terrain fbo picking after retrieving co ords from other array
 	int rgbSelectedTerrain[4];//for terrain picking colour
 	//extern bool terrainLMouseClicked = false;
 	void pickTerrain(GLFWwindow* window);
