@@ -1,6 +1,6 @@
 #pragma once
-//#include "globals.h"
-#include <btBulletDynamicsCommon.h>
+#include "globals.h"
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -12,7 +12,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
 class Character
 {
 public:

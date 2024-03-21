@@ -43,7 +43,7 @@ void main() {
     float refractiveVector = dot(viewVector, vec3(0.0, 1.0, 0.0));
 
    // Adjust blending factors for reflection and water tint
-    vec3 waterColor = vec3(0.0, 0.1, 0.3);// * (diffuseColor * 0.6);
+    vec3 waterColor = vec3(0.0, 0.1, 0.8);// * (diffuseColor * 0.6);
     vec3 finalColor = mix(reflectionColor.rgb, refractionColor.rgb, refractiveVector);
   finalColor = mix(finalColor, waterColor, 0.1);
 

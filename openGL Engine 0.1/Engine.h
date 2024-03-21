@@ -18,10 +18,12 @@
 #include "globals.h"
 #include <vector>
 #include <algorithm>
-#include "btBulletDynamicsCommon.h"
 
-#include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
-#include "BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision/CollisionDispatch/btCollisionWorld.h>
+#include "c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h"
 
 void calculateGradients(const std::vector<float>& terrain, int width, int height,
 	std::vector<float>& gradientX, std::vector<float>& gradientY);
@@ -82,6 +84,7 @@ public:
 	void initPickingBuffer();
 	void terrainRenderToFBO();
 	std::vector<GLfloat> terrainPickedLocationsVector;
+	std::vector<GLfloat> currentTerrainClickedRGB;
 	int rgbSelected[4];//For terrain fbo picking after retrieving co ords from other array
 	int rgbSelectedTerrain[4];//for terrain picking colour
 	//extern bool terrainLMouseClicked = false;
@@ -162,7 +165,7 @@ public:
 	//std::vector<Vertex> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> uvs;
-	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO, verticesIDVBO;
+	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO, verticesIDVBO, TerrainClickedRGB_VBO;
 	GLuint terrainPickFBO, terrainPickTexture, terrainPickDepthBuffer, terrainPickPickingBuffer; //Frame buffer for color / mouse picking / or ray cast solution.
 	GLuint terrainPickingSwitch = 0; //Switch this to a 1 to tell the shaders we're in terrain edit mode.
 	GLenum error;

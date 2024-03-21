@@ -18,6 +18,12 @@ Terrain::Terrain()
 	this->size = 256; //set a default terrain size.
 	this->heightmapData.size =16;
 	std::mt19937 gen(rd()); //for generate river variables.
+
+	currentTerrainClickedRGB.clear();//Clear the vector before adding latest picked locations (X,Y,Z)
+	currentTerrainClickedRGB.push_back(255.0);//Add red green and blue to vector
+	currentTerrainClickedRGB.push_back(255.0);
+	currentTerrainClickedRGB.push_back(255.0);
+
 }
 
 void Terrain::render()
@@ -194,7 +200,7 @@ void Terrain::render()
 			glUniform1f(waterStopThresholdLocation, waterStopThreshold);
 		}
 
-		if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, -220.0f, 570.0f)) {
+		if (ImGui::SliderFloat("Grass Stop Threshold", &grassStopThreshold, - 220.0f, 570.0f)) {
 			glUniform1f(grassStopThresholdLocation, grassStopThreshold);
 		}
 
@@ -988,7 +994,7 @@ bool Terrain::createTerrainMesh()
 		
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
+				
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
@@ -1041,6 +1047,14 @@ bool Terrain::createTerrainMesh()
 		glBindBuffer(GL_ARRAY_BUFFER, verticesIDVBO);
 		glBufferData(GL_ARRAY_BUFFER, verticesID.size() * sizeof(GLfloat), verticesID.data(), GL_STATIC_DRAW);
 		glVertexAttribPointer(8, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)0);
+		
+		glEnableVertexAttribArray(9);
+		glGenBuffers(1, &TerrainClickedRGB_VBO);
+		glBindBuffer(GL_ARRAY_BUFFER, TerrainClickedRGB_VBO);
+		glBufferData(GL_ARRAY_BUFFER, currentTerrainClickedRGB.size() * sizeof(GLfloat), currentTerrainClickedRGB.data(), GL_STATIC_DRAW);
+		
+		glVertexAttribPointer(9, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+		glVertexAttribDivisor(9, 1);
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -1874,6 +1888,8 @@ GLuint Terrain::loadTexture(const char* path)
 		//generate picking buffers and fbuffers - used in terrain selection functions
 		glGenFramebuffers(1, &terrainPickFBO);
 		glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+
+
 		glGenTextures(1, &terrainPickTexture);
 		glBindTexture(GL_TEXTURE_2D, terrainPickTexture);
 		//Set texture wrapping parameters and size - remember to resize on
@@ -1929,8 +1945,8 @@ GLuint Terrain::loadTexture(const char* path)
 		glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
 		//First bind the TARGET
 		//FRAME BUFFER, this is the target that openGL will draw to.	
-		GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
-		glDrawBuffers(1, drawBuffers);	
+		GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, drawBuffers);	
 		glViewport(0, 0, window_width, window_height);
 		//glBindTexture(GL_TEXTURE_2D, terrainPickTexture);//not sure this is the problem
 		while ((error = glGetError()) != GL_NO_ERROR) {
@@ -2024,7 +2040,44 @@ GLuint Terrain::loadTexture(const char* path)
 	void Terrain::pickTerrain(GLFWwindow* window)
 	{
 		if (terrainLMouseClicked && terrainPickingSwitch == 1)  {//this means if true
+			
 			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+			double xpos, ypos;
+			int width, height;
+
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwGetCursorPos(window, &xpos, &ypos);
+			// Set viewport
+			glViewport(0, 0, width, height);
+
+
+			// Bind texture for GL_COLOR_ATTACHMENT0 (assuming colorTexture is defined somewhere)
+			glBindTexture(GL_TEXTURE_2D, terrainPickTexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, nullptr);;
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrainPickTexture, 0);
+
+			// Check framebuffer completeness
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				// Handle error, framebuffer is not complete
+				std::cout << "Framebuffer not complete!" << std::endl;
+			}
+
+
+			glBindTexture(GL_TEXTURE_2D, terrainPickPickingBuffer);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, nullptr);;
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, terrainPickPickingBuffer, 0);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error after setting up Terrain FBO textures: " << error << std::endl;
+
+			}
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				std::cout << "Framebuffer is not complete after resize!" << std::endl;
+			}
+
+			
+			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
+
+
 			terrainLMouseClicked = false;
 
 			GLuint pixelColor[4];
@@ -2033,11 +2086,7 @@ GLuint Terrain::loadTexture(const char* path)
 			GLubyte pickpixelColor2[4];
 			//std::cout << pickpixelColor;
 
-		double xpos, ypos;
-		int width, height;
-		
-		glfwGetFramebufferSize(window, &width, &height);
-		glfwGetCursorPos(window, &xpos, &ypos);
+	
 		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
 		int glX = static_cast<int>(xpos);
 		int glY = height - static_cast<int>(ypos) - 1;
@@ -2078,7 +2127,27 @@ GLuint Terrain::loadTexture(const char* path)
 				terrainPickedLocationsVector.push_back(pushback1);
 
 				terrainPickedLocationsVector.push_back(pushback2);
-				
+
+				currentTerrainClickedRGB.clear();//Clear the vector before adding latest picked locations (X,Y,Z)
+				currentTerrainClickedRGB.push_back(pushback);//Add red green and blue to vector
+				currentTerrainClickedRGB.push_back(pushback1);
+				currentTerrainClickedRGB.push_back(pushback2);
+
+
+  			//	std::vector<GLfloat>normalizedRGB;
+			/*	for (int value : currentTerrainClickedRGB) {
+					float normalizedValue = value / 255.0f;
+					normalizedRGB.push_back(normalizedValue);
+				}*/
+				//std::swap(currentTerrainClickedRGB, normalizedRGB);
+			
+				//Send latest vector data to the graphics shader from the cpu.
+				glBindVertexArray(VAO);
+				glBindBuffer(GL_ARRAY_BUFFER, TerrainClickedRGB_VBO);
+				glBufferData(GL_ARRAY_BUFFER, currentTerrainClickedRGB.size() * sizeof(GLfloat), currentTerrainClickedRGB.data(), GL_STATIC_DRAW);
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+				glBindVertexArray(0);
+
 				rgbSelectedTerrain[0] = pixelColor[0];
 				rgbSelectedTerrain[1] = pixelColor[1];
 				rgbSelectedTerrain[2] = pixelColor[2];
@@ -2261,6 +2330,10 @@ GLuint Terrain::loadTexture(const char* path)
 
 
 void drawShaderManager() {
+	glm::vec3 textPosition3D = glm::vec3(10.0f, 5.0f, -20.0f);
+
+	// Apply transformations to position text in 3D space
+	ImGui::SetNextWindowPos(ImVec2(textPosition3D.x, textPosition3D.y)); // Translate to 3D position
 
 	ImGui::Begin("Shader Manager");
 	static int selectedShaderIndex = -1;

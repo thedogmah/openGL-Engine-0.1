@@ -5,8 +5,8 @@
 
 BT_USE_DOUBLE_PRECISION
 
-#include <LinearMath/btIDebugDraw.h>
-#include <LinearMath/btVector3.h>
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btIDebugDraw.h>
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btVector3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -75,18 +75,19 @@ layout(location = 5) in int isMountain;  // Attribute location for isMountain
 layout(location = 6) in int isForest;    // Attribute location for isForest
 layout(location = 7) in int isDesert; 
 layout(location = 8) in float verticesID; //Sending unique vertices ID for each traingle already
-
+layout(location = 9) in vec3 pickedRGB;
 
  out float verticesUniqueID;//unqiue IDs for terrain
 out vec3 fColor; // Output color
 out vec3 Normal;  // Output normal in world space
 out vec4 fragPosition;
-out vec3 vecIDs;//for vertice ID XZ coords;
+flat out vec3 vecIDs;//for vertice ID XZ coords;
 out float modifiedY;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
+flat out vec3 pickedRGBData;
 
 uniform int applyModelTransform;
 uniform float heightScale; // Scale factor for height map
@@ -107,6 +108,8 @@ flat out int isRiverVertex;
 
 void main()
 {
+
+pickedRGBData = pickedRGB;
 verticesUniqueID =verticesID;
 fragResolution = vec2(2560.0, 1440.0);
 modifiedY = 0;
@@ -114,6 +117,7 @@ modifiedY = 0;
   vec4 worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
 vec4 clipspace =  projection * view * model * vec4(position, 1.0f);
 vec4 IDpass = projection * view * model * vec4(position, 1.0f);
+
 vecIDs.x = position.x;
 vecIDs.y = position.y;
 vecIDs.z = position.z;
@@ -191,11 +195,14 @@ else{
 in vec3 fColor; // Input color from vertex shader
 in vec3 Normal; // Input normal in world space from vertex shader
 in vec2 uvsOut; // UV coordinates from vertex shader
-in vec3 vecIDs;
+flat in vec3 vecIDs;
 
 layout(location = 0) out vec4 FragColor;
 layout(location = 1) out vec4 FragColor2;
 
+
+//mouse picking RGB data
+flat in vec3 pickedRGBData;
 
 in vec2 fragResolution;
 in vec4 fragPosition;
@@ -374,9 +381,36 @@ void main()
 if (terrainEditMode == 1)
 {
 
-FragColor = vec4(vecIDs.x/127,vecIDs.y/127,0.0,0.5);
-FragColor2 = vec4(vecIDs.x/128,vecIDs.y/128, vecIDs.z/128, 0.0);
+FragColor2 = vec4(vecIDs.x,vecIDs.y,vecIDs.z,0.0);
 
+FragColor = vec4(
+vecIDs.x/128,
+0.0,
+vecIDs.z/128, 0.0);
+
+if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) && 
+    int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) &&
+int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +50) && 
+    int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+50)
+
+)
+ {
+    FragColor = vec4(0.2, 1.0, 0.5, 0.1);
+}
+//else
+//if (int(vecIDs.x / 128.0 * 255.0) == int(pickedRGBData.x) && 
+//    int(vecIDs.z / 128.0 * 255.0) == int(pickedRGBData.z))
+// {
+//    FragColor = vec4(0.2, 1.0, 0.5, 0.1);
+//}
+
+
+
+//if(vecIDs.x == pickedRGBData.x && vecIDs.z == pickedRGBData.z)
+//{
+//FragColor = vec4(0.1,1.0,0.5,0.0);
+//}
+//cannot divide a
 }
 
 }

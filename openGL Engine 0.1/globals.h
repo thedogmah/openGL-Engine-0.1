@@ -9,10 +9,10 @@
 #include <set>
 #include <map>
 #include <vector>
-#include "btBulletDynamicsCommon.h"
+#include "c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\btBulletDynamicsCommon.h"
 #include "Lights.h"
-#include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
-#include <LinearMath/btVector3.h>
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision/CollisionDispatch/btCollisionWorld.h>
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
 

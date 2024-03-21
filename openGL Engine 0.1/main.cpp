@@ -23,9 +23,13 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include "btBulletDynamicsCommon.h"
+#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletCollision\btBulletCollisionCommon.h"
 #include "ImGuiVariables.h"
-#include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
+#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\LinearMath/btAlignedObjectArray.h"
+
+#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -874,7 +878,7 @@ int main()
 		std::cout << "OpenGL Error afterpolygon mode " << error << std::endl;
 
 	}
-	glClearColor(0.1, 0.1, 0.2, 0.0);
+	glClearColor(0.2, 0.1, 0.15, 0.0);
 	glEnable(GL_DEPTH_TEST);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after enabling depth test: " << error << std::endl;
@@ -1908,6 +1912,8 @@ waterTileVector.push_back(watertile3);
 			glUseProgram(debugger.shaderProgram);
 			waterFBOS.bindReflectionFrameBuffer();
 	//		watershade.setMatrixUniform(debugger.shaderProgram, camera.mViewMatrix);
+
+			//RENDER TERRAIN FOR REFLECTION FBO
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
 			ImGui::Begin("screenshot fbo");
@@ -1946,7 +1952,7 @@ waterTileVector.push_back(watertile3);
 			glUseProgram(debugger.shaderProgram);
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
-		//	uimanager->renderUI();
+			uimanager->renderUI();
 			
 
 			GLint currentFramebuffer;
@@ -1954,20 +1960,17 @@ waterTileVector.push_back(watertile3);
 			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
 			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
 			
-			//First bind the TARGET
-			//FRAME BUFFER, this is the target that openGL will draw to.	
-			
-			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
-			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
 			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 				std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
 			}
 			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-			GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-			glDrawBuffers(2, drawBuffers);
+			GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(1, drawBuffers);
 			glUseProgram(debugger.shaderProgram);
-		
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+			GLint projectionLocation = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+
 			GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
 			glUniform1i(editModeLocation, terrain.terrainPickingSwitch);
 			while ((error = glGetError()) != GL_NO_ERROR) {
@@ -2002,7 +2005,7 @@ waterTileVector.push_back(watertile3);
 			
 			// Reset the draw buffers to the default (back) buffer
 			
-			//waterRendererProgram.render(waterTileVector, camera);
+			waterRendererProgram.render(waterTileVector, camera);
 	
 		
 		}
@@ -2142,7 +2145,7 @@ if (boolShowGLErrors) {
         std::cout << "OpenGL Error: " << error << std::endl;
     }
 }
-	// Unbind objects
+	// Unbind obje	cts
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -3637,8 +3640,7 @@ void initialise(float x, float y, float z, GLFWwindow* window) {
 
 	std::string customFragmentShaderCode;
 	//setup matrices
-
-
+	
 	bindingIndexCount = 3;
 	 modelLoc = glGetUniformLocation(*defaultShaderProgramPtr, "model");
 	 viewLoc = glGetUniformLocation(*defaultShaderProgramPtr, "view");

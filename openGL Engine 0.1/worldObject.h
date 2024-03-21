@@ -5,9 +5,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
-#include "btBulletDynamicsCommon.h"
+#include "c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\btBulletDynamicsCommon.h"
 
-#include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
+#include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision/CollisionDispatch/btCollisionWorld.h>
 
 class worldObject
 {
