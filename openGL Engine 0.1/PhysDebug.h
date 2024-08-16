@@ -247,6 +247,7 @@ uniform int useNormalMap;
 uniform int useDetailMap;
 uniform float radian;
 uniform int gridSize;
+uniform float TerrainToolKernelSize;
 //edit terrain mode switch
 uniform int terrainEditMode;
 
@@ -390,8 +391,8 @@ vecIDs.z/128, 0.0);
 
 if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) && 
     int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) &&
-int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +50) && 
-    int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+50)
+int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +TerrainToolKernelSize) && 
+    int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+TerrainToolKernelSize)
 
 )
  {

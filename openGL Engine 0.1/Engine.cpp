@@ -58,6 +58,8 @@ void Terrain::render()
 				vertices[i] *= yScale;
 
 				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				//bug
+				//only update the buffer after the loop.
 				glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -1854,6 +1856,7 @@ GLuint Terrain::loadTexture(const char* path)
 		//GLint drawDistanceLocation = glGetUniformLocation(*defaultShaderProgramPtr, "drawDistance");
 
 		ImGui::Begin("Edit Terrain");
+		ImGui::Text("Press Text Below to Turn off Terrain Tool");
 		if (ImGui::Selectable("Terrain Tool On/Off", boolTerrainToolSwitch)) {
 			std::cout << "\nTerrain tool switched";
 			if (terrainPickingSwitch == 0)
@@ -1873,11 +1876,19 @@ GLuint Terrain::loadTexture(const char* path)
 			//oops.
 			std::cout << "\nTerrain int value: " << terrainPickingSwitch;
 			
+		
 		}
 		
 		ImGui::SliderFloat("Draw Distance", &drawDistance, 10.0f, 4000.0f);
 		//glUniform1f(drawDistanceLocation, drawDistance);
-
+		if (ImGui::SliderFloat("Sculpt Size / Kernel Size ", &TerrainToolKernelSize, 0.5f, 100.0f))
+		{
+			GLint KernelToolSizeLocation = glGetUniformLocation(*this->shaderPtr, "TerrainToolKernelSize");
+			glUniform1f(KernelToolSizeLocation, TerrainToolKernelSize);
+		
+		}
+		ImGui::SliderFloat("Scult Impact/Size", &terrainToolSculptImpact, -100.0f, 100.0f);
+		
 		ImGui::End();
 		pickTerrain(window);
 
@@ -2133,6 +2144,42 @@ GLuint Terrain::loadTexture(const char* path)
 				currentTerrainClickedRGB.push_back(pushback1);
 				currentTerrainClickedRGB.push_back(pushback2);
 
+
+				//Need to conver the RGB values in currentTerraainClickedRGB back to vertices
+				//within the Vertices vector and then edit their height
+
+				//loop through all vertices and match against currentTerrainClickedRGB
+				//elements crossed with the normalisation as found in
+				// the shader code*/
+				
+				for (int i=0; i < vertices.size(); i+=3) {
+				//auto range loop
+					if (int(vertices[i] /127.0 *256.0) >= currentTerrainClickedRGB[0] &&
+						int(vertices[i + 2] /127 *256.0)  >= currentTerrainClickedRGB[2] &&
+						int(vertices[i] / 127.0 * 256.0) <= currentTerrainClickedRGB[0] + TerrainToolKernelSize&&
+						int(vertices[i+2] / 127.0 * 256.0) <= currentTerrainClickedRGB[2] + TerrainToolKernelSize
+												)
+						{
+						//Need to create a setter 
+						vertices[i + 1] += terrainToolSculptImpact;
+
+						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						//bug
+						//only update the buffer after the loop.
+						glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+						glBindBuffer(GL_ARRAY_BUFFER, 0);
+						
+					}
+				}
+
+
+				//for (int i = 1; i < vertices.size(); i += 3) {
+				//	// Update the Y-coordinate by scaling it
+				//	vertices[i] *= yScale;
+
+
+				//}
+		
 
   			//	std::vector<GLfloat>normalizedRGB;
 			/*	for (int value : currentTerrainClickedRGB) {

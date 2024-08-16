@@ -62,7 +62,7 @@ if (isInstanced != 0) {
         float distanceToCamera = distance(vec2(cameraX, cameraZ), vec2(instanceData[gl_InstanceID].modelMatrix[3].x, instanceData[gl_InstanceID].modelMatrix[3].z));
 
         // Move the vertex to a position that effectively discards it
-        if (distanceToCamera > drawDistance) {
+        if (distanceToCamera > 999) {
                 gl_Position = vec4(0.0, 0.0, 2.0, 1.0);  // Move to the center of clip space
                 return;
               }

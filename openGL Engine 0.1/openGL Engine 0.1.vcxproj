@@ -191,6 +191,7 @@
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="SSBO.cpp" />
     <ClCompile Include="stb.cpp" />
+    <ClCompile Include="Tessellation.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="UIManager.cpp" />
     <ClCompile Include="variablesIMGUI.cpp" />
@@ -231,6 +232,7 @@
     <ClInclude Include="PhysDebug.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SSBO.h" />
+    <ClInclude Include="Tessellation.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="UIManager.h" />
     <ClInclude Include="waterFrameBuffer.h" />

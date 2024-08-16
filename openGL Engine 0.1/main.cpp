@@ -61,6 +61,8 @@
 #include "waterShader.h"
 #include "waterTile.h"
 #include "waterFrameBuffer.h"
+#include "Tessellation.h"
+
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
 UIManager* uimanager;
 //Customer shader variables
@@ -200,7 +202,7 @@ Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes proper
 int cubesToGenerate; //for IMGUI input
 glm::mat4 createCamera(glm::vec3& cameraPosition, glm::vec3& targetPosition, glm::vec3& upVector);
 using namespace Assimp;
-
+Tessellation tessellationEngine;
 int main()
 {
 
@@ -1182,8 +1184,10 @@ waterTileVector.push_back(watertile3);
 	waterRendererProgram.reflectionTextureID = waterFBOS.getReflectionTexture();
 	waterRendererProgram.refractionTextureID = waterFBOS.getRefractionTexture();
 	camera.setViewMatrix();
+	tessellationEngine.init();
 	while (!glfwWindowShouldClose(window))
 	{
+		
 		//Get frame time
 		currentTime = glfwGetTime();
 		// Calculate the elapsed time since the start of the loop
@@ -1826,7 +1830,7 @@ waterTileVector.push_back(watertile3);
 			//this mesh is then rendered.
 			//each->Bind();
 			instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
-			//std::cout << "\n" << each->ssboID << " is the bound SSBO ID\n";
+			//std::cout << "\n" << each ->ssboID << " is the bound SSBO ID\n";
 			instancedInt++;
 			//each->Unbind();
 		}
@@ -1878,7 +1882,8 @@ waterTileVector.push_back(watertile3);
 	
 		if (terrain.ready)
 		{
-			
+			tessellationEngine.setMatrices(camera.getViewMatrix(), projection);
+			tessellationEngine.draw();
 			glUseProgram(debugger.shaderProgram);
 			waterFBOS.bindReflectionFrameBuffer();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1894,7 +1899,7 @@ waterTileVector.push_back(watertile3);
 			instancedInt = 0;
 			glUseProgram(shaderProgram);
 			glUniform1i(isInstancedBool, 1);
-		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			for (auto& each : SSBOVector)
 			{
 				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
@@ -1932,12 +1937,13 @@ waterTileVector.push_back(watertile3);
 			instancedInt = 0;
 			glUseProgram(shaderProgram);
 			glUniform1i(isInstancedBool, 1);
-		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			// glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			for (auto& each : SSBOVector)
-			{
+				{
 				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
 			instancedInt++;
-			}
+				}
+
 			waterFBOS.bindRefractionFrameBuffer();
 		//	glUniform1i(isInstancedBool, 0);
 			glUseProgram(debugger.shaderProgram);
@@ -1952,7 +1958,7 @@ waterTileVector.push_back(watertile3);
 			glUseProgram(debugger.shaderProgram);
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
-			uimanager->renderUI();
+			//uimanager->renderUI();
 			
 
 			GLint currentFramebuffer;
@@ -2007,9 +2013,10 @@ waterTileVector.push_back(watertile3);
 			
 			waterRendererProgram.render(waterTileVector, camera);
 	
-		
+			
 		}
-
+		tessellationEngine.setMatrices(camera.getViewMatrix(), projection);
+		tessellationEngine.draw();
 
 		glUseProgram(shaderProgram);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -3783,15 +3790,19 @@ void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terra
 		zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
 
 		// Extract the Y position from the terrain heights
-		float yPos = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];
-		yPos += 1.0;
+		float yPos = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize *3];
+
+
+		//x=10 z=10, how do we access Y in the vertices. We need the size of the grive
+		//must find the 1D vertices Y from the 2D X and Z positions above.
+	
 		// Apply any offset or adjustment to yPos for realism
 		// For example, sink the meshes into the ground a little
 		// yPos -= /* your desired offset */;
 
 		// Now, use the yPos for the instance position
 		instancePosition = glm::vec3(xPos, yPos, zPos);
-
+		//the vector will ultimately have a size of widht*height*3 elements
 		glm::vec3 instanceScale;
 		float randomScale = glm::linearRand(scalemin, scalemax);
 		instanceScale.x = randomScale;

@@ -90,6 +90,8 @@ public:
 	//extern bool terrainLMouseClicked = false;
 	void pickTerrain(GLFWwindow* window);
 	bool boolTerrainToolSwitch = false;//Use separate INT for shader if statement, since shaders dont use BOOLEANS
+	float TerrainToolKernelSize = 26.0;
+	float terrainToolSculptImpact = 5.0;
 	btRigidBody* getTerrainRigidBody();
 	btCollisionShape* getTerrainCollionShape();
 	btRigidBody* getTerrainMesh();
