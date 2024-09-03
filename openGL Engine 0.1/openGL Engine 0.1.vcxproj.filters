@@ -93,25 +93,22 @@
     <ClCompile Include="UIManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\backends\imgui_impl_opengl3.cpp">
+    <ClCompile Include="..\..\imgui-docking\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\backends\imgui_impl_glfw.cpp">
+    <ClCompile Include="..\..\imgui-docking\imgui_draw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\imgui_demo.cpp">
+    <ClCompile Include="..\..\imgui-docking\imgui_tables.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\imgui_tables.cpp">
+    <ClCompile Include="..\..\imgui-docking\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\imgui_widgets.cpp">
+    <ClCompile Include="..\..\imgui-docking\backends\imgui_impl_opengl3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui-master\imgui.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui-master\imgui_draw.cpp">
+    <ClCompile Include="..\..\imgui-docking\backends\imgui_impl_glfw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -164,9 +161,6 @@
     <ClInclude Include="CallbackFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\Desktop\imgui-master\imstb_rectpack.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Mesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -206,25 +200,28 @@
     <ClInclude Include="UIManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\imstb_textedit.h">
+    <ClInclude Include="..\..\imgui-docking\backends\imgui_impl_opengl3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\imstb_truetype.h">
+    <ClInclude Include="..\..\imgui-docking\backends\imgui_impl_glfw.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\imconfig.h">
+    <ClInclude Include="..\..\imgui-docking\imconfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\imgui.h">
+    <ClInclude Include="..\..\imgui-docking\imgui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\imgui_internal.h">
+    <ClInclude Include="..\..\imgui-docking\imgui_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\backends\imgui_impl_opengl3.h">
+    <ClInclude Include="..\..\imgui-docking\imstb_rectpack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\imgui-master\backends\imgui_impl_glfw.h">
+    <ClInclude Include="..\..\imgui-docking\imstb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\imgui-docking\imstb_truetype.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -241,13 +238,13 @@
     <None Include="PhysDebut.frag">
       <Filter>Source Files\Shaders</Filter>
     </None>
-    <None Include="packages.config" />
     <None Include="UIvertex.glsl">
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="UIfrag.glsl">
       <Filter>Source Files\Shaders</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg">

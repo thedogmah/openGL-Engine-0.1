@@ -19,17 +19,19 @@
 #include <random>
 #include <iostream>
 #include <istream>
+
 #include <assimp/config.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
 
-#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletCollision\btBulletCollisionCommon.h"
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision\btBulletCollisionCommon.h"
 #include "ImGuiVariables.h"
-#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\LinearMath/btAlignedObjectArray.h"
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btAlignedObjectArray.h"
 
-#include "C:\Users\ryanb\vcpkg\packages\blt3\packages\bullet3_x64-windows\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
+#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -88,6 +90,7 @@ Mesh mesh;
  bool boolDrawUI=true; //globals.h (left alt  - hot path was in UI! drawimgui)#
  bool drawIMGUI = true;
  bool boolShowGLErrors = false ;
+ bool UIdrawn = false;
 // Declare and define the global variables
 glm::mat4 cubeModelMatrix;
 glm::mat4 model = glm::mat4(1.0f);
@@ -1754,7 +1757,7 @@ waterTileVector.push_back(watertile3);
 		mousePickingValue = 1;
 		GLint mousePickingUniformLocation = glGetUniformLocation(shaderProgram, "mousePicking");
 		glUniform1i(mousePickingUniformLocation, mousePickingValue);
-		glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
+	//	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
 	//	glViewport(0, 0, window_width, window_height);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -1796,11 +1799,11 @@ waterTileVector.push_back(watertile3);
 		cubeSSBOptr->Unbind();
 		glUseProgram(shaderProgram);
 		glUniform1i(isInstancedBool, 0);
-		//cubeTest.draw();
+		////cubeTest.draw();
 		glUniform1i(isStencilled, 0);
 		glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 		glStencilFunc(GL_ALWAYS, 1, 0xFF);
-		glStencilMask(0x00);
+		glStencilMask(0xFF);
 	
 		for (auto& mesh : meshVector) {
 		
@@ -1824,13 +1827,13 @@ waterTileVector.push_back(watertile3);
 		{
 			//binds each ssbo which corresponds to the index position (intanceInt of the equivalent mesh)
 			//this mesh is then rendered.
-			//each->Bind();
+			//->Bind();
 			instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
 			//std::cout << "\n" << each->ssboID << " is the bound SSBO ID\n";
 			instancedInt++;
 			//each->Unbind();
 		}
-		glUniform1i(isStencilled, 1);
+	glUniform1i(isStencilled, 1);
 		glUniform1i(isInstancedBool, 1);
 		//enable stencfil buffer
 		//make sure its cleared
@@ -1875,7 +1878,7 @@ waterTileVector.push_back(watertile3);
 		int widthreflection = 1000;
 		int heightreflection = 1000;
 		if (!terrain.init) terrain.initalise();
-	
+		instancedInt = 0;
 		if (terrain.ready)
 		{
 			
@@ -1901,7 +1904,7 @@ waterTileVector.push_back(watertile3);
 				instancedInt++;
 			}
 			waterFBOS.bindReflectionFrameBuffer();
-
+			instancedInt = 0;
 			glUseProgram(debugger.shaderProgram);
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "GL error: " << error << std::endl;
@@ -1952,6 +1955,7 @@ waterTileVector.push_back(watertile3);
 			glUseProgram(debugger.shaderProgram);
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
+			//Uncomment to see the FBOs for the reflection and refractions of the water 
 			uimanager->renderUI();
 			
 
@@ -2014,7 +2018,8 @@ waterTileVector.push_back(watertile3);
 		glUseProgram(shaderProgram);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			ImGui::Render();
-			
+			//boolean is responsible for only drawing the UI once.
+			 UIdrawn = false;
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		
 		//debugger.SetMatrices(view, projection);
@@ -3127,6 +3132,7 @@ void drawUI()
 				terrain.createTerrainMesh();
 
 				dynamicsWorldPtr->updateAabbs();
+
 			}
 
 
@@ -3779,8 +3785,8 @@ void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terra
 		float zPos = static_cast<float>(rand() % terrainSize);
 
 		// Ensure that the calculated positions are within the terrain bounds
-		xPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), xPos));
-		zPos = std::max(0.0f, std::min(static_cast<float>(terrainSize - 1), zPos));
+		/*xPos = 0;
+		zPos = 0;*/
 
 		// Extract the Y position from the terrain heights
 		float yPos = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];

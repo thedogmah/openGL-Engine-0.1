@@ -24,6 +24,7 @@ extern float globalTime;
 extern bool boolShowGLErrors;
 extern bool boolDrawUI; //bool for drawing main UI in main.cpp (left Alt key on and off)
 extern bool lMouseClicked;
+extern bool UIdrawn;
 //Create the game character
 class Character;
 extern float characterCameraXOffset;

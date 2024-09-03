@@ -260,6 +260,7 @@ float avg(vec4 color) {
 
 void main()
 {
+vec3 finalColor;
     vec3 normalMapSample = texture(normalMap, uvsOut).xyz;
     // Apply normal map to modify the normal vector
     vec3 modifiedNormal = normalize(normalMapSample * 2.0 - 1.0);
@@ -278,7 +279,7 @@ void main()
 
     // Preserve the original sampled color before height-based conditions
     vec3 originalColor = vec3(0.0);
-
+originalColor  = texture(mudTexture, uvsOut * 5).rgb;
     // Height-based conditions to update originalColor
     float terrainHeight = fragPosition.y + modifiedY;
 
@@ -350,8 +351,8 @@ void main()
     // Final color output
     vec3 blendedColor = mix(sampledColor, mudColor, smoothstep(slopeThreshold - 0.6, slopeThreshold, slopeFactor));
 
-    vec3 finalColor = ambient + diffuse + specular;;
-
+     finalColor =  mudColor;
+    //finalColor 
     // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
     // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
     if (useDetailMap == 1) {
@@ -363,6 +364,7 @@ void main()
             vec4 finalColors = mix(vec4(finalColor * blendedColor, verticesUniqueID), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID,verticesUniqueID), 0.3);
             vec4 blended = mix(vec4(finalColor,0.0), vec4(verticesUniqueID, verticesUniqueID,verticesUniqueID, 0.0), 0.5);
             FragColor = vec4(finalColors);
+           // finalColor = vec3(finalColors.r, finalColors.g, finalColors.b);
             }
   vec3 waterColor = vec3(0.0, 0.5, 0.9); // Adjust the RGB values for the water color
     float transparency = 0.7; // Adjust the transparency level
@@ -379,39 +381,41 @@ void main()
 
 
 if (terrainEditMode == 1)
-{
+    {
 
-FragColor2 = vec4(vecIDs.x,vecIDs.y,vecIDs.z,0.0);
+    FragColor2 = vec4(vecIDs.x,vecIDs.y,vecIDs.z,0.0);
 
-FragColor = vec4(
-vecIDs.x/128,
-0.0,
-vecIDs.z/128, 0.0);
+//below is settin terrain colour without green
+    FragColor = vec4(
+    vecIDs.x/128,
+    0.0,
+    vecIDs.z/128, 0.0);
 
-if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) && 
-    int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) &&
-int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +50) && 
-    int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+50)
+    if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) && 
+        int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) &&
+    int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +1) && 
+        int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+1)
 
-)
- {
-    FragColor = vec4(0.2, 1.0, 0.5, 0.1);
+    )
+         {
+         FragColor = vec4(0.2, 1.0, 0.5, 0.1);
+     }
 }
-//else
-//if (int(vecIDs.x / 128.0 * 255.0) == int(pickedRGBData.x) && 
-//    int(vecIDs.z / 128.0 * 255.0) == int(pickedRGBData.z))
-// {
-//    FragColor = vec4(0.2, 1.0, 0.5, 0.1);
-//}
+
+ else
+   
+     {
+        FragColor = vec4(finalColor, 0.5);
+    }
 
 
 
-//if(vecIDs.x == pickedRGBData.x && vecIDs.z == pickedRGBData.z)
-//{
-//FragColor = vec4(0.1,1.0,0.5,0.0);
-//}
-//cannot divide a
-}
+    //if(vecIDs.x == pickedRGBData.x && vecIDs.z == pickedRGBData.z)
+    //{
+    //FragColor = vec4(0.1,1.0,0.5,0.0);
+    //}
+    //cannot divide a
+    
 
 }
 
