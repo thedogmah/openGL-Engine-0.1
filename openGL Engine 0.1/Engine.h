@@ -89,6 +89,20 @@ public:
 	int rgbSelectedTerrain[4];//for terrain picking colour
 	//extern bool terrainLMouseClicked = false;
 	void pickTerrain(GLFWwindow* window);
+	void toolsCircleBrush(std::vector<float>& vertices, int X, int Z, int size, float radius, float newHeight);
+	void toolsSquareBrush(std::vector<float>& vertices, int X, int Z, int size, float squaresize, float newHeight);
+	enum BrushType {
+		POINT_BRUSH,
+		CIRCLE_BRUSH,
+		SQUARE_BRUSH,
+		H_, LINE_BRUSH,
+		V_LINE_BRUSH
+		//Add more brushes as needed
+	} currentBrushType;
+
+	float brushRadius = 15;
+	int brushSize = 15;
+	bool boolRelativeHeight = true;
 	bool boolTerrainToolSwitch = false;//Use separate INT for shader if statement, since shaders dont use BOOLEANS
 	btRigidBody* getTerrainRigidBody();
 	btCollisionShape* getTerrainCollionShape();

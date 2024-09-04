@@ -1956,7 +1956,7 @@ waterTileVector.push_back(watertile3);
 			terrain.render();
 			glUseProgram(debugger.shaderProgram);
 			//Uncomment to see the FBOs for the reflection and refractions of the water 
-			uimanager->renderUI();
+			//uimanager->renderUI();
 			
 
 			GLint currentFramebuffer;

@@ -351,7 +351,7 @@ originalColor  = texture(mudTexture, uvsOut * 5).rgb;
     // Final color output
     vec3 blendedColor = mix(sampledColor, mudColor, smoothstep(slopeThreshold - 0.6, slopeThreshold, slopeFactor));
 
-     finalColor =  mudColor;
+     finalColor = mudColor+ ambient + diffuse + specular;
     //finalColor 
     // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
     // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)

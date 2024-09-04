@@ -770,7 +770,7 @@ bool Terrain::createTerrainMesh()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	int mudMapWidth, mudMapHeight, mudMapChannels;
-	unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
 
 	if (mudMapData) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);
@@ -1868,6 +1868,29 @@ GLuint Terrain::loadTexture(const char* path)
 		//GLint drawDistanceLocation = glGetUniformLocation(*defaultShaderProgramPtr, "drawDistance");
 
 		ImGui::Begin("Edit Terrain");
+
+
+		if (ImGui::RadioButton("Point Brush", currentBrushType == POINT_BRUSH)) {
+			currentBrushType = POINT_BRUSH;
+		}
+		if (ImGui::RadioButton("Circle Brush", currentBrushType == CIRCLE_BRUSH)) {
+			currentBrushType = CIRCLE_BRUSH;
+		}
+		if (ImGui::RadioButton("Square Brush", currentBrushType == SQUARE_BRUSH)) {
+			currentBrushType = SQUARE_BRUSH;
+		}
+		ImGui::Checkbox("Relative Height", &boolRelativeHeight);
+
+		// Set brush size
+		if (currentBrushType == CIRCLE_BRUSH) {
+			ImGui::SliderFloat("Circle Radius", &brushRadius, 1.0f, 50.0f);
+		}
+		else if (currentBrushType == SQUARE_BRUSH) {
+			ImGui::SliderInt("Square Size", &brushSize, 1, 20);
+		}
+	
+
+
 		if (ImGui::Selectable("Terrain Tool On/Off", boolTerrainToolSwitch)) {
 			std::cout << "\nTerrain tool switched";
 			if (terrainPickingSwitch == 0)
@@ -1889,6 +1912,9 @@ GLuint Terrain::loadTexture(const char* path)
 			
 		}
 		
+
+		
+
 		ImGui::SliderFloat("Draw Distance", &drawDistance, 10.0f, 4000.0f);
 		//glUniform1f(drawDistanceLocation, drawDistance);
 
@@ -2168,8 +2194,24 @@ GLuint Terrain::loadTexture(const char* path)
 
 				// Now you can modify the height or do other operations.
 				float newHeight = 50.0f; // Example new height value
-				vertices[index + 1] = newHeight;
+				//remove comment to edit a single point. 
+				// vertices[index + 1] = newHeight;
+				
+				
+				//We need an if statement, or switch, to test the type of brush selected, and choose corresponding function.
+				
+				switch (currentBrushType) {
+				case CIRCLE_BRUSH:
 
+				toolsCircleBrush(vertices, X, Z, size, brushRadius, 30);
+					break;
+
+				case SQUARE_BRUSH:
+					toolsSquareBrush(vertices, X, Z, size, brushSize, 20);
+					break;
+				
+				
+				}
 
   			//	std::vector<GLfloat>normalizedRGB;
 			/*	for (int value : currentTerrainClickedRGB) {
@@ -2235,6 +2277,75 @@ GLuint Terrain::loadTexture(const char* path)
 		terrainLMouseClicked = false;
 		
 	}
+
+	void Terrain::toolsCircleBrush(std::vector<float>& vertices, int X, int Z, int size, float radius, float newHeight)
+	{
+	
+		{
+			// Converts the radius in world units to a radius in terms of the vertex grid
+			int radiusInVertices = static_cast<int>(radius);
+
+			// Iterate over all vertices within the square bounding box defined by the brush's radius
+			for (int dz = -radiusInVertices; dz <= radiusInVertices; ++dz) {
+				for (int dx = -radiusInVertices; dx <= radiusInVertices; ++dx) {
+					// Calculate the position of the current vertex in the grid
+					int newX = X + dx;
+					int newZ = Z + dz;
+
+					// Ensure that the current vertex is within the grid boundaries
+					if (newX >= 0 && newX < size && newZ >= 0 && newZ < size) {
+
+						// Calculate the squared distance from the brush center to the current vertex
+						float distanceSquared = dx * dx + dz * dz;
+
+						// Check if the current vertex is within the circular brush's radius
+						if (distanceSquared <= radiusInVertices * radiusInVertices) {
+
+							// Calculate the influence of the brush based on the distance from the center
+							float distance = sqrt(distanceSquared); // Actual distance from the center
+							float falloff = 1.0f - (distance / radiusInVertices); // Linear falloff
+
+							// Optionally modify the falloff to be smoother (quadratic)
+							// float falloff = (1.0f - (distance / radiusInVertices)) * (1.0f - (distance / radiusInVertices));
+
+							// Calculate the index of the current vertex in the vertex array
+							int index = (newZ * size + newX) * 3;
+
+							// Apply the height modification with the falloff effect
+							if (boolRelativeHeight) {//relative heught switch
+								// Adjust height relative to the current height
+								vertices[index + 1] += newHeight * falloff;
+							}
+							else {
+								// Set height absolutely based on falloff
+								vertices[index + 1] = newHeight * falloff + vertices[index + 1] * (1.0f - falloff);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	void Terrain::toolsSquareBrush(std::vector<float>& vertices, int X, int Z, int size, float halfSideLength, float newHeight)
+	{
+	
+		for (int dz = -halfSideLength; dz <= halfSideLength; ++dz) {
+			for (int dx = -halfSideLength; dx <= halfSideLength; ++dx) {
+				int newX = X + dx;
+				int newZ = Z + dz;
+
+				// Ensure we're within bounds
+				if (newX >= 0 && newX < size && newZ >= 0 && newZ < size) {
+					int index = (newZ * size + newX) * 3;
+					vertices[index + 1] += newHeight; // Modify the height
+				}
+			}
+		}
+
+	}
+	
+	
 	
 
 
