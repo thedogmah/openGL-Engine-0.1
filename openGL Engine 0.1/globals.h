@@ -65,7 +65,19 @@ struct Vertex {
     float r, g, b, a ;
   
 };
+extern 	int brushSize;
 
+// Enum for tool selection
+enum class Tool {
+    NONE,
+    TERRAIN_SCULPT,
+    PAINT,
+    ERASE,
+    // Add other tools as needed
+};
+
+// Global variable for the current tool
+extern Tool currentTool;
 
 struct customShader{
 

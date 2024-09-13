@@ -1872,15 +1872,28 @@ GLuint Terrain::loadTexture(const char* path)
 
 		if (ImGui::RadioButton("Point Brush", currentBrushType == POINT_BRUSH)) {
 			currentBrushType = POINT_BRUSH;
+			currentTool = Tool::NONE;
 		}
 		if (ImGui::RadioButton("Circle Brush", currentBrushType == CIRCLE_BRUSH)) {
 			currentBrushType = CIRCLE_BRUSH;
+			currentTool= Tool::TERRAIN_SCULPT;
 		}
 		if (ImGui::RadioButton("Square Brush", currentBrushType == SQUARE_BRUSH)) {
 			currentBrushType = SQUARE_BRUSH;
+			currentTool = Tool::TERRAIN_SCULPT;
+		}
+
+		if (ImGui::RadioButton("Flatten Brush", currentBrushType == FLATTEN_BRUSH))
+{
+			currentBrushType = FLATTEN_BRUSH;
+			currentTool = Tool::TERRAIN_SCULPT;
 		}
 		ImGui::Checkbox("Relative Height", &boolRelativeHeight);
+		ImGui::InputInt("Brush Size", &brushSize);
 
+		// Optional: Clamp the brush size to ensure it stays within a reasonable range
+		if (brushSize < 1) brushSize = 1; // Minimum brush size
+		//if (brushSize > 100) brushSize = 100; // Maximum brush size (adjust as needed)
 		// Set brush size
 		if (currentBrushType == CIRCLE_BRUSH) {
 			ImGui::SliderFloat("Circle Radius", &brushRadius, 1.0f, 50.0f);
@@ -1888,7 +1901,7 @@ GLuint Terrain::loadTexture(const char* path)
 		else if (currentBrushType == SQUARE_BRUSH) {
 			ImGui::SliderInt("Square Size", &brushSize, 1, 20);
 		}
-	
+		ImGui::SliderInt("Brush Impact", &brushImpact, -100,100);
 
 
 		if (ImGui::Selectable("Terrain Tool On/Off", boolTerrainToolSwitch)) {
@@ -2203,16 +2216,20 @@ GLuint Terrain::loadTexture(const char* path)
 				switch (currentBrushType) {
 				case CIRCLE_BRUSH:
 
-				toolsCircleBrush(vertices, X, Z, size, brushRadius, 30);
+				toolsCircleBrush(vertices, X, Z, size, brushRadius, brushImpact);
 					break;
 
 				case SQUARE_BRUSH:
-					toolsSquareBrush(vertices, X, Z, size, brushSize, 20);
+					toolsSquareBrush(vertices, X, Z, size, brushSize, brushImpact);
 					break;
 				
-				
+				case FLATTEN_BRUSH:
+					toolsFlattenBrush(vertices, X, Z, size, brushSize);
 				}
 
+				GLint brushSizeLoc = glGetUniformLocation(*shaderPtr, "brushSize");  // Get uniform location
+				glUseProgram(*shaderPtr);  // Activate the shader program
+				glUniform1i(brushSizeLoc, brushSize);  // Send brushSize to the shader
   			//	std::vector<GLfloat>normalizedRGB;
 			/*	for (int value : currentTerrainClickedRGB) {
 					float normalizedValue = value / 255.0f;
@@ -2303,7 +2320,7 @@ GLuint Terrain::loadTexture(const char* path)
 
 							// Calculate the influence of the brush based on the distance from the center
 							float distance = sqrt(distanceSquared); // Actual distance from the center
-							float falloff = 1.0f - (distance / radiusInVertices); // Linear falloff
+							float falloff = 2.0f - (distance / radiusInVertices); // Linear falloff
 
 							// Optionally modify the falloff to be smoother (quadratic)
 							// float falloff = (1.0f - (distance / radiusInVertices)) * (1.0f - (distance / radiusInVertices));
@@ -2344,6 +2361,65 @@ GLuint Terrain::loadTexture(const char* path)
 		}
 
 	}
+
+	void Terrain::toolsFlattenBrush(std::vector<float>& vertices, int X, int Z, int size, float radius)
+	{
+		// Converts the radius in world units to a radius in terms of the vertex grid
+		int radiusInVertices = static_cast<int>(radius);
+
+		// Step 1: Compute the average height within the brush area
+		float totalHeight = 0.0f;
+		int count = 0;
+
+		for (int dz = -radiusInVertices; dz <= radiusInVertices; ++dz) {
+			for (int dx = -radiusInVertices; dx <= radiusInVertices; ++dx) {
+				int newX = X + dx;
+				int newZ = Z + dz;
+
+				// Ensure the vertex is within the bounds of the grid
+				if (newX >= 0 && newX < size && newZ >= 0 && newZ < size) {
+					float distanceSquared = dx * dx + dz * dz;
+
+					// Check if the vertex is within the circular brush radius
+					if (distanceSquared <= radiusInVertices * radiusInVertices) {
+						int index = (newZ * size + newX) * 3;
+						totalHeight += vertices[index + 1];  // Sum the heights
+						count++;
+					}
+				}
+			}
+		}
+
+		// Compute the average height of the vertices within the brush radius
+		float averageHeight = (count > 0) ? (totalHeight / count) : 0.0f;
+
+		// Step 2: Flatten the area to the average height with falloff
+		for (int dz = -radiusInVertices; dz <= radiusInVertices; ++dz) {
+			for (int dx = -radiusInVertices; dx <= radiusInVertices; ++dx) {
+				int newX = X + dx;
+				int newZ = Z + dz;
+
+				// Ensure the vertex is within the bounds of the grid
+				if (newX >= 0 && newX < size && newZ >= 0 && newZ < size) {
+					float distanceSquared = dx * dx + dz * dz;
+
+					// Check if the vertex is within the circular brush radius
+					if (distanceSquared <= radiusInVertices * radiusInVertices) {
+						// Calculate distance and falloff effect
+						float distance = sqrt(distanceSquared);
+						float falloff = 1.0f - (distance / radiusInVertices);  // Linear falloff
+
+						// Index into the vertex array (assume y-coordinate is at index + 1)
+						int index = (newZ * size + newX) * 3;
+
+						// Smoothly blend the current height towards the average height
+						vertices[index + 1] = averageHeight * falloff + vertices[index + 1] * (1.0f - falloff);
+					}
+				}
+			}
+		}
+	}
+
 	
 	
 	

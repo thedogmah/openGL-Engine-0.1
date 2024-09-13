@@ -76,8 +76,8 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
   int meshCountInstanced;
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
   std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
-
-
+  Tool currentTool = Tool::NONE;
+  int brushSize;
   std::vector <WaterTile> waterTileVector;
   std::set<std::pair<float, float>> waterBounds;//locations for not creating land objects
   std::vector<customShader*> customShaders; //declaring from globals.h once for all 
@@ -194,7 +194,7 @@ void drawUI();
 void instanceCubeFunction(GLuint VAO, GLuint VBO, GLuint EBO);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void addCubes(GLuint shader, Mesh mesh);
 Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes properties or ptr to cube
@@ -377,7 +377,7 @@ int main()
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-
+	glfwSetScrollCallback(window, scroll_callback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		std::cout << "Failed to init GLAD" << std::endl;

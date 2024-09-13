@@ -91,17 +91,21 @@ public:
 	void pickTerrain(GLFWwindow* window);
 	void toolsCircleBrush(std::vector<float>& vertices, int X, int Z, int size, float radius, float newHeight);
 	void toolsSquareBrush(std::vector<float>& vertices, int X, int Z, int size, float squaresize, float newHeight);
+	void toolsFlattenBrush(std::vector<float>& vertices, int X, int Z, int size, float radius);
+
+	
 	enum BrushType {
 		POINT_BRUSH,
 		CIRCLE_BRUSH,
 		SQUARE_BRUSH,
 		H_, LINE_BRUSH,
-		V_LINE_BRUSH
-		//Add more brushes as needed
+		V_LINE_BRUSH,
+		FLATTEN_BRUSH		//Add more brushes as needed
 	} currentBrushType;
 
 	float brushRadius = 15;
-	int brushSize = 15;
+
+	int brushImpact = 6;
 	bool boolRelativeHeight = true;
 	bool boolTerrainToolSwitch = false;//Use separate INT for shader if statement, since shaders dont use BOOLEANS
 	btRigidBody* getTerrainRigidBody();

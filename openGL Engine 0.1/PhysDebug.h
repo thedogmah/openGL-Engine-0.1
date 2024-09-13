@@ -249,7 +249,7 @@ uniform float radian;
 uniform int gridSize;
 //edit terrain mode switch
 uniform int terrainEditMode;
-
+uniform int brushSize;
 // Define shininess factor for specular reflection (added)
 uniform float shininess;
 
@@ -391,10 +391,10 @@ if (terrainEditMode == 1)
     0.0,
     vecIDs.z/128, 0.0);
 
-    if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) && 
-        int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) &&
-    int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +1) && 
-        int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+1)
+    if (int(vecIDs.x / 127.0 * 256.0)>= int(pickedRGBData.x) -brushSize && 
+        int(vecIDs.z / 127.0 * 256.0) >= int(pickedRGBData.z) -brushSize &&
+    int(vecIDs.x / 127.0 * 256.0)<= int(pickedRGBData.x +brushSize) && 
+        int(vecIDs.z / 127.0 * 256.0) <= int(pickedRGBData.z+brushSize)
 
     )
          {
