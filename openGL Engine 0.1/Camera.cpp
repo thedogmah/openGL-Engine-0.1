@@ -19,6 +19,14 @@ void printMatrix(glm::mat4, std::string);
 void Camera::Camera::update() {
 	
 	
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Check if ImGui is capturing the mouse input
+	if (io.WantCaptureMouse)
+	{
+		// If ImGui is interacting with the mouse, don't orientate.
+		return;
+	}
 
 	 {
 		updateOrientation();
@@ -34,6 +42,8 @@ glm::mat4 Camera::Camera::getViewMatrix() const {
 
 void Camera::setViewMatrix()
 {
+
+
 	mViewMatrix = glm::lookAt(mPosition, mPosition + mFront, mUp);
 }
 

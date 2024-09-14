@@ -93,7 +93,10 @@ public:
 	void toolsSquareBrush(std::vector<float>& vertices, int X, int Z, int size, float squaresize, float newHeight);
 	void toolsFlattenBrush(std::vector<float>& vertices, int X, int Z, int size, float radius);
 
+	void terrainBackup(); //function called to add 'vertices' to a container of historical vertices. (the terrain is saved in the collection to revert back to but 
+	//must also consider if other objects are saved alongside it.
 	
+	void drawTerrainHistory();
 	enum BrushType {
 		POINT_BRUSH,
 		CIRCLE_BRUSH,
@@ -235,9 +238,14 @@ public:
 	bool boolFIRErosion = false;
 	bool boolTrimEdges = false;
 	//terrain members
+	
 	std::vector<GLfloat> vertices; //vertices of the terrain itself
 	std::vector<GLfloat> verticesID;
 	std::vector<GLuint> indices; //for vertices of terrain
+	int currentHistoryIndex = -1;  // -1 means active terrain
+
+	std::vector<std::vector<GLfloat>> verticesHistory;
+	
 	std::vector<TerrainInfo> terrainInfoVector;
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	 float translationX = 0.0f;

@@ -881,7 +881,7 @@ int main()
 		std::cout << "OpenGL Error afterpolygon mode " << error << std::endl;
 
 	}
-	glClearColor(0.2, 0.1, 0.15, 0.0);
+	glClearColor(0.1, 0.3, 0.75, 0.0);
 	glEnable(GL_DEPTH_TEST);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after enabling depth test: " << error << std::endl;

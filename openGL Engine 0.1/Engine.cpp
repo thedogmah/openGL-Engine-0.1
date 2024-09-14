@@ -1932,6 +1932,7 @@ GLuint Terrain::loadTexture(const char* path)
 		//glUniform1f(drawDistanceLocation, drawDistance);
 
 		ImGui::End();
+		drawTerrainHistory();
 		pickTerrain(window);
 
 	}
@@ -2092,6 +2093,17 @@ GLuint Terrain::loadTexture(const char* path)
 
 	void Terrain::pickTerrain(GLFWwindow* window)
 	{
+
+		ImGuiIO& io = ImGui::GetIO();
+
+		// Check if ImGui is capturing the mouse input
+		if (io.WantCaptureMouse)
+		{
+			// If ImGui is interacting with the mouse, don't process picking
+			return;
+		}
+
+
 		if (terrainLMouseClicked && terrainPickingSwitch == 1)  {//this means if true
 			
 			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
@@ -2244,6 +2256,10 @@ GLuint Terrain::loadTexture(const char* path)
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				glBindVertexArray(0);
 
+				if (!currentBrushType == BrushType::POINT_BRUSH)
+				{
+					terrainBackup();
+				}
 
 				glBindVertexArray(VAO);
 
@@ -2418,6 +2434,70 @@ GLuint Terrain::loadTexture(const char* path)
 				}
 			}
 		}
+	}
+
+	void Terrain::terrainBackup()
+	{
+		verticesHistory.push_back(vertices);
+	}
+
+	void Terrain::drawTerrainHistory()
+	{
+		ImGui::Begin("Terrain History Navigator");
+
+		ImGui::Text("History size: %d", static_cast<int>(verticesHistory.size()));
+		ImGui::Text("Viewing index: %d", currentHistoryIndex == -1 ? -1 : currentHistoryIndex);
+
+		if (ImGui::Button("Previous") && currentHistoryIndex > 0) {
+			std::swap(vertices, verticesHistory[--currentHistoryIndex]);
+
+			glBindVertexArray(VAO);
+
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+			glEnableVertexAttribArray(1);
+			// Specify vertex attribute pointer for colors (location = 1)
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Next") && currentHistoryIndex < static_cast<int>(verticesHistory.size()) - 1) {
+			std::swap(vertices, verticesHistory[++currentHistoryIndex]);
+
+			glBindVertexArray(VAO);
+
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+			//glEnableVertexAttribArray(1);
+			//// Specify vertex attribute pointer for colors (location = 1)
+			//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+
+		}
+
+		if (ImGui::Button("Reset to Active Terrain") && currentHistoryIndex != -1) {
+			std::swap(vertices, verticesHistory[currentHistoryIndex]);
+			currentHistoryIndex = -1;
+
+			glBindVertexArray(VAO);
+
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+			//glEnableVertexAttribArray(1);
+			//// Specify vertex attribute pointer for colors (location = 1)
+			//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+
+
+		}
+
+		ImGui::End();
+	
+	
 	}
 
 	
