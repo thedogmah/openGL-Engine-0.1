@@ -18,7 +18,18 @@
 
 //#include "Camera.h"
 
+struct FramebufferObject {
+    GLuint fbo;
+    GLuint texColorBuffer;
+    GLuint rbo; // Renderbuffer for depth and stencil
+    int width;
+    int height;
+    std::string name;  // User-defined FBO name
+    std::string textureName; // Auto-generated texture name
+};
 
+//extern std::map<int, FramebufferObject> framebuffers;
+// Key could be window ID or any identifier
 
 
 class Texture;
@@ -55,7 +66,7 @@ extern int projectionLoc ;
 inline extern int selectedOption = 1;
 inline extern bool wireframe = false;
 extern 	GLuint terrainPickingSwitch;
-inline extern float window_height= 800, window_width= 1400;
+inline extern float window_height= 1200, window_width= 2400;
 inline extern int mousePickingValue = 0;
 //inline extern bool lMouseClicked= false;
 //Sets created for debugging locations.
