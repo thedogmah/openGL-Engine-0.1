@@ -188,7 +188,11 @@ public:
 	std::vector<glm::vec2> uvs;
 	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO, verticesIDVBO, TerrainClickedRGB_VBO;
 	GLuint terrainPickFBO, terrainPickTexture, terrainPickDepthBuffer, terrainPickPickingBuffer; //Frame buffer for color / mouse picking / or ray cast solution.
-	GLuint terrainPickingSwitch = 0; //Switch this to a 1 to tell the shaders we're in terrain edit mode.
+ 
+	GLuint eng_fbo, eng_texColorBuffer, eng_rbo; //frame buffer variables etc for rendering the world to an iimgui window
+
+
+	//Switch this to a 1 to tell the shaders we're in terrain edit mode.
 	GLenum error;
 	
 	// Reserve space for vertices (assuming m_iSize is the size of your heightmap)

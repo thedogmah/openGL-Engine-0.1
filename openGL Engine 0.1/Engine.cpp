@@ -26,6 +26,7 @@ Terrain::Terrain()
 	currentTerrainClickedRGB.push_back(255.0);
 	currentTerrainClickedRGB.push_back(255.0);
 
+
 }
 
 void Terrain::render()
@@ -770,7 +771,7 @@ bool Terrain::createTerrainMesh()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	int mudMapWidth, mudMapHeight, mudMapChannels;
-	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+	unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
 
 	if (mudMapData) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);
@@ -2001,7 +2002,7 @@ GLuint Terrain::loadTexture(const char* path)
 		//FRAME BUFFER, this is the target that openGL will draw to.	
 		GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
 		glDrawBuffers(2, drawBuffers);	
-		glViewport(0, 0, window_width, window_height);
+		glViewport(200, 150, window_width, window_height);
 		//glBindTexture(GL_TEXTURE_2D, terrainPickTexture);//not sure this is the problem
 		while ((error = glGetError()) != GL_NO_ERROR) {
 			std::cout << "OpenGL Error: " << error << std::endl;
@@ -2104,8 +2105,8 @@ GLuint Terrain::loadTexture(const char* path)
 		}
 
 
-		if (terrainLMouseClicked && terrainPickingSwitch == 1)  {//this means if true
-			
+		if (terrainLMouseClicked && terrainPickingSwitch == 1) {//this means if true
+
 			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
 			double xpos, ypos;
 			int width, height;
@@ -2113,7 +2114,7 @@ GLuint Terrain::loadTexture(const char* path)
 			glfwGetFramebufferSize(window, &width, &height);
 			glfwGetCursorPos(window, &xpos, &ypos);
 			// Set viewport
-			glViewport(0, 0, width, height);
+			glViewport(200, 150, width, height);
 
 
 			// Bind texture for GL_COLOR_ATTACHMENT0 (assuming colorTexture is defined somewhere)
@@ -2139,7 +2140,7 @@ GLuint Terrain::loadTexture(const char* path)
 				std::cout << "Framebuffer is not complete after resize!" << std::endl;
 			}
 
-			
+
 			glBindFramebuffer(GL_FRAMEBUFFER, terrainPickFBO);
 
 
@@ -2151,12 +2152,12 @@ GLuint Terrain::loadTexture(const char* path)
 			GLubyte pickpixelColor2[4];
 			//std::cout << pickpixelColor;
 
-	
-		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
-		int glX = static_cast<int>(xpos);
-		int glY = height - static_cast<int>(ypos) - 1;
 
-		
+		//std::cout << "\nglfw sees x: " << xpos << ", y: " << ypos << std::endl;
+			int glX = static_cast<int>(xpos);
+			int glY = height - static_cast<int>(ypos) - 1;
+
+
 			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 				// Handle framebuffer completeness issue
 				std::cout << "Framebuffer not complete! ('pickTerrain' function" << std::endl;
@@ -2165,7 +2166,7 @@ GLuint Terrain::loadTexture(const char* path)
 			GLint currentFramebuffer;
 			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
 			GLenum error;
-		
+
 			glReadBuffer(GL_COLOR_ATTACHMENT1);
 			//glReadPixels(xpos, ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixelColor);
 			glReadPixels(glX, glY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pickpixelColor2);
@@ -2174,134 +2175,142 @@ GLuint Terrain::loadTexture(const char* path)
 			rgbSelected[2] = pickpixelColor2[2];
 			rgbSelected[3] = pickpixelColor2[3];
 
-				//glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
-				while ((error = glGetError()) != GL_NO_ERROR) {
-					std::cout << "OpenGL Error: " << error << std::endl;
+			//glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
 
 
 
-				}
-				//std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
-				std::cout << "Pick data: " << pickpixelColor2;
-				std::cout << "\n" << static_cast<int>(pickpixelColor2[0]) << "," << static_cast<float>(pickpixelColor2[1]);// << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
-				int pushback = static_cast<int>(pickpixelColor2[0]);
-				int pushback1 = static_cast<int>(pickpixelColor2[1]);
-				int pushback2 = static_cast<int>(pickpixelColor2[2]);
-		
-				terrainPickedLocationsVector.push_back(pushback);
-				terrainPickedLocationsVector.push_back(pushback1);
+			}
+			//std::cout << "\nMouse co ordinates, X:" << glX << " Y:" << glY << std::endl;
+			std::cout << "Pick data: " << pickpixelColor2;
+			std::cout << "\n" << static_cast<int>(pickpixelColor2[0]) << "," << static_cast<float>(pickpixelColor2[1]);// << ", " << static_cast<int>(pixelColor[2]) << ", " << static_cast<int>(pixelColor[3]);
+			int pushback = static_cast<int>(pickpixelColor2[0]);
+			int pushback1 = static_cast<int>(pickpixelColor2[1]);
+			int pushback2 = static_cast<int>(pickpixelColor2[2]);
 
-				terrainPickedLocationsVector.push_back(pushback2);
+			terrainPickedLocationsVector.push_back(pushback);
+			terrainPickedLocationsVector.push_back(pushback1);
 
-				currentTerrainClickedRGB.clear();//Clear the vector before adding latest picked locations (X,Y,Z)
-				currentTerrainClickedRGB.push_back(pushback);//Add red green and blue to vector
-				currentTerrainClickedRGB.push_back(pushback1);
-				currentTerrainClickedRGB.push_back(pushback2);
+			terrainPickedLocationsVector.push_back(pushback2);
+
+			currentTerrainClickedRGB.clear();//Clear the vector before adding latest picked locations (X,Y,Z)
+			currentTerrainClickedRGB.push_back(pushback);//Add red green and blue to vector
+			currentTerrainClickedRGB.push_back(pushback1);
+			currentTerrainClickedRGB.push_back(pushback2);
 
 
 
-				int r = currentTerrainClickedRGB[0]; // Red channel (encoded X)
-				int g = currentTerrainClickedRGB[1]; // Green channel (could be ignored or hold another data)
-				int b = currentTerrainClickedRGB[2]; // Blue channel (encoded Z)
+			int r = currentTerrainClickedRGB[0]; // Red channel (encoded X)
+			int g = currentTerrainClickedRGB[1]; // Green channel (could be ignored or hold another data)
+			int b = currentTerrainClickedRGB[2]; // Blue channel (encoded Z)
 
-				// Decode the RGB values back to the original X and Z indices in the grid.
-				int X = static_cast<int>((r / 254.0f) * 127.0f);
-				int Z = static_cast<int>((b / 254.0f) * 127.0f);
+			// Decode the RGB values back to the original X and Z indices in the grid.
+			int X = static_cast<int>((r / 254.0f) * 127.0f);
+			int Z = static_cast<int>((b / 254.0f) * 127.0f);
 
-				// Ensure that the indices are within valid range.
-				X = std::min(std::max(X, 0), size - 1);
-				Z = std::min(std::max(Z, 0), size- 1);
+			// Ensure that the indices are within valid range.
+			X = std::min(std::max(X, 0), size - 1);
+			Z = std::min(std::max(Z, 0), size - 1);
 
-				int index = (Z * size + X) * 3; // Multiply by 3 because each vertex has X, Y, and Z
+			int index = (Z * size + X) * 3; // Multiply by 3 because each vertex has X, Y, and Z
 
-				// Access the Y (height) value.
-				float heightbkup = vertices[index + 1]; // Y value is at index + 1
+			// Access the Y (height) value.
+			float heightbkup = vertices[index + 1]; // Y value is at index + 1
 
-				// Now you can modify the height or do other operations.
-				float newHeight = 50.0f; // Example new height value
-				//remove comment to edit a single point. 
-				// vertices[index + 1] = newHeight;
-				
-				
-				//We need an if statement, or switch, to test the type of brush selected, and choose corresponding function.
-				
-				switch (currentBrushType) {
-				case CIRCLE_BRUSH:
+			// Now you can modify the height or do other operations.
+			float newHeight = 50.0f; // Example new height value
+			//remove comment to edit a single point. 
+			// vertices[index + 1] = newHeight;
+
+
+			//We need an if statement, or switch, to test the type of brush selected, and choose corresponding function.
+
+			switch (currentBrushType) {
+			case CIRCLE_BRUSH:
 
 				toolsCircleBrush(vertices, X, Z, size, brushRadius, brushImpact);
-					break;
+				break;
 
-				case SQUARE_BRUSH:
-					toolsSquareBrush(vertices, X, Z, size, brushSize, brushImpact);
-					break;
-				
-				case FLATTEN_BRUSH:
-					toolsFlattenBrush(vertices, X, Z, size, brushSize);
-				}
+			case SQUARE_BRUSH:
+				toolsSquareBrush(vertices, X, Z, size, brushSize, brushImpact);
+				break;
 
-				GLint brushSizeLoc = glGetUniformLocation(*shaderPtr, "brushSize");  // Get uniform location
-				glUseProgram(*shaderPtr);  // Activate the shader program
-				glUniform1i(brushSizeLoc, brushSize);  // Send brushSize to the shader
-  			//	std::vector<GLfloat>normalizedRGB;
+			case FLATTEN_BRUSH:
+				toolsFlattenBrush(vertices, X, Z, size, brushSize);
+			}
+
+			GLint brushSizeLoc = glGetUniformLocation(*shaderPtr, "brushSize");  // Get uniform location
+			glUseProgram(*shaderPtr);  // Activate the shader program
+			glUniform1i(brushSizeLoc, brushSize);  // Send brushSize to the shader
+			//	std::vector<GLfloat>normalizedRGB;
 			/*	for (int value : currentTerrainClickedRGB) {
 					float normalizedValue = value / 255.0f;
 					normalizedRGB.push_back(normalizedValue);
 				}*/
 				//std::swap(currentTerrainClickedRGB, normalizedRGB);
-			
+
 				//Send latest vector data to the graphics shader from the cpu.
-				glBindVertexArray(VAO);
-				glBindBuffer(GL_ARRAY_BUFFER, TerrainClickedRGB_VBO);
-				glBufferData(GL_ARRAY_BUFFER, currentTerrainClickedRGB.size() * sizeof(GLfloat), currentTerrainClickedRGB.data(), GL_STATIC_DRAW);
-				glBindBuffer(GL_ARRAY_BUFFER, 0);
-				glBindVertexArray(0);
+			glBindVertexArray(VAO);
+			glBindBuffer(GL_ARRAY_BUFFER, TerrainClickedRGB_VBO);
+			glBufferData(GL_ARRAY_BUFFER, currentTerrainClickedRGB.size() * sizeof(GLfloat), currentTerrainClickedRGB.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindVertexArray(0);
 
-				if (!currentBrushType == BrushType::POINT_BRUSH)
-				{
-					terrainBackup();
-				}
-
-				glBindVertexArray(VAO);
-
-
-				glBindBuffer(GL_ARRAY_BUFFER, VBO);
-				glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
-				glEnableVertexAttribArray(1);
-				// Specify vertex attribute pointer for colors (location = 1)
-				glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-
-
-				rgbSelectedTerrain[0] = pixelColor[0];
-				rgbSelectedTerrain[1] = pixelColor[1];
-				rgbSelectedTerrain[2] = pixelColor[2];
-				rgbSelectedTerrain[3] = pixelColor[3];
-				std::cout << "\nRGB seleted: " << rgbSelectedTerrain[0] << ", " << rgbSelectedTerrain[1] << ", " << rgbSelectedTerrain[2];
-				glm::vec3 colour;
-				colour.r = rgbSelectedTerrain[0];
-
-				colour.g = rgbSelectedTerrain[1];
-				colour.b = rgbSelectedTerrain[2];
-				//int vertEdit = 
-				//vertices[]
-				//pickpixelColor = 0;
-				//glReadBuffer(GL_COLOR_ATTACHMENT1);
-				//GLuint* pixelData = new GLuint[width * height];
-				//glReadPixels(0, 0, width, height, GL_RGBA_INTEGER, GL_UNSIGNED_INT, pixelData);
-
-			/*	glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
-				
-				while ((error = glGetError()) != GL_NO_ERROR) {
-					std::cout << "\nOpenGL Error at engine terrain picking / read pixels: " << error << std::endl;
-
-				}
-				std::cout << "Color Attachment 1: " << pickpixelColor;
-
-				std::cout << "Pause";*/
-				
+			if (!currentBrushType == BrushType::POINT_BRUSH)
+			{
+				terrainBackup();
 			}
-	//	}
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);	
+
+			glBindVertexArray(VAO);
+
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+			glEnableVertexAttribArray(1);
+			// Specify vertex attribute pointer for colors (location = 1)
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+
+
+			rgbSelectedTerrain[0] = pixelColor[0];
+			rgbSelectedTerrain[1] = pixelColor[1];
+			rgbSelectedTerrain[2] = pixelColor[2];
+			rgbSelectedTerrain[3] = pixelColor[3];
+			std::cout << "\nRGB seleted: " << rgbSelectedTerrain[0] << ", " << rgbSelectedTerrain[1] << ", " << rgbSelectedTerrain[2];
+			glm::vec3 colour;
+			colour.r = rgbSelectedTerrain[0];
+
+			colour.g = rgbSelectedTerrain[1];
+			colour.b = rgbSelectedTerrain[2];
+			//int vertEdit = 
+			//vertices[]
+			//pickpixelColor = 0;
+			//glReadBuffer(GL_COLOR_ATTACHMENT1);
+			//GLuint* pixelData = new GLuint[width * height];
+			//glReadPixels(0, 0, width, height, GL_RGBA_INTEGER, GL_UNSIGNED_INT, pixelData);
+
+		/*	glReadPixels(xpos, ypos, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &pickpixelColor);
+
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "\nOpenGL Error at engine terrain picking / read pixels: " << error << std::endl;
+
+			}
+			std::cout << "Color Attachment 1: " << pickpixelColor;
+
+			std::cout << "Pause";*/
+
+		}
+		//	}
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);	
+		if (terrainPickingSwitch && boolToolResized)
+		{		GLint brushSizeLoc = glGetUniformLocation(*shaderPtr, "brushSize");  // Get uniform location
+		glUseProgram(*shaderPtr);  // Activate the shader program
+		glUniform1i(brushSizeLoc, brushSize);  // Send brushSize to the shader
+
+		boolToolResized = false;
+		}
+
 		for (auto value : terrainPickedLocationsVector) {
 		
 			ImGui::Text("%.2f", value);
@@ -2442,63 +2451,53 @@ GLuint Terrain::loadTexture(const char* path)
 	}
 
 	void Terrain::drawTerrainHistory()
+	
 	{
 		ImGui::Begin("Terrain History Navigator");
 
 		ImGui::Text("History size: %d", static_cast<int>(verticesHistory.size()));
-		ImGui::Text("Viewing index: %d", currentHistoryIndex == -1 ? -1 : currentHistoryIndex);
+		ImGui::Text("Viewing index: %d", currentHistoryIndex == -1 ? static_cast<int>(verticesHistory.size()) - 1 : currentHistoryIndex);
 
+		// Fix for 'Previous' button
 		if (ImGui::Button("Previous") && currentHistoryIndex > 0) {
 			std::swap(vertices, verticesHistory[--currentHistoryIndex]);
 
 			glBindVertexArray(VAO);
 
-
 			glBindBuffer(GL_ARRAY_BUFFER, VBO);
 			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
 
 			glEnableVertexAttribArray(1);
-			// Specify vertex attribute pointer for colors (location = 1)
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-
 		}
+
 		ImGui::SameLine();
+
+		// Fix for 'Next' button
 		if (ImGui::Button("Next") && currentHistoryIndex < static_cast<int>(verticesHistory.size()) - 1) {
 			std::swap(vertices, verticesHistory[++currentHistoryIndex]);
 
 			glBindVertexArray(VAO);
 
-
 			glBindBuffer(GL_ARRAY_BUFFER, VBO);
 			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
-			//glEnableVertexAttribArray(1);
-			//// Specify vertex attribute pointer for colors (location = 1)
-			//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-
 		}
 
+		// Fix for 'Reset to Active Terrain'
 		if (ImGui::Button("Reset to Active Terrain") && currentHistoryIndex != -1) {
+			// Reset to the latest version in history
+			currentHistoryIndex = static_cast<int>(verticesHistory.size()) - 1;
 			std::swap(vertices, verticesHistory[currentHistoryIndex]);
-			currentHistoryIndex = -1;
 
 			glBindVertexArray(VAO);
 
-
 			glBindBuffer(GL_ARRAY_BUFFER, VBO);
 			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
-			//glEnableVertexAttribArray(1);
-			//// Specify vertex attribute pointer for colors (location = 1)
-			//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-
-
 		}
 
 		ImGui::End();
-	
-	
 	}
+
 
 	
 	

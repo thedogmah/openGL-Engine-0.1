@@ -77,6 +77,8 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
   std::map<SSBO, std::vector<World::cubeInstance>> mapSSBOMeshInstanceVector;
   Tool currentTool = Tool::NONE;
+  GLuint terrainPickingSwitch = 0;
+  bool boolToolResized = false;
   int brushSize;
   std::vector <WaterTile> waterTileVector;
   std::set<std::pair<float, float>> waterBounds;//locations for not creating land objects
@@ -98,6 +100,9 @@ glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f,
 glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
 GLuint* defaultShaderProgramPtr = new GLuint;
 GLuint* globalWaterShader = new GLuint;
+
+
+GLuint captureTexture = 0;//used for rendering world to imgui window 
 
 btRigidBody* groundBody;
 int modelLoc;
@@ -138,6 +143,8 @@ std::vector<Cube> instVector;
 //Terrain and Noise Generation Varaibles
 Terrain terrain;
 
+
+void drawFBOToScreen(GLuint& textureID, int width=850, int height=850);
 void calculateGradients(const std::vector<float>& terrain, int width, int height,
 	std::vector<float>& gradientX, std::vector<float>& gradientY);
 void createNormalMap(const std::vector<float>& gradientX, const std::vector<float>& gradientY,
@@ -385,7 +392,7 @@ int main()
 	}
 	int frameBufferWidth, frameBufferHeight;
 	glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
-	glViewport(0, 0, frameBufferWidth, frameBufferHeight);
+	glViewport(200, 150, frameBufferWidth, frameBufferHeight);
 
 	// resizes viewport based on automatic resize, passes parameters to the gl viewport
 
@@ -1185,6 +1192,30 @@ waterTileVector.push_back(watertile3);
 	waterRendererProgram.reflectionTextureID = waterFBOS.getReflectionTexture();
 	waterRendererProgram.refractionTextureID = waterFBOS.getRefractionTexture();
 	camera.setViewMatrix();
+
+
+	//generate fbos for imgui rendering world in window
+
+	glGenFramebuffers(1, &terrain.eng_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, terrain.eng_fbo);
+
+	// Generate texture to hold color attachment
+	glGenTextures(1, &terrain.eng_texColorBuffer);
+	glBindTexture(GL_TEXTURE_2D, terrain.eng_texColorBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrain.eng_texColorBuffer, 0);
+
+	// Generate renderbuffer for depth and stencil
+	glGenRenderbuffers(1, &terrain.eng_rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, terrain.eng_rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, window_width, window_height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, terrain.eng_rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+	else { std::cout << "Created fbos etc for rendering world to imgui window"; }
 	while (!glfwWindowShouldClose(window))
 	{
 		//Get frame time
@@ -1286,7 +1317,7 @@ waterTileVector.push_back(watertile3);
 			}
 		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, window_width, window_height);
+		glViewport(200, 150, window_width, window_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1879,6 +1910,8 @@ waterTileVector.push_back(watertile3);
 		int heightreflection = 1000;
 		if (!terrain.init) terrain.initalise();
 		instancedInt = 0;
+
+
 		if (terrain.ready)
 		{
 			
@@ -1976,7 +2009,7 @@ waterTileVector.push_back(watertile3);
 			glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
 
 			GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
-			glUniform1i(editModeLocation, terrain.terrainPickingSwitch);
+			glUniform1i(editModeLocation, terrainPickingSwitch);
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "OpenGL Error: " << error << std::endl;
 			}
@@ -2011,12 +2044,23 @@ waterTileVector.push_back(watertile3);
 			
 			waterRendererProgram.render(waterTileVector, camera);
 	
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			drawFBOToScreen(captureTexture);
+
 		
 		}
 
 
 		glUseProgram(shaderProgram);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		// Create and bind a texture to capture framebuffer content
+		
+	
+		// Render the texture to an ImGui window
+	
+
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
 			 UIdrawn = false;
@@ -2072,7 +2116,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	window_width = framebufferWidth; // Update your global width
 	window_height = framebufferHeight; // Update your global height
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-	glViewport(0, 0, width, height);
+	glViewport(200, 150, width, height);
 	std::cout << "\ncolorFBO buffer ID is: " << colorFBO << "\n";
 	// Update any framebuffer attachments that depend on window size
 	
@@ -2114,7 +2158,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
 
 // Set viewport
-glViewport(0, 0, width, height);
+glViewport(200, 150, width, height);
 
 
 // Bind texture for GL_COLOR_ATTACHMENT0 (assuming colorTexture is defined somewhere)
@@ -2804,7 +2848,7 @@ void drawUI()
 	}
 	// Create ImGui window
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-	glViewport(0, 0, window_width, window_height);
+	glViewport(200, 150, window_width, window_height);
 	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "Framebuffer is not complete! Error code: " << framebufferStatus << std::endl;
@@ -3890,6 +3934,78 @@ std::vector<glm::mat4> generateModelMatricesFromTerrain(const std::vector<float>
 
 	return modelMatrices;
 }
+
+
+void drawFBOToScreen(GLuint& textureID, int width, int height) {
+	GLenum err;
+	glUseProgram(*terrain.shaderPtr);
+	// Ensure width and height are valid
+	if (width <= 0 || height <= 0) {
+		std::cerr << "Error: Invalid width or height for FBO (" << width << ", " << height << ")" << std::endl;
+		return;
+	}
+
+	// Bind the custom framebuffer (FBO)
+	glBindFramebuffer(GL_FRAMEBUFFER, terrain.eng_fbo);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Clear only if necessary
+
+	// Ensure the texture is initialized once
+	if (terrain.eng_texColorBuffer == 0) {
+		glGenTextures(1, &terrain.eng_texColorBuffer);
+		glBindTexture(GL_TEXTURE_2D, terrain.eng_texColorBuffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+
+	// Bind the shader and render the scene
+	if (terrainPickingSwitch == 1) {
+		terrainPickingSwitch = 0;  // Disable picking mode
+
+		glUseProgram(*terrain.shaderPtr);
+		GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+		glUniform1i(editModeLocation, terrainPickingSwitch);
+		glBindTexture(GL_TEXTURE_2D, terrain.eng_texColorBuffer);
+		// Render to the FBO (could be your terrain or world)
+		terrain.render();
+
+		// Restore picking mode
+		terrainPickingSwitch = 1;
+		glUniform1i(editModeLocation, terrainPickingSwitch);
+	}
+	else {
+		// Render to the FBO (could be a different render path)
+		glBindTexture(GL_TEXTURE_2D, terrain.eng_texColorBuffer);
+		terrain.render();
+	}
+
+	// Read the framebuffer pixels and update the texture
+	std::vector<unsigned char> pixels(width * height * 3);  // Assuming RGB format
+	//glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+	glBindTexture(GL_TEXTURE_2D, terrain.eng_texColorBuffer);
+	//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+	glBindTexture(GL_TEXTURE_2D, 0);  // Unbind texture
+
+	// Check for any errors
+	if ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "OpenGL Error after texture update: " << err << std::endl;
+	}
+
+	// Render the updated texture to an ImGui window
+	ImGui::Begin("Captured Framebuffer");
+	ImGui::Image((ImTextureID)(intptr_t)terrain.eng_texColorBuffer, ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::End();
+
+	// Check for any errors after ImGui rendering
+	if ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "OpenGL Error after ImGui rendering: " << err << std::endl;
+	}
+
+	// Unbind the framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 
 
 

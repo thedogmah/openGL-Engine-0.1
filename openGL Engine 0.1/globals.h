@@ -18,7 +18,11 @@
 
 //#include "Camera.h"
 
+
+
+
 class Texture;
+extern bool boolToolResized; // if mouse wheel is scrolled this turns true, then if terrrain edit mode is also on, tool will change ize visually, then this bool go bk to fals
 extern bool terrainLMouseClicked;
 extern float globalTime;
 extern bool boolShowGLErrors;
@@ -50,7 +54,7 @@ extern int viewLoc ;
 extern int projectionLoc ;
 inline extern int selectedOption = 1;
 inline extern bool wireframe = false;
-
+extern 	GLuint terrainPickingSwitch;
 inline extern float window_height= 800, window_width= 1400;
 inline extern int mousePickingValue = 0;
 //inline extern bool lMouseClicked= false;

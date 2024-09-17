@@ -80,11 +80,19 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	if (yoffset > 0) {
 		// Mouse scrolled up
 		std::cout << "Scrolled up: " << yoffset << std::endl;
+		if (terrainPickingSwitch == 1)
+		{
 
+			boolToolResized = true;
+		}
 	}
 	else if (yoffset < 0) {
 		// Mouse scrolled down
 		std::cout << "Scrolled down: " << xoffset << std::endl;
+		if (terrainPickingSwitch == 1)
+		{
+			boolToolResized = true;
+		}
 	}
 
 	if (currentTool == Tool::TERRAIN_SCULPT) {

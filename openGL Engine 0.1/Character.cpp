@@ -6,7 +6,7 @@ Character::Character(btDynamicsWorld* world, float initialX, float initialY, flo
 	this->window = window;
 	btTransform transform;
 	transform.setIdentity();
-	transform.setOrigin(btVector3(initialX, initialY, initialZ));
+	transform.setOrigin(btVector3(33.0, 33.0, 10.0));
 
 	//create mass for character
 	btScalar mass = 2;

@@ -38,7 +38,7 @@ void UIManager::addTextureFromFBO(GLuint fboTextureID, int width, int hight, flo
 void UIManager::renderUI()
 {
     glUseProgram(UIshaderProgram);
-    glViewport(0, 0, window_width, window_height);
+    glViewport(200, 150, window_width, window_height);
    //glBindTexture(GL_TEXTURE_2D, 0);
     
 
