@@ -140,12 +140,15 @@ void update();//Update character and world data / Also main function for other u
 
 void setimGUILook();//function for setting the default colours for imgui
 // Variables to hold user inputs for FBO creation
+static bool customViewEnabled = false;  // Checkbox state
 static char fboName[64] = ""; // Text buffer for the FBO name
 static int fboWidth = 800;    // Default width
 static int fboHeight = 600;   // Default height
-void setupFramebuffer(const std::string& name, int width, int height);
+void setupFramebuffer(const std::string& name, int width, int height, bool customViewEnabled);
 
 void showFBOControlPanel() {
+	bool uniqueView = false;
+
 	ImGui::Begin("FBO Control Panel");
 
 	// Input field for FBO name
@@ -154,12 +157,33 @@ void showFBOControlPanel() {
 	// Input fields for width and height
 	ImGui::InputInt("FBO Width", &fboWidth);
 	ImGui::InputInt("FBO Height", &fboHeight);
+	ImGui::Checkbox("Enable Custom View", &customViewEnabled);
 
 	// Button to create the FBO
 	if (ImGui::Button("Create FBO")) {
 		// Create a new FBO based on the user inputs
 		std::string name(fboName);
-		setupFramebuffer(name, fboWidth, fboHeight);
+		setupFramebuffer(name, fboWidth, fboHeight, customViewEnabled);
+			// Button to create the FBO
+	
+	
+	}
+
+	// Button to remove the last FBO
+	if (ImGui::Button("Remove Last")) {
+		if (!framebuffers.empty()) {
+			// Remove the last FBO added to the map
+			auto lastIt = std::prev(framebuffers.end());
+			framebuffers.erase(lastIt);
+		}
+		else {
+			std::cerr << "No FBOs to remove!" << std::endl;
+		}
+	}
+
+	// Button to clear all FBOs
+	if (ImGui::Button("Clear Views")) {
+		framebuffers.clear();
 	}
 
 	ImGui::End();
@@ -3971,73 +3995,87 @@ std::vector<glm::mat4> generateModelMatricesFromTerrain(const std::vector<float>
 	return modelMatrices;
 }
 void drawFBOToScreen(const std::string& fboName, GLuint textureID, int width, int height) {
-	GLenum err;
+    GLenum err;
 
-	// Check if the FBO name exists in the map
-	auto it = framebuffers.find(fboName);
-	if (it == framebuffers.end()) {
-		std::cerr << "Error: FBO name '" << fboName << "' not found in the map!" << std::endl;
-		return;
-	}
+    // Check if the FBO name exists in the map
+    auto it = framebuffers.find(fboName);
+    if (it == framebuffers.end()) {
+        std::cerr << "Error: FBO name '" << fboName << "' not found in the map!" << std::endl;
+        return;
+    }
 
-	const FramebufferObject& fboObj = it->second;  // Get the framebuffer object
+    const FramebufferObject& fboObj = it->second;  // Get the framebuffer object
 
-	// Use the shader program associated with the terrain
-	glUseProgram(*terrain.shaderPtr);
+    // Use the shader program associated with the terrain
+    glUseProgram(*terrain.shaderPtr);
 
-	// Ensure width and height are valid
-	if (width <= 0 || height <= 0) {
-		std::cerr << "Error: Invalid width or height for FBO (" << width << ", " << height << ")" << std::endl;
-		return;
-	}
+    // Ensure width and height are valid
+    if (width <= 0 || height <= 0) {
+        std::cerr << "Error: Invalid width or height for FBO (" << width << ", " << height << ")" << std::endl;
+        return;
+    }
 
-	// Bind the custom framebuffer (FBO)
-	glBindFramebuffer(GL_FRAMEBUFFER, fboObj.fbo);  // Use the FBO ID from the map
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Clear if necessary
+    // Bind the custom framebuffer (FBO)
+    glBindFramebuffer(GL_FRAMEBUFFER, fboObj.fbo);  // Use the FBO ID from the map
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Clear the framebuffer
 
-	// Bind the shader and set the uniform for terrain picking mode
-	glUseProgram(*terrain.shaderPtr);
-	GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+    // Bind the shader and set the uniform for terrain picking mode
+    GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+    GLint viewLoc = glGetUniformLocation(*terrain.shaderPtr, "view");
 
-	if (terrainPickingSwitch == 1) {
-		terrainPickingSwitch = 0;  // Disable picking mode
+    // Check if custom view is enabled, and set the view matrix appropriately
+    if (fboObj.customViewEnabled) {
+        // Use the custom view matrix stored in the FBO object
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(fboObj.viewMatrix));
+    } else {
+        // Use the default camera view matrix
+        glm::mat4 defaultViewMatrix = camera.getViewMatrix();
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(defaultViewMatrix));
+    }
 
-		glUniform1i(editModeLocation, terrainPickingSwitch);  // Update uniform in the shader
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		terrain.render();  // Render the scene in normal mode
+    // Check the terrain picking mode and render the terrain accordingly
+    if (terrainPickingSwitch == 1) {
+        terrainPickingSwitch = 0;  // Disable picking mode
 
-		// Restore picking mode
-		terrainPickingSwitch = 1;
-		glUniform1i(editModeLocation, terrainPickingSwitch);  // Update the uniform back to picking mode
-	}
-	else {
-		// Normal render mode
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		terrain.render();
-	}
+        // Set the uniform for terrain picking mode
+        glUniform1i(editModeLocation, terrainPickingSwitch);
 
-	// Unbind the texture
-	glBindTexture(GL_TEXTURE_2D, 0);
+        // Bind the texture and render the terrain in normal mode
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        terrain.render();  // Render the terrain
 
-	// Check for any errors
-	if ((err = glGetError()) != GL_NO_ERROR) {
-		std::cerr << "OpenGL Error after texture update: " << err << std::endl;
-	}
+        // Restore picking mode
+        terrainPickingSwitch = 1;
+        glUniform1i(editModeLocation, terrainPickingSwitch);  // Update the uniform back to picking mode
+    } else {
+        // Normal render mode
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        terrain.render();  // Render the terrain
+    }
 
-	// Render the framebuffer in an ImGui window with a unique title
-	std::string windowName = "Framebuffer: " + fboObj.name;
-	ImGui::Begin(windowName.c_str());  // Create a unique window for each FBO
-	ImGui::Image((ImTextureID)(intptr_t)textureID, ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
-	ImGui::End();
+    // Unbind the texture after rendering
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-	// Check for any errors after ImGui rendering
-	if ((err = glGetError()) != GL_NO_ERROR) {
-		std::cerr << "OpenGL Error after ImGui rendering: " << err << std::endl;
-	}
+    // Check for any errors
+    if ((err = glGetError()) != GL_NO_ERROR) {
+        std::cerr << "OpenGL Error after terrain rendering: " << err << std::endl;
+    }
 
-	// Unbind the framebuffer
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // Render the framebuffer in an ImGui window with a unique title
+    std::string windowName = "Framebuffer: " + fboObj.name;
+    ImGui::Begin(windowName.c_str());  // Create a unique window for each FBO
+    ImGui::Image((ImTextureID)(intptr_t)textureID, ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+    ImGui::End();
+
+    // Check for any errors after ImGui rendering
+    if ((err = glGetError()) != GL_NO_ERROR) {
+        std::cerr << "OpenGL Error after ImGui rendering: " << err << std::endl;
+    }
+
+    // Unbind the framebuffer after rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
 
 
 
@@ -4144,13 +4182,13 @@ void setimGUILook() {
 }
 
 
-void setupFramebuffer(const std::string& name, int width, int height) {
+void setupFramebuffer(const std::string& name, int width, int height, bool customViewEnabled) {
 	FramebufferObject fbo;
 	fbo.name = name;
 	fbo.width = width;
 	fbo.height = height;
 	fbo.textureName = name + "_texture";
-
+	fbo.customViewEnabled = customViewEnabled;
 	// Generate and bind framebuffer
 	glGenFramebuffers(1, &fbo.fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
@@ -4175,7 +4213,9 @@ void setupFramebuffer(const std::string& name, int width, int height) {
 		std::cout << "Framebuffer '" << fbo.name << "' created with texture '" << fbo.textureName << "'" << std::endl;
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind framebuffer
-
+	if (customViewEnabled) {
+		fbo.viewMatrix = camera.getViewMatrix();
+	}
 	// Store the new framebuffer in the map
 	framebuffers[fbo.name] = fbo;
 }

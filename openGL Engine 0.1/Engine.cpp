@@ -1925,6 +1925,349 @@ GLuint Terrain::loadTexture(const char* path)
 			std::cout << "\nTerrain int value: " << terrainPickingSwitch;
 			
 		}
+		if (ImGui::Button("Recreate Phyics Terrain"))
+		{
+
+			GLuint error;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error at start of create terrain mesh function: " << error << std::endl;
+			}
+			int detailMapWidth, detailMapHeight, detailMapChannels;
+			unsigned char* detailMapData = stbi_load("pmossheight.jpg", &detailMapWidth, &detailMapHeight, &detailMapChannels, 0);
+
+			// Generate and bind the texture
+			glGenTextures(1, &detailMapTexture);
+			glBindTexture(GL_TEXTURE_2D, detailMapTexture);
+
+			if (detailMapData) {
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, detailMapWidth, detailMapHeight, 0, GL_RED, GL_UNSIGNED_BYTE, detailMapData);
+				glGenerateMipmap(GL_TEXTURE_2D);
+			}
+			else {
+				// Handle texture loading error
+				std::cerr << "Failed to load detail map" << std::endl;
+			}
+
+
+			////mudHeight = loadTexture("mudheight.jpg");
+			//glGenTextures(1, &mudMapTexture);
+			//glBindTexture(GL_TEXTURE_2D, mudMapTexture);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			//int mudMapWidth, mudMapHeight, mudMapChannels;
+			//unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+
+			//if (mudMapData) {
+			//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);
+			//	glGenerateMipmap(GL_TEXTURE_2D);
+			//}
+			//else {
+			//	// Handle texture loading error
+			//	std::cerr << "Failed to load mud map" << std::endl;
+			//}
+			//glGenTextures(1, &mudHeight);
+			//glBindTexture(GL_TEXTURE_2D, mudHeight);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			//int mudHeightWidth, mudHeight, mudHeightChannels;
+			//unsigned char* mudHeightData = stbi_load("mudheight.jpg", &mudHeightWidth, &mudHeight, &mudHeightChannels, 0);
+
+			//if (mudHeightData) {
+			//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, mudHeightWidth, mudHeight, 0, GL_RED, GL_UNSIGNED_BYTE, mudHeightData);
+			//	glGenerateMipmap(GL_TEXTURE_2D);
+			//}
+			//else {
+			//	// Handle texture loading error
+			//	std::cerr << "Failed to load mud h map" << std::endl;
+			//}
+
+			//glGenTextures(1, &mudNormals);
+			//glBindTexture(GL_TEXTURE_2D, mudNormals);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			//int mudNormalWidth, mudNormalHeight, mudNormalChannels;
+			//unsigned char* mudNormalData = stbi_load("mudNormals.jpg", &mudNormalWidth, &mudNormalHeight, &mudNormalChannels, 0);
+
+			//if (mudHeightData) {
+			//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, mudNormalWidth, mudNormalHeight, 0, GL_RED, GL_UNSIGNED_BYTE, mudNormalData);
+			//	glGenerateMipmap(GL_TEXTURE_2D);
+			//}
+			//else {
+			//	// Handle texture loading error
+			//	std::cerr << "Failed to load mud h map" << std::endl;
+			//}
+
+			// Free the image data
+			stbi_image_free(detailMapData);
+		//	vertices.clear();
+			normals.clear();
+			indices.clear();
+			terrainInfoVector.clear();
+			verticesID.clear();//Unique IDs for terrain picking
+
+
+			std::vector<GLfloat> colours;
+			//std::vector<glm::vec3> normals;
+
+			  // Create a vector to store normals for each vertex.
+			const float minThreshold = 0.1f;    // Adjust these thresholds as needed
+			const float mountainThreshold = 0.7f;
+			const float snowThreshold = 0.9f;
+			const glm::vec3 grassyColor = glm::vec3(0.1f, 0.8f, 0.2f);  // Green
+			const glm::vec3 mountainColor = glm::vec3(0.5f, 0.4f, 0.3f);  // Dark brown for lower areas
+			const glm::vec3 snowColor = glm::vec3(1.0f, 1.0f, 1.0f);     // White for snow
+
+
+			float scaleX = 1.0f; // Scale factor along the X-axis
+			float scaleY = 1.0f; // Scale factor along the Y-axis
+			float scaleZ = 1.0f; // Scale factor along the Z-axis
+			glm::vec3 lowerColor(0.2, 0.2, 0.2);
+			glm::vec3 upperColor(0.8, 0.8, 0.8);
+			float minHeight = 0.1, maxHeight = 0.2;
+			// Generate terrain vertices with scaling
+			TerrainInfo terrainEntry;
+
+			//for (int z = 0; z < size; ++z) {
+			//	for (int x = 0; x < size; ++x) {
+			//		float xPos = static_cast<float>(x) * scaleX;
+			//		float zPos = static_cast<float>(z) * scaleZ;
+			//		float yPos = this->heightmapData.heights[x + z * this->size];// Adjust terrain height function if needed
+
+			//		// Store the scaled vertex position
+			//		vertices.push_back(xPos);
+			//		vertices.push_back(yPos); // Apply Y-axis scaling
+			//		vertices.push_back(zPos);
+			//		float id = xPos + yPos;
+			//		verticesID.push_back(id);//This will createa unique number since these values
+			//		//increase, then we just need the range
+			//		//Below we are creating one 'terrainEntry' for each vertices of terrain this allows to then edit these vertices
+			//		//and allocate some of them as water etc. This data is passed to the vertex shader in to a 'location attrib buffer'
+			//		//and only one entry per 3 vertices is required, since 3 vertices corrosponds to one height, or one x,y,z
+			//		terrainInfoVector.push_back(terrainEntry);
+			//		if (yPos < minHeight)
+			//			minHeight = yPos;
+			//		if (yPos > maxHeight)
+			//			maxHeight = yPos;
+
+			//		float grayColor = yPos; // You can modify this calculation for better color mapping
+
+			//		// Calculate a normalized height value between 0 and 1
+			//		float normalizedHeight = (yPos - minHeight) / (maxHeight - minHeight);
+
+			//		// Interpolate between lowerColor and upperColor based on normalizedHeight
+			//		glm::vec3 finalColor = (1.0f - normalizedHeight) * lowerColor + normalizedHeight * upperColor;
+
+			//		// Store the color for this vertex
+			//		colours.push_back(finalColor.r);
+			//		colours.push_back(finalColor.g);
+			//		colours.push_back(finalColor.b);
+
+			//		// Normalize the grayscale color to the range [0, 1]
+			//		//grayColor = (grayColor - minThreshold) / (snowThreshold - minThreshold);
+
+
+
+			//	}
+			//}
+
+			// Find the minimum and maximum values
+			float minID = 0;
+			float maxID = 1;
+
+
+
+			fractalTerrain();
+			voxelateTerrain();
+			firSmoothTerrain();
+			mountainsTerrain();
+			std::cout << "min Height was: " << minHeight;
+			std::cout << "\nmax height was: " << maxHeight;
+			for (int z = 0; z < this->size - 1; ++z) {
+				for (int x = 0; x < this->size - 1; ++x) {
+					int topLeft = x + z * this->size;
+					int topRight = (x + 1) + z * this->size;
+					int bottomLeft = x + (z + 1) * this->size;
+					int bottomRight = (x + 1) + (z + 1) * this->size;
+
+					indices.push_back(topLeft);
+					indices.push_back(topRight);
+					indices.push_back(bottomLeft);
+					indices.push_back(topRight);
+					indices.push_back(bottomRight);
+					indices.push_back(bottomLeft);
+				}
+			}
+			std::vector<glm::vec3> Normals(vertices.size(), glm::vec3(0.0f));
+
+
+
+			// Calculate normals for triangles and accumulate them into vertex normals
+			for (size_t i = 0; i < indices.size(); i += 3)
+			{
+				GLuint i0 = indices[i];
+				GLuint i1 = indices[i + 1];
+				GLuint i2 = indices[i + 2];
+
+				glm::vec3 v0(vertices[i0 * 3], vertices[i0 * 3 + 1], vertices[i0 * 3 + 2]);
+				glm::vec3 v1(vertices[i1 * 3], vertices[i1 * 3 + 1], vertices[i1 * 3 + 2]);
+				glm::vec3 v2(vertices[i2 * 3], vertices[i2 * 3 + 1], vertices[i2 * 3 + 2]);
+
+				// Calculate the triangle's normal
+				glm::vec3 triangleNormal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
+				// Accumulate the triangle's normal to the vertex normals
+				Normals[i0] += triangleNormal;
+				Normals[i1] += triangleNormal;
+				Normals[i2] += triangleNormal;
+			}
+
+			// Normalize all vertex normals
+			for (size_t i = 0; i < Normals.size(); ++i)
+			{
+				Normals[i] = glm::normalize(Normals[i]);
+			}
+
+
+
+			//glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
+			//for (size_t i = 0; i < vertices.size(); i += 3) {
+			//	center.x += vertices[i];
+			//	center.y += vertices[i + 1];
+			//	center.z += vertices[i + 2];
+			//}
+			//center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
+
+			//// Calculate the translation needed to move the center to the local origin   
+			//float translationX = -center.x;
+			//float translationY = -center.y;
+			//float translationZ = -center.z;
+
+			//// Apply the translation to all the vertices
+			//for (size_t i = 0; i < vertices.size(); i += 3) {
+			//	vertices[i] += translationX;
+			//	vertices[i + 1] += translationY;
+			//	vertices[i + 2] += translationZ;
+			//}
+
+
+			glm::vec3 transformedVertex = glm::vec3(modelMatrix * glm::vec4(vertices[0], vertices[1], vertices[2], 1.0f));
+
+			terrainBottom = transformedVertex.y;
+			terrainTop = transformedVertex.y;
+
+			for (int i = 0; i + 2 < vertices.size(); i += 3)
+			{
+				// Transform the vertex using the model matrix
+				transformedVertex = modelMatrix * glm::vec4(vertices[i], vertices[i + 1], vertices[i + 2], 1.0f);
+
+				if (transformedVertex.y < terrainBottom)
+					terrainBottom = transformedVertex.y;
+				else if (transformedVertex.y > terrainTop)
+					terrainTop = transformedVertex.y;
+			}
+
+			//We need to loop through the vertices, each X<Y<Z and turn it into a unique value that is noralised (between 0 and 1,
+			//and pass that number to the colour
+
+			for (int i = 0; i < verticesID.size(); i += 3) {
+				//	std::cout << "\nBefore normalisation: " << i;//
+
+				float minValue = 0.1;// *std::min_element(verticesID.begin(), verticesID.end());
+				float maxValue = 1.0;// *std::max_element(verticesID.begin(), verticesID.end());
+
+				std::transform(verticesID.begin(), verticesID.end(), verticesID.begin(),
+					[&](float value) { return (value - minValue) / (maxValue - minValue); });
+				//	std::cout << "\tValue: " << verticesID[i];
+
+			}
+			createUVs();
+
+
+
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error at start of terrain mesh binding : " << error << std::endl;
+			}
+	while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error at start of create terrain mesh function: " << error << std::endl;
+			}
+
+			//Vertice IDs sent in as floats, normalised. Phys.H file has the code for the shaders.
+			
+			std::vector<float> normalizedHeights;
+			normalizedHeights.reserve(heightmapData.heights.size());
+
+			// Calculate the height scaling factor
+			float heightScale = 1.0f / (maxHeight - minHeight);
+
+			// Normalize and copy the heights
+			minHeight = maxHeight = heightmapData.heights[0];
+
+			// Normalize and copy the heights, while updating min and max heights
+			for (float height : heightmapData.heights) {
+				if (height < minHeight) {
+					minHeight = height;
+				}
+				if (height > maxHeight) {
+					maxHeight = height;
+				}
+
+				float normalizedHeight = (height - minHeight) / (maxHeight - minHeight);
+				normalizedHeights.push_back(normalizedHeight);
+			}
+
+			std::vector<float> heightData2;
+			for (int i = 1; i < vertices.size(); i += 3) {
+				heightData2.push_back(vertices[i]);
+			}
+			terrainMesh = new btTriangleMesh();
+
+			// Populate the btTriangleMesh with your vertex and index data
+
+			for (size_t i = 0; i < indices.size(); i += 3) {
+				// Get the vertices of the current triangle
+				btVector3 vertex1(vertices[indices[i] * 3], vertices[indices[i] * 3 + 1], vertices[indices[i] * 3 + 2]);
+				btVector3 vertex2(vertices[indices[i + 1] * 3], vertices[indices[i + 1] * 3 + 1], vertices[indices[i + 1] * 3 + 2]);
+				btVector3 vertex3(vertices[indices[i + 2] * 3], vertices[indices[i + 2] * 3 + 1], vertices[indices[i + 2] * 3 + 2]);
+
+				// Add the triangle to the btTriangleMesh
+				terrainMesh->addTriangle(vertex1, vertex2, vertex3);
+			}
+
+			// Create a btBvhTriangleMeshShape using the btTriangleMesh
+			terrainShapePtr = new btBvhTriangleMeshShape(terrainMesh, true, true);
+
+			// Set the local scaling if needed
+			btVector3 localScaling(1.0f, 1.0f, 1.0f);
+			terrainShapePtr->setLocalScaling(localScaling);
+
+			// Create a btRigidBodyConstructionInfo as before
+			btTransform startTransform;
+			startTransform.setIdentity();
+			startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));
+			btDefaultMotionState* terrainMotionState = new btDefaultMotionState(startTransform);
+
+			btRigidBody::btRigidBodyConstructionInfo terrainRigidBodyCI(
+				0.0f,                      // Mass (0 for static object)
+				terrainMotionState,
+				terrainShapePtr,           // Use the btBvhTriangleMeshShape
+				btVector3(0, 0, 0)        // Local inertia (0 for static object)
+			);
+
+			// Create the btRigidBody as before
+			terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
+			dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
+			if (terrainMeshRigidBody == nullptr)
+			{
+				std::cout << "\nRemoved rigid body from dynamics world to generate new terrain and RB";
+				dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
+			}
+		}
 		
 
 		

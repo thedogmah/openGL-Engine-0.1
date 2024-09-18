@@ -26,6 +26,10 @@ struct FramebufferObject {
     int height;
     std::string name;  // User-defined FBO name
     std::string textureName; // Auto-generated texture name
+
+    bool customViewEnabled = false;  // If true, use custom view matrix
+    glm::mat4 viewMatrix;  // Custom view matrix (copied from camera view matrix)
+
 };
 
 //extern std::map<int, FramebufferObject> framebuffers;
