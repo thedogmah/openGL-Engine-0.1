@@ -1,9 +1,12 @@
 #pragma once
 #include <glad/glad.h>
+
 #include <GLFW/glfw3.h>
+
 #include <iostream>
 #include "SSBO.h"
 #include "Lights.h"
+#include <string>
 
 //Some callback functions depeend on other funtions preaturely declared here
 int findCubeIndexByColour(const glm::vec3 color);
@@ -26,7 +29,11 @@ void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
 	GLsizei length,
 	const char* message,
 	const void* userParam)
+
 {
+	std::stringstream logMessage;
+	logMessage << "OpenGL Debug Message (" << id << "): " << message << "\n";
+
 	// ignore non-significant error/warning codes
 	if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
 
@@ -64,6 +71,8 @@ void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
 	case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
 	} std::cout << std::endl;
 	std::cout << std::endl;
+
+	logger.AddLog(logMessage.str(), ImGuiLogger::LogType::OpenGL);
 }
 
 bool boolRigidBody = false;
@@ -252,3 +261,4 @@ GLuint getCurrentFramebuffer() {
 	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
 	return static_cast<GLuint>(currentFBO);
 }
+

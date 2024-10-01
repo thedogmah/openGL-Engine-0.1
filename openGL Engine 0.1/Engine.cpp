@@ -771,7 +771,7 @@ bool Terrain::createTerrainMesh()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	int mudMapWidth, mudMapHeight, mudMapChannels;
-	unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
 
 	if (mudMapData) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);

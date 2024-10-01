@@ -105,12 +105,9 @@ if (isInstanced != 0) {
                 FragPosWorld = vec3(model * vec4(aPos, 1.0));
 
            }
-         
-         
+                  
             }
     }
-
-
 
     else {
         // Non-instanced data handling here

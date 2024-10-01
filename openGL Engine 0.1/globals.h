@@ -15,9 +15,14 @@
 #include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
+#include "ObjImporter.h"
+#include "ImGuiLogger.h"
 
 //#include "Camera.h"
+class ObjImporter;
 
+//create some logging data types and structures
+extern ImGuiLogger logger;
 struct FramebufferObject {
     GLuint fbo;
     GLuint texColorBuffer;
@@ -44,6 +49,8 @@ extern bool boolShowGLErrors;
 extern bool boolDrawUI; //bool for drawing main UI in main.cpp (left Alt key on and off)
 extern bool lMouseClicked;
 extern bool UIdrawn;
+extern bool loadModelTwo;
+extern std::vector<ObjImporter> models;
 //Create the game character
 class Character;
 extern float characterCameraXOffset;

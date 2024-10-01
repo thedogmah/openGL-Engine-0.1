@@ -10,7 +10,8 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
-
+#include <windows.h>
+#include <commdlg.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -19,7 +20,7 @@
 #include <random>
 #include <iostream>
 #include <istream>
-
+#include "ObjImporter.h"
 #include <assimp/config.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -63,8 +64,15 @@
 #include "waterShader.h"
 #include "waterTile.h"
 #include "waterFrameBuffer.h"
+#include "tinyfiledialogs.h"
+
+#include "ImGuiLogger.h"
+#include "ModelLoader.h"
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
 UIManager* uimanager;
+ObjImporter* objimporter;
+ImGuiLogger logger;
+modelLoader modelLoaderNew;
 //Customer shader variables
 std::string customVertexShaderCode;
 std::string customFragmentShaderCode;
@@ -72,11 +80,11 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
  int selectedShaderID = 0; //initalisation for shader ID selected where loading meshes
  int selectedShaderID2 = 0;
 
- 
+
 
  std::map<std::string, FramebufferObject> framebuffers;
 
-
+ std::vector<ObjImporter> models;
  float scalemin, scalemax;
   int meshCountInstanced;
   std::vector<SSBO*> SSBOVector; //initialising external global for SSBO vector for instanced ssbos / grass etc
@@ -84,6 +92,7 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
   Tool currentTool = Tool::NONE;
   GLuint terrainPickingSwitch = 0;
   bool boolToolResized = false;
+   bool loadModelTwo = false;
   int brushSize;
   std::vector <WaterTile> waterTileVector;
   std::set<std::pair<float, float>> waterBounds;//locations for not creating land objects
@@ -103,6 +112,7 @@ glm::mat4 cubeModelMatrix;
 glm::mat4 model = glm::mat4(1.0f);
 glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+
 GLuint* defaultShaderProgramPtr = new GLuint;
 GLuint* globalWaterShader = new GLuint;
 
@@ -127,6 +137,7 @@ Character* character = nullptr;
  float characterCameraZOffset = 0.0;
 
 //forward declarations
+ void showLoadModelWindow(bool* pOpen); // function loads models as a secon way
  void debugPrintPixels(const unsigned char* pixels, int width, int height);//function for checking pixel array for screen buffer values 
  void CC(std::string location, std::string comment = "debug");
  void generateSSBOInstance(int count, std::string ssboname); //function used to create instance date for dynamic mesh ssbos
@@ -145,7 +156,68 @@ static char fboName[64] = ""; // Text buffer for the FBO name
 static int fboWidth = 800;    // Default width
 static int fboHeight = 600;   // Default height
 void setupFramebuffer(const std::string& name, int width, int height, bool customViewEnabled);
+//imgui styles
 
+struct ImVec3 { float x, y, z; ImVec3(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f) { x = _x; y = _y; z = _z; } };
+std::string OpenFileDialog();//windows api fil dialog
+void imgui_easy_theming(ImVec3 color_for_text, ImVec3 color_for_head, ImVec3 color_for_area, ImVec3 color_for_body, ImVec3 color_for_pops)
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	style.Colors[ImGuiCol_Text] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 1.00f);
+	style.Colors[ImGuiCol_TextDisabled] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.58f);
+	style.Colors[ImGuiCol_WindowBg] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.95f);
+	//.Colors[ImGuiCol_ChildWindowBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.58f);
+	style.Colors[ImGuiCol_Border] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.00f);
+	style.Colors[ImGuiCol_BorderShadow] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.00f);
+	style.Colors[ImGuiCol_FrameBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
+	style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
+	style.Colors[ImGuiCol_FrameBgActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_TitleBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
+	style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.75f);
+	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_MenuBarBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.47f);
+	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
+	style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.21f);
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	//style.Colors[ImGuiCol_Combo] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
+	style.Colors[ImGuiCol_CheckMark] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.80f);
+	style.Colors[ImGuiCol_SliderGrab] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.50f);
+	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_Button] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.50f);
+	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.86f);
+	style.Colors[ImGuiCol_ButtonActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_Header] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.76f);
+	style.Colors[ImGuiCol_HeaderHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.86f);
+	style.Colors[ImGuiCol_HeaderActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	//style.Colors[ImGuiCol_Column] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.32f);
+	//style.Colors[ImGuiCol_ColumnHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
+//style.Colors[ImGuiCol_ColumnActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_ResizeGrip] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.15f);
+	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
+	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	//style.Colors[ImGuiCol_CloseButton] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.16f);
+//	style.Colors[ImGuiCol_CloseButtonHovered] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.39f);
+	//style.Colors[ImGuiCol_CloseButtonActive] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 1.00f);
+	style.Colors[ImGuiCol_PlotLines] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
+	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_PlotHistogram] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
+	style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
+	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.43f);
+	style.Colors[ImGuiCol_PopupBg] = ImVec4(color_for_pops.x, color_for_pops.y, color_for_pops.z, 0.92f);
+//	style.Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.73f);
+}
+
+void SetupImGuiStyle2()
+{
+	static ImVec3 color_for_text = ImVec3(236.f / 255.f, 240.f / 255.f, 241.f / 255.f);
+	static ImVec3 color_for_head = ImVec3(41.f / 255.f, 128.f / 255.f, 185.f / 255.f);
+	static ImVec3 color_for_area = ImVec3(57.f / 255.f, 79.f / 255.f, 105.f / 255.f);
+	static ImVec3 color_for_body = ImVec3(44.f / 255.f, 62.f / 255.f, 80.f / 255.f);
+	static ImVec3 color_for_pops = ImVec3(33.f / 255.f, 46.f / 255.f, 60.f / 255.f);
+	imgui_easy_theming(color_for_text, color_for_head, color_for_area, color_for_body, color_for_pops);
+}
 void showFBOControlPanel() {
 	bool uniqueView = false;
 
@@ -350,6 +422,8 @@ int main()
 		//dynamicsWorld->addRigidBody(body);
 	}
 	
+
+
 	{
 		
 
@@ -768,6 +842,7 @@ int main()
 		std::cout << "Failed to load texture" << std::endl;
 	}
 
+SetupImGuiStyle2();
 
 	GLuint VAO, VBO, EBO;
 	glGenVertexArrays(1, &VAO);
@@ -1244,6 +1319,7 @@ waterTileVector.push_back(watertile3);
 	waterTileVector.push_back(watertile7);
 	waterTileVector.push_back(watertile8);
 	uimanager = new UIManager(window_width, window_height, true);
+	objimporter = new ObjImporter;
 	uimanager->addTextureFromFBO(waterFBOS.getReflectionTexture(), 100, 100, -0.7,0.85, 0.35, 0.35);
 	uimanager->addTextureFromFBO(waterFBOS.getRefractionTexture(), 100, 100, 0.4, 0.85, 0.45, 0.45);
 //	uimanager->addTextureFromFBO(waterFBOS.getReflectionBufferID(), 100, 100, 0.4, 0.85, 0.45, 0.45);
@@ -1264,7 +1340,9 @@ waterTileVector.push_back(watertile3);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, terrain.eng_texColorBuffer, 0);
-
+	
+	//v sync
+	glfwSwapInterval(1);  // Enable V-Sync for GLFW
 	// Generate renderbuffer for depth and stencil
 	glGenRenderbuffers(1, &terrain.eng_rbo);
 	glBindRenderbuffer(GL_RENDERBUFFER, terrain.eng_rbo);
@@ -1308,6 +1386,9 @@ waterTileVector.push_back(watertile3);
 		ImGui::NewFrame();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		update();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//drawing everywhere / incase this is an FBO issue.
+
 		// Assuming you have the rigid body's position in 'rigidBodyPosition'
 		btVector3 rigidBodyPosition = character->getRigidBody()->getCenterOfMassPosition();
 
@@ -1898,7 +1979,12 @@ waterTileVector.push_back(watertile3);
 		
 		//	mesh.SetWorldTransform(modelMatrix);
 			mesh->Render(shaderProgram);
+
+			//Here the object is drwing correctly using a different 
+			//process. I'm rewriting the process
 		}
+	
+
 		int instancedInt = 0;
 		glUseProgram(shaderProgram);
 		glUniform1i(isInstancedBool, 1);
@@ -1962,8 +2048,7 @@ waterTileVector.push_back(watertile3);
 		
 		}*/
 	
-		debugger.SetMatrices(camera.getViewMatrix(), projection);
-		
+	
 		int widthreflection = 1000;
 		int heightreflection = 1000;
 		if (!terrain.init) terrain.initalise();
@@ -2105,22 +2190,34 @@ waterTileVector.push_back(watertile3);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			showFBOControlPanel();
-
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		
 
 			for (const auto& entry : framebuffers) {
 				const FramebufferObject& fboObj = entry.second;
 				drawFBOToScreen(fboObj.name, fboObj.texColorBuffer, fboObj.width, fboObj.height);
 			}
+
+			for (auto& model : models) {
+				//glViewport(0, 0, window_width, window_height);
+				model.draw(model.shaderProgram);
+
+				//lets just draw in one location as before, when it worked fine!!
+			}
+			
 		}
 		glUseProgram(shaderProgram);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		debugger.SetMatrices(camera.getViewMatrix(), projection);
+	
 		// Create and bind a texture to capture framebuffer content
 		
 	
 		// Render the texture to an ImGui window
 	
-
+		logger.Draw("Debug Console", &logger.logWindowOpen);
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
 			 UIdrawn = false;
@@ -2675,6 +2772,9 @@ void drawUI()
 
 
 		}
+		ImGui::Checkbox("Backup Model Loading", &loadModelTwo);
+		showLoadModelWindow(&loadModelTwo);
+	
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
 			std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
@@ -3759,7 +3859,7 @@ void initialise(float x, float y, float z, GLFWwindow* window) {
 
 	 glm::mat4  model = glm::mat4(1.0f);
 	 glm::mat4 view = glm::lookAt(glm::vec3(0.5f, -0.7f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	 glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
 
 	  cubeModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.5, 0.5, 0.5));
 	
@@ -3894,7 +3994,7 @@ void generateSSBOInstanceToY(const std::vector<float>& terrainHeights, int terra
 
 		// Extract the Y position from the terrain heights
 		float yPos = terrainHeights[static_cast<int>(xPos) + static_cast<int>(zPos) * terrainSize];
-		yPos += 1.0;
+		//Pos -= 2.0;
 		// Apply any offset or adjustment to yPos for realism
 		// For example, sink the meshes into the ground a little
 		// yPos -= /* your desired offset */;
@@ -4218,4 +4318,86 @@ void setupFramebuffer(const std::string& name, int width, int height, bool custo
 	}
 	// Store the new framebuffer in the map
 	framebuffers[fbo.name] = fbo;
+}
+
+void showLoadModelWindow(bool* pOpen) {
+	ImGui::Begin("Load Model", pOpen);
+
+	static char objFilePath[256] = ""; // Buffer for the file path input
+	static std::string assimpFilename; // No initial assignment needed
+
+	ImGui::InputText("OBJ File Path", objFilePath, sizeof(objFilePath));
+
+	if (ImGui::Button("Load OBJ")) {
+		std::string filePath(objFilePath);
+		ObjImporter obj;
+
+		// Load the OBJ file and handle errors
+		if (obj.loadOBJ(filePath)) {
+			models.push_back(obj); // Only push if the load was successful
+		}
+		else {
+			std::cerr << "Failed to load OBJ file: " << filePath << std::endl;
+		}
+	}
+
+	if (ImGui::Button("Open/Load Model")) {
+		const char* filterPatterns[] = { "*.3ds", "*.obj", "*.bmp", "*.tiff", "*.gif", NULL };
+		const char* filename = tinyfd_openFileDialog(
+			"Select an Image File",
+			"",
+			5,
+			filterPatterns,
+			NULL,
+			0
+		);
+
+		if (filename) {
+			printf("Selected file: %s\n", filename);
+			assimpFilename = filename; // Save the filename
+			logger.AddLog(filename); // Log the action
+
+			Assimp::Importer importer;
+
+			// Load the model file
+			const aiScene* scene = importer.ReadFile(
+				assimpFilename.c_str(),
+				aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
+			);
+
+			// Check if the scene was loaded successfully
+			if (scene) {
+				modelLoaderNew.initFromScene(scene, assimpFilename);
+				printf("Model loaded successfully!\n");
+				logger.AddLog("Model Loaded", ImGuiLogger::LogType::Assimp);
+			}
+			else {
+				// Handle errors more gracefully
+				const char* errorMsg = importer.GetErrorString();
+				printf("Error loading model: %s\n", errorMsg);
+				logger.AddLog(std::string("Error loading model: ") + errorMsg, ImGuiLogger::LogType::Error);
+			}
+		}
+		else {
+			printf("No file selected.\n");
+		}
+	}
+
+	ImGui::End();
+
+
+
+		
+
+	// Display the currently selected filename
+	ImGui::Text("Current Model: %s", assimpFilename.c_str());
+
+	
+	if (ImGui::Button("Remove Last")) {
+		
+		if (models.size()>0)
+		models.pop_back();//remove last model loaded
+
+	}
+	ImGui::End();
 }

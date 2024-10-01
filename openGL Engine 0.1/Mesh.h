@@ -28,10 +28,33 @@ class Mesh
 {
 
 public:
+
+
     // Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
     Mesh() { this->worldTransform = glm::mat4(1.0f); };
     ~Mesh();
+    
+    void clear();
+    bool initFromScene(const aiScene* scenePtr, const std::string filename);
+
+    void countVertandIndices(const aiScene* scenePtr, unsigned int& numVerts, unsigned int& numIndices);
+    void reserveSpace(unsigned int numVertices, unsigned int numIndices);
+    void initAllMesh(const aiScene* scene);
+    void initSingleMesh(const aiMesh* meshPtr);
+    bool initMaterials(const aiScene* scenePtr, const std::string& filename);
+
+    //model engine setter functions
+    void SetRotation(const glm::vec3& rotationAngles);
+
+    // Set the scale of the object
+    void SetScale(const glm::vec3& scale);
+
+
+    // Set the translation of the object
+    void SetTranslation(const glm::vec3& translation);
+
     void Render(unsigned int shader);
+    
     void renderInstance(unsigned int shader, GLuint ssboID, GLuint amount);
     void renderInstanceStencilled(unsigned int shader, GLuint ssboID, GLuint amount);
     GLuint instancedAmount = 1;
@@ -74,24 +97,7 @@ public:
     std::vector<basicMeshEntry> meshes;
     std::vector<Texture*> textures;
     GLuint buffers[NUM_BUFFERS] = { 0 };
-    void clear();
-    bool initFromScene(const aiScene* scenePtr, const std::string filename);
-
-    void countVertandIndices(const aiScene* scenePtr, unsigned int& numVerts, unsigned int& numIndices);
-    void reserveSpace(unsigned int numVertices, unsigned int numIndices);
-    void initAllMesh(const aiScene* scene);
-    void initSingleMesh(const aiMesh* meshPtr);
-    bool initMaterials(const aiScene* scenePtr, const std::string& filename);
-    
-    //model engine setter functions
-    void SetRotation(const glm::vec3& rotationAngles);
-
-    // Set the scale of the object
-    void SetScale(const glm::vec3& scale);
-
-    // Set the translation of the object
-    void SetTranslation(const glm::vec3& translation);
-
+  
     
     // Vertex data
     // 

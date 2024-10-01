@@ -75,14 +75,14 @@
     <LibraryPath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Desktop\blt\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\1033\;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\User32.Lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\dirent;C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\1033\;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\User32.Lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\;C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\debug\lib</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\bullet3-master\src;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\dirent;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgUseStatic>true</VcpkgUseStatic>
@@ -135,7 +135,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Windows\System32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -158,7 +158,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\OpenMesh\Core\Mesh;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -177,6 +177,7 @@
     <ClCompile Include="..\..\imgui-docking\imgui_draw.cpp" />
     <ClCompile Include="..\..\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="..\..\imgui-docking\imgui_widgets.cpp" />
+    <ClCompile Include="..\..\tinyfiledialogs.c" />
     <ClCompile Include="3D.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Character.cpp" />
@@ -188,6 +189,8 @@
     <ClCompile Include="Loader.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="ModelLoader.cpp" />
+    <ClCompile Include="ObjImporter.cpp" />
     <ClCompile Include="openGLDrawable.cpp" />
     <ClCompile Include="PhysDebug.cpp" />
     <ClCompile Include="Shader.cpp" />
@@ -221,14 +224,19 @@
     <ClInclude Include="Engine.h" />
     <ClInclude Include="frameBufferObject.h" />
     <ClInclude Include="globals.h" />
+    <ClInclude Include="ImGuiLogger.h" />
     <ClInclude Include="libraries\include\assimp\config.h" />
     <ClInclude Include="libraries\include\assimp\Importer.hpp" />
     <ClInclude Include="libraries\include\assimp\postprocess.h" />
     <ClInclude Include="libraries\include\assimp\scene.h" />
+    <ClInclude Include="libraries\include\dirent\dirent.h" />
     <ClInclude Include="libraries\include\glad\glad.h" />
+    <ClInclude Include="libraries\include\tinyfiledialogs.h" />
     <ClInclude Include="Lights.h" />
     <ClInclude Include="Loader.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="ModelLoader.h" />
+    <ClInclude Include="ObjImporter.h" />
     <ClInclude Include="openGLDrawable.h" />
     <ClInclude Include="PhysDebug.h" />
     <ClInclude Include="Shader.h" />

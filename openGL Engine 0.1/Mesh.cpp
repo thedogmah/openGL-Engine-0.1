@@ -434,21 +434,43 @@ void Mesh::initAllMesh(const aiScene* scene)
 }
 
 
-void Mesh::initSingleMesh(const aiMesh* meshPtr){
-//	std::cout << "\nStarted init of single meshes.";
+void Mesh::initSingleMesh(const aiMesh* meshPtr) {
+	// Check if meshPtr is valid
+	if (!meshPtr) {
+		std::cerr << "Error: meshPtr is null." << std::endl;
+		return; // Handle error accordingly
+	}
+
 	const aiVector3D Zero3D(0.0f, 0.0f, 0.0f);
+
+	// Reserve space for the vectors if you have an estimate of the number of vertices
+	positions.reserve(meshPtr->mNumVertices);
+	normals.reserve(meshPtr->mNumVertices);
+	texcoords.reserve(meshPtr->mNumVertices);
+
 	for (int i = 0; i < meshPtr->mNumVertices; i++) {
 		aiVector3D pos = meshPtr->mVertices[i];
-		aiVector3D normal = meshPtr->mNormals[i];
+
+		// Check if normals are available and handle accordingly
+		aiVector3D normal;
+		if (meshPtr->HasNormals()) {
+			normal = meshPtr->mNormals[i];
+		}
+		else {
+			normal = Zero3D; // Default normal value
+		}
+
+		// Check for texture coordinates
 		aiVector3D texcoord = meshPtr->HasTextureCoords(0) ? meshPtr->mTextureCoords[0][i] : Zero3D;
-	
+
+		// Push back the vertex data
 		positions.push_back(glm::vec3(pos.x, pos.y, pos.z));
 		normals.push_back(glm::vec3(normal.x, normal.y, normal.z));
 		texcoords.push_back(glm::vec2(texcoord.x, texcoord.y));
-		//std::cout << "\nInit single mesh count: " << i;
+
+		// Optionally log the initialization progress
+		// std::cout << "\nInit single mesh count: " << i;
 	}
-
-
 //populat the index buffer
 	for (unsigned int i = 0; i < meshPtr->mNumFaces; i++) {
 		const aiFace& face = meshPtr->mFaces[i];
