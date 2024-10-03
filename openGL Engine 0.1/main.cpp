@@ -2216,7 +2216,9 @@ waterTileVector.push_back(watertile3);
 		
 	
 		// Render the texture to an ImGui window
-	
+		if (modelLoaderNew.meshes.size() > 0) {
+			modelLoaderNew.Render(1);
+		}
 		logger.Draw("Debug Console", &logger.logWindowOpen);
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
@@ -4370,6 +4372,19 @@ void showLoadModelWindow(bool* pOpen) {
 				modelLoaderNew.initFromScene(scene, assimpFilename);
 				printf("Model loaded successfully!\n");
 				logger.AddLog("Model Loaded", ImGuiLogger::LogType::Assimp);
+				for (auto& m : modelLoaderNew.modelNewVector) {
+					logger.AddLog("Loaded: " + m->name);
+					logger.AddLog("ID: " + m->modelID);
+					
+					for (auto& sub : m->subMeshes)
+					{
+
+						logger.AddLog("VAO ID: " + std::to_string(sub.VAO));
+						logger.AddLog("Texture couunt: " + std::to_string(sub.textures.size()));
+
+						logger.AddLog("Vertices count: " + std::to_string(sub.vertices.size()));
+					}
+				}
 			}
 			else {
 				// Handle errors more gracefully
@@ -4381,6 +4396,8 @@ void showLoadModelWindow(bool* pOpen) {
 		else {
 			printf("No file selected.\n");
 		}
+
+
 	}
 
 	ImGui::End();

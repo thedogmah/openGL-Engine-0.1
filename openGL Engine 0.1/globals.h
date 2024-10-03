@@ -15,8 +15,9 @@
 #include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
-#include "ObjImporter.h"
 #include "ImGuiLogger.h"
+#include "ObjImporter.h"
+
 
 //#include "Camera.h"
 class ObjImporter;

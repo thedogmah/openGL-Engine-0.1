@@ -14,7 +14,8 @@ public:
         Warning,
         Error,
         OpenGL,
-        Assimp
+        Assimp,
+        Shader
     };
     bool logWindowOpen = true;
     bool showInfo = true;    // Filter for Info logs
@@ -22,9 +23,10 @@ public:
     bool showError = true;   // Filter for Error logs
     bool showOpenGL = false;  // Filter for OpenGL logs
     bool showAssimp = true;    // Filter for Assimp logs
+    bool showShader = true;
     bool pauseLogging = false;
 
-
+    float fontScale = 1.25; //change size of font within program
 
     struct Log {
         std::string message;
@@ -42,7 +44,7 @@ public:
     ImGuiLogger() : autoScroll(true) {
         this->AddLog("Application started", ImGuiLogger::LogType::Info);
         this->AddLog("This is a warning", ImGuiLogger::LogType::Warning);
-        this->AddLog("Error loading texture", ImGuiLogger::LogType::Error);
+        
     }
 
     // Method to add a log
@@ -94,10 +96,15 @@ public:
         ImGui::Checkbox("Show Error", &showError); ImGui::SameLine();
         ImGui::Checkbox("Show OpenGL", &showOpenGL); ImGui::SameLine();
         ImGui::Checkbox("Show Assimp", &showAssimp); ImGui::SameLine();
+        ImGui::Checkbox("Show Shader", &showShader); ImGui::SameLine();
         // Options
         ImGui::Checkbox("Auto-scroll", &autoScroll); ImGui::SameLine();
         ImGui::Checkbox("Pause Logging", &pauseLogging); 
+        ImGui::PushItemWidth(100.0f);
+        ImGui::SliderFloat("Text Size", &fontScale, 0.9, 2.0);
+        ImGui::PopItemWidth();
         ImGui::BeginChild("LogOutput", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
+       
         int index = 1;
         for (const auto& log : logBuffer) {
             index++;
@@ -107,7 +114,10 @@ public:
                 (log.type == LogType::Warning && !showWarning) ||
                 (log.type == LogType::Error && !showError) ||
                 (log.type == LogType::OpenGL && !showOpenGL) ||
-                (log.type == LogType::Assimp && !showAssimp)) {
+                (log.type == LogType::Assimp && !showAssimp) ||
+                (log.type == LogType::Shader && !showShader)
+                
+                ) {
                 continue;
             }
 
@@ -115,7 +125,7 @@ public:
             std::string entry = std::to_string(index);
             std::string timeStr = formatTimestamp(log.timestamp); // Use the stored timestamp
             std::string prefix = entry + ": [" + timeStr + "] ";
-
+            ImGui::SetWindowFontScale(fontScale);
             // Display the log message with appropriate colors based on the log type
             if (log.type == LogType::Error) {
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s[Error] %s", prefix.c_str(), log.message.c_str());
@@ -129,9 +139,13 @@ public:
             else if (log.type == LogType::Assimp) {
                 ImGui::TextColored(ImVec4(0.5f, 0.4f, 0.5f, 1.0f), "%s[Assimp] %s", prefix.c_str(), log.message.c_str());
             }
+            else if (log.type == LogType::Shader) {
+                ImGui::TextColored(ImVec4(0.7f, 0.8f, 0.8f, 1.0f), "%s[Shader] %s", prefix.c_str(), log.message.c_str());
+            }
             else {
                 ImGui::Text("%s[Info] %s", prefix.c_str(), log.message.c_str());
             }
+            ImGui::SetWindowFontScale(1.0);
         }
 
         // Auto-scroll

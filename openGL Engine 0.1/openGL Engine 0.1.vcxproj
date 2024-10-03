@@ -252,6 +252,8 @@
   <ItemGroup>
     <None Include="basic.frag" />
     <None Include="basic.vert" />
+    <None Include="modelfragment.glsl" />
+    <None Include="modelvertex.glsl" />
     <None Include="packages.config" />
     <None Include="PhysDebug.vert" />
     <None Include="PhysDebut.frag" />

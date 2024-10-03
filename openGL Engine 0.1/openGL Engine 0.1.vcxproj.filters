@@ -19,6 +19,9 @@
     <Filter Include="Source Files\Shaders">
       <UniqueIdentifier>{c7ad9b84-dc56-45f4-9c1b-f70de47a5af0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Shaders">
+      <UniqueIdentifier>{04d4f2e0-14cd-487b-bb0d-c7f2d0f139fe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -269,6 +272,12 @@
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="modelvertex.glsl">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
+    <None Include="modelfragment.glsl">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg">

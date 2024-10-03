@@ -38,6 +38,7 @@ public:
     GLuint shaderProgram;
     GLuint textureID;
 
+    
 
     bool createShaderProgram();
 

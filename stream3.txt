@@ -1,0 +1,7 @@
+setup shader using chatgpt. write a new shader that supports textures and materials.
+
+1HR :40. MATRIX EXPLANATION.
+50 minutes: debugger adding shader debug tools
+1hr 15 adding shader loading debugger.
+
+203: break
