@@ -48,12 +48,6 @@
     <ClCompile Include="Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="_3D.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="3D.cpp">
-      <Filter>Header Files\Math Functions</Filter>
-    </ClCompile>
     <ClCompile Include="SSBO.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -148,9 +142,6 @@
     </ClInclude>
     <ClInclude Include="Shader.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="3D.h">
-      <Filter>Header Files\Math Functions</Filter>
     </ClInclude>
     <ClInclude Include="SSBO.h">
       <Filter>Header Files</Filter>

@@ -103,35 +103,6 @@ void Shader::use() {
     logger.AddLog("Using shader ID: " + std::to_string(ID), ImGuiLogger::LogType::Shader);
 }
 
-template <typename T>
-void Shader::setUniform(const std::string name, const T& value) const {
-    static_assert(std::is_same<T, bool>::value ||
-        std::is_same<T, int>::value ||
-        std::is_same<T, float>::value ||
-        std::is_same<T, glm::vec2>::value ||
-        std::is_same<T, glm::vec3>::value ||
-        std::is_same<T, glm::vec4>::value,
-        "Unsupported uniform type");
-
-    if constexpr (std::is_same<T, bool>::value) {
-        glUniform1i(glGetUniformLocation(ID, name.c_str()), static_cast<int>(value));
-    }
-    else if constexpr (std::is_same<T, int>::value) {
-        glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
-    }
-    else if constexpr (std::is_same<T, float>::value) {
-        glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
-    }
-    else if constexpr (std::is_same<T, glm::vec2>::value) {
-        glUniform2fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
-    }
-    else if constexpr (std::is_same<T, glm::vec3>::value) {
-        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
-    }
-    else if constexpr (std::is_same<T, glm::vec4>::value) {
-        glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
-    }
-}
 
 void Shader::setMatrixUniform(const GLint& shaderid, const glm::mat4& matrix) const {
     GLuint location = glGetUniformLocation(shaderid, "view");

@@ -75,8 +75,8 @@
     <LibraryPath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Desktop\blt\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\dirent;C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\1033\;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\User32.Lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\;C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\debug\lib</LibraryPath>
+    <IncludePath>C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\dirent;C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\1033\;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\User32.Lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\bullet3\src;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\arm64\;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\debug\lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>C:\Users\ryanb\source\repos\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\bullet3-master\src;$(IncludePath)</IncludePath>
@@ -133,21 +133,24 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Windows\System32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Windows\System32;C:\Users\ryanb\bullet3\src;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\OpenMesh\Core\Mesh;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshToolsd.lib;OpenMeshCored.lib;assimp-vc143-mt.lib;Bullet3Common.lib;BulletCollision.lib;BulletDynamics.lib;LinearMath.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\include;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include;C:\Program Files (x86)\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link\;C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.29.30133\lib\spectre\onecore\x64;C:\Program Files\Microsoft Visual Studio\2022\Community\SDK\ScopeCppSDK\vc15\SDK\lib;C:\Users\ryanb\.nuget\packages\assimp\3.0.0\build\native\lib\x64\;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\lib;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files (x86)\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link\;C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.29.30133\lib\spectre\onecore\x64;C:\Program Files\Microsoft Visual Studio\2022\Community\SDK\ScopeCppSDK\vc15\SDK\lib;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\debug\lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Program Files %28x86%29\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshToolsd.lib;OpenMeshCored.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\Bullet3Common_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletSoftBody_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletInverseDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletCollision_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\LinearMath_Debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ProjectReference>
+      <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
+    </ProjectReference>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -178,7 +181,6 @@
     <ClCompile Include="..\..\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="..\..\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="..\..\tinyfiledialogs.c" />
-    <ClCompile Include="3D.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Character.cpp" />
     <ClCompile Include="Cube.cpp" />
@@ -203,7 +205,6 @@
     <ClCompile Include="waterShader.cpp" />
     <ClCompile Include="waterTile.cpp" />
     <ClCompile Include="worldObject.cpp" />
-    <ClCompile Include="_3D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\Downloads\stb_image_write.h" />
@@ -215,7 +216,6 @@
     <ClInclude Include="..\..\imgui-docking\imstb_rectpack.h" />
     <ClInclude Include="..\..\imgui-docking\imstb_textedit.h" />
     <ClInclude Include="..\..\imgui-docking\imstb_truetype.h" />
-    <ClInclude Include="3D.h" />
     <ClInclude Include="CallbackFunctions.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Character.h" />

@@ -26,7 +26,7 @@ public:
     bool showShader = true;
     bool pauseLogging = false;
 
-    float fontScale = 1.25; //change size of font within program
+    float fontScale = 1.35; //change size of font within program
 
     struct Log {
         std::string message;

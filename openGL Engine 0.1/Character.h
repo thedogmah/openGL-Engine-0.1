@@ -12,7 +12,23 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\btBulletCollisionCommon.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\LinearMath/btAlignedObjectArray.h"
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\Dynamics\btRigidBody.h"
+
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
+
+#include "C:\Users\ryanb\bullet3\src\LinearMath\btVector3.h"
+#include "C:\Users\ryanb\bullet3\src\LinearMath\btQuaternion.h"
+
+// Optional Soft Body include
+//#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletSoftBody\btSoftBody.h"
+
 class Character
 {
 public:

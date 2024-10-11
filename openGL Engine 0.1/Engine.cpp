@@ -230,6 +230,7 @@ void Terrain::render()
 			if (ImGui::ColorEdit3("- Light Colour - ", &diffuseColor.x)) {
 				glUniform3fv(diffuseColorLocation, 1, &diffuseColor.x);
 				glProgramUniform3fv(*globalWaterShader, diffuseColorLocationWater, 1, &diffuseColor.x);
+				sun.DiffuseColor = diffuseColor;
 			}
 
 			if (ImGui::SliderFloat("Shininess", &shininess, 0.2f, 100.0f)) {
@@ -238,7 +239,7 @@ void Terrain::render()
 			}
 			if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 2.0f)) {
 				glUniform1f(sunBrightnessLocation, sunBrightness);
-
+				sun.Brightness = sunBrightness;
 			}
 
 			//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
@@ -255,7 +256,7 @@ void Terrain::render()
 			if (ImGui::SliderFloat("Time", &radiansTime, 0.0f, 360.0f)) {
 
 				glUniform1f(radiansTimeLocation, radiansTime);
-
+				sun.radiansTime = radiansTime;
 			}
 			ImGui::Text("Sun Position: (%.2f, %.2f, %.2f)", sunPosition.x, sunPosition.y, sunPosition.z);
 
@@ -507,7 +508,18 @@ void Terrain::render()
 		//	glBindVertexArray(VAO); // Bind the VAO
 		glBindVertexArray(0); // Unbind the VAO
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		//glBindTexture(GL_TEXTURE_2D, 0);
+		GLint maxTextureUnits = 0;
+		glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureUnits);
+
+		// Iterate over all texture units and unbind any texture bound to them
+		for (GLint i = 0; i < maxTextureUnits; ++i) {
+			glActiveTexture(GL_TEXTURE0 + i);  // Activate each texture unit
+			glBindTexture(GL_TEXTURE_2D, 0);   // Unbind the 2D texture from that texture unit
+		}
+
+		// Restore the default active texture unit (optional but good practice)
+		glActiveTexture(GL_TEXTURE0);
 	}
 
 
@@ -771,7 +783,7 @@ bool Terrain::createTerrainMesh()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	int mudMapWidth, mudMapHeight, mudMapChannels;
-	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+	unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
 
 	if (mudMapData) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);

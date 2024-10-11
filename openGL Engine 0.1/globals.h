@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 //#include <glm/glm.hpp> // Include any necessary headers for the variables
 
 #define BT_USE_DOUBLE_PRECISION
@@ -17,6 +17,10 @@
 #include "Mesh.h"
 #include "ImGuiLogger.h"
 #include "ObjImporter.h"
+
+
+
+
 
 
 //#include "Camera.h"
@@ -84,7 +88,18 @@ inline extern int mousePickingValue = 0;
 //Sets created for debugging locations.
 //inline extern std::set<btVector3> setDrawLinePositions;
  extern std::set<glm::dvec3> setCubePositions;
- 
+ struct Sun {
+
+     float Brightness;
+     glm::vec3 DiffuseColor;
+     float radiansTime;
+     glm::vec3 Pos;
+     bool movingForward = true; // this boolean is used in the main.cpp engine to keep the sun moving constantly and
+     //reversing back on itself.
+ };
+
+ extern Sun sun;
+
 struct Vertex {
     float x, y, z;       // Vertex coordinates
     float u, v;          // Texture coordinates

@@ -520,10 +520,37 @@ bool Mesh::initMaterials(const aiScene* scenePtr, const std::string& filename)
 					std::cout << "texture not loaded";
 				}
 				else
-					std::cout << "\nTexture loaded";
+					std::cout << "\nDIFF Texture loaded";
 				
 			}
 		}
+
+		if (material->GetTextureCount(aiTextureType_SPECULAR) > 0) {
+			aiString path;
+			if (material->GetTexture(aiTextureType_SPECULAR, 0, &path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS)
+			{
+				std::string p = path.data;
+				if (p.substr(0, 2) == ".\\") {
+					p = p.substr(2, p.size() - 2);
+				}
+				std::string fullPath = dir + "/" + p;
+				if (boolPathOverride) {
+					fullPath = stringMeshPathOverride.c_str() + p;
+					std::cout << fullPath;
+				}
+				std::cout << fullPath; // Ensure both parts are correct
+
+				textures[i] = new Texture(fullPath.c_str(), GL_TEXTURE_2D);
+				std::cout << fullPath;
+				if (!textures[i]->Load()) {
+					std::cout << "texture not loaded";
+				}
+				else
+					std::cout << "\nSPEC Texture loaded";
+
+			}
+		}
+
 	}
 
 	return ret;

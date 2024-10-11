@@ -25,14 +25,18 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-
-#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
-
-#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision\btBulletCollisionCommon.h"
 #include "ImGuiVariables.h"
-#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btAlignedObjectArray.h"
 
-#include "C:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\btBulletCollisionCommon.h"
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\LinearMath/btAlignedObjectArray.h"
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\Dynamics\btRigidBody.h"
+
+
+#include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletCollision\CollisionDispatch\btCollisionWorld.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -48,7 +52,7 @@
 #include "Camera.h"
 #include "worldObject.h"
 #include "cubeData.h"
-#include "3D.h"
+
 #include "Cube.h"
 #include "Lights.h"
 #include "SSBO.h"
@@ -340,9 +344,11 @@ Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes proper
 int cubesToGenerate; //for IMGUI input
 glm::mat4 createCamera(glm::vec3& cameraPosition, glm::vec3& targetPosition, glm::vec3& upVector);
 using namespace Assimp;
-
+std::shared_ptr<Importer> importer = std::make_shared<Importer>(); //assimp importer
 int main()
 {
+	
+	
 
 // Replace with your model file path
 	//const aiScene* scene = aiImportFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -1033,8 +1039,8 @@ SetupImGuiStyle2();
 	glUniform1i(textureUniformLoc, 0); // 0 corresponds to GL_TEXTURE0
 
 	float rotation = 0.15;
-	//	glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after enabling glblend: " << error << std::endl;
@@ -1794,7 +1800,7 @@ waterTileVector.push_back(watertile3);
 
 
 			for (auto& source : sceneLights) {
-				// Sun position sliders
+				// Sun position sliderss AD
 
 				std::string name = "Sun X " + std::to_string(lightname);
 				if (ImGui::SliderFloat(name.c_str(), &source.position.x, -10.0f, 10.0f))
@@ -1864,7 +1870,7 @@ waterTileVector.push_back(watertile3);
 
 			int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
 			glUniform1i(arraySizeLocation, sceneLights.size());
-			//	glDrawElements(GL_TRIANGLES, cubeIndices.size(), GL_UNSIGNED_INT, 0);
+			//	glDrawElements(GL_TRIANGLES, cubeIndices.size(), GL_UNSIGNED_INT, 0);s AD
 
 			ImGui::End();
 		}//closes imgui on boolen key press drawIMGUI
@@ -2187,7 +2193,7 @@ waterTileVector.push_back(watertile3);
 
 			waterRendererProgram.render(waterTileVector, camera);
 
-
+			 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			showFBOControlPanel();
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2214,9 +2220,9 @@ waterTileVector.push_back(watertile3);
 	
 		// Create and bind a texture to capture framebuffer content
 		
-	
+		//modelLoaderNew.showMaterialEditor(modelLoaderNew.modelNewVector, modelLoaderNew.activeModelIndex, modelLoaderNew.activeSubMeshIndex);
 		// Render the texture to an ImGui window
-		if (modelLoaderNew.meshes.size() > 0) {
+		if (modelLoaderNew.modelNewVector.size() > 0) {
 			modelLoaderNew.Render(1);
 		}
 		logger.Draw("Debug Console", &logger.logWindowOpen);
@@ -2779,7 +2785,7 @@ void drawUI()
 	
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error before load aiScence: " << error << std::endl;
+			std::cerr << "OpenGL error after showload mdoel window: " << error << std::endl;
 		}
 		if (!mesh.scenePtr) {
 			//std::cout << "Assimp scene is not loaded." << std::endl;
@@ -4325,23 +4331,23 @@ void setupFramebuffer(const std::string& name, int width, int height, bool custo
 void showLoadModelWindow(bool* pOpen) {
 	ImGui::Begin("Load Model", pOpen);
 
-	static char objFilePath[256] = ""; // Buffer for the file path input
-	static std::string assimpFilename; // No initial assignment needed
+	 char objFilePath[256] = ""; // Buffer for the file path input
+	 std::string assimpFilename; // No initial assignment needed
 
 	ImGui::InputText("OBJ File Path", objFilePath, sizeof(objFilePath));
 
-	if (ImGui::Button("Load OBJ")) {
-		std::string filePath(objFilePath);
-		ObjImporter obj;
+	//if (ImGui::Button("Load OBJ")) {
+	//	//std::string filePath(objFilePath);
+	//	//ObjImporter obj;
 
-		// Load the OBJ file and handle errors
-		if (obj.loadOBJ(filePath)) {
-			models.push_back(obj); // Only push if the load was successful
-		}
-		else {
-			std::cerr << "Failed to load OBJ file: " << filePath << std::endl;
-		}
-	}
+	//	//// Load the OBJ file and handle errors
+	//	//if (obj.loadOBJ(filePath)) {
+	//	//	models.push_back(obj); // Only push if the load was successful
+	//	//}
+	//	//else {
+	//	//	std::cerr << "Failed to load OBJ file: " << filePath << std::endl;
+	//	//}
+	//}
 
 	if (ImGui::Button("Open/Load Model")) {
 		const char* filterPatterns[] = { "*.3ds", "*.obj", "*.bmp", "*.tiff", "*.gif", NULL };
@@ -4353,16 +4359,17 @@ void showLoadModelWindow(bool* pOpen) {
 			NULL,
 			0
 		);
+		std::string fname = filename;
+		filename = "";
+		if  (!fname.empty()) {
+			//printf("Selected file: %s\n", filename);s A
+			assimpFilename = fname; // Save the filename s
+			logger.AddLog(fname); // Log the action
 
-		if (filename) {
-			printf("Selected file: %s\n", filename);
-			assimpFilename = filename; // Save the filename
-			logger.AddLog(filename); // Log the action
-
-			Assimp::Importer importer;
+			
 
 			// Load the model file
-			const aiScene* scene = importer.ReadFile(
+			const aiScene* scene = importer->ReadFile(
 				assimpFilename.c_str(),
 				aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
 			);
@@ -4370,25 +4377,25 @@ void showLoadModelWindow(bool* pOpen) {
 			// Check if the scene was loaded successfully
 			if (scene) {
 				modelLoaderNew.initFromScene(scene, assimpFilename);
-				printf("Model loaded successfully!\n");
+				
 				logger.AddLog("Model Loaded", ImGuiLogger::LogType::Assimp);
 				for (auto& m : modelLoaderNew.modelNewVector) {
 					logger.AddLog("Loaded: " + m->name);
 					logger.AddLog("ID: " + m->modelID);
-					
-					for (auto& sub : m->subMeshes)
+					//Print all mesh names to output logger (can cause massive slow down - use only to debug - will also print to log.txt in directory)
+					/*for (auto& sub : m->subMeshes)
 					{
 
-						logger.AddLog("VAO ID: " + std::to_string(sub.VAO));
-						logger.AddLog("Texture couunt: " + std::to_string(sub.textures.size()));
+						logger.AddLog("VAO ID: " + std::to_string(sub->VAO));
+						logger.AddLog("Texture couunt: " + std::to_string(sub->textures.size()));
 
-						logger.AddLog("Vertices count: " + std::to_string(sub.vertices.size()));
-					}
+						logger.AddLog("Vertices count: " + std::to_string(sub->vertices.size()));
+					}*/
 				}
 			}
 			else {
 				// Handle errors more gracefully
-				const char* errorMsg = importer.GetErrorString();
+				const char* errorMsg = importer->GetErrorString();
 				printf("Error loading model: %s\n", errorMsg);
 				logger.AddLog(std::string("Error loading model: ") + errorMsg, ImGuiLogger::LogType::Error);
 			}
@@ -4399,10 +4406,64 @@ void showLoadModelWindow(bool* pOpen) {
 
 
 	}
+	if (ImGui::Button("Delete Models")) {
+		modelLoaderNew.modelNewVector.clear();
+	}
+	if (ImGui::Button("Delete last")) {
+		modelLoaderNew.modelNewVector.pop_back();
+	}
 
+	if (ImGui::ColorEdit3("- Light Colour - ", &sun.DiffuseColor.x)) {
+		GLint diffuseColorLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "diffuseColor");
+		glUniform3fv(diffuseColorLocation, 1, &sun.DiffuseColor.x);
+		
+	}
+
+	
+	if (ImGui::SliderFloat("Sun Brightness", &sun.Brightness, 0.1, 5.0f)) {
+		
+		GLint sunBrightnessLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "sunBrightness");
+		glUniform1f(sunBrightnessLocation, sun.Brightness);
+		
+	}
+
+	//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
+	//	// Update the sun's position whenever the time of day changes
+	//	// You can use this callback to trigger any other time-dependent effects
+	//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+	//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+
+	//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
+	//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
+
+	//}
+		//timeOfDay = 18.0;
+	if (sun.radiansTime >= 360.0) {
+		// Switch to decreasing
+		sun.movingForward = false;
+	}
+	else if (sun.radiansTime <= 0.0) {
+		// Switch to increasing
+		sun.movingForward = true;
+	}
+
+	if (sun.movingForward) {
+		sun.radiansTime += 0.30;
+	}
+	else {
+		sun.radiansTime -= 0.30;
+	}
+	if (ImGui::SliderFloat("Time", &sun.radiansTime, 0.0f, 360.0f)) {
+		GLint sunRadiansTimeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "radiansTime");
+		glUniform1f(sunRadiansTimeLocation, sun.radiansTime);
+
+	}
 	ImGui::End();
-
-
+	if (modelLoaderNew.shaderProgram != nullptr)
+	{
+		GLint sunRadiansTimeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "radiansTime");
+		glUniform1f(sunRadiansTimeLocation, sun.radiansTime);
+	}
 
 		
 

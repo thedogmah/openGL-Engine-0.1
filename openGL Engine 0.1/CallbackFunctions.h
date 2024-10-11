@@ -2,7 +2,7 @@
 #include <glad/glad.h>
 
 #include <GLFW/glfw3.h>
-
+#include <glm/glm.hpp>
 #include <iostream>
 #include "SSBO.h"
 #include "Lights.h"
@@ -12,6 +12,19 @@
 int findCubeIndexByColour(const glm::vec3 color);
 //openGL call back function declaration
 
+glm::mat4 quaternionToMat4(const glm::quat& q);
+glm::mat4 quaternionToMat4(const glm::quat& q) {
+	// Compute the components of the quaternion
+	float x = q.x, y = q.y, z = q.z, w = q.w;
+
+	// Create a 4x4 rotation matrix
+	return glm::mat4(
+		1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y), 0,
+		2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x), 0,
+		2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y), 0,
+		0, 0, 0, 1
+	);
+}
 
 void GLAPIENTRY  debugCallback(GLenum source, GLenum type,
 	unsigned int id,
