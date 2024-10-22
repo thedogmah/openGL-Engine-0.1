@@ -26,10 +26,11 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "ImGuiVariables.h"
-
-
+#include <glm/gtx/compatibility.hpp> // for glm::lerp
+#include <glm/gtx/compatibility.hpp> // for glm::lerp
+#include <cstdlib> // for rand
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
-
+#include "CubeMap.h"
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\btBulletCollisionCommon.h"
 
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\LinearMath/btAlignedObjectArray.h"
@@ -69,7 +70,8 @@
 #include "waterTile.h"
 #include "waterFrameBuffer.h"
 #include "tinyfiledialogs.h"
-
+#include "Grid.h"
+char const* lTheOpenFileName;
 #include "ImGuiLogger.h"
 #include "ModelLoader.h"
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
@@ -83,9 +85,9 @@ std::string customFragmentShaderCode;
 std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down for changing them in mesh propertie imgui / 
  int selectedShaderID = 0; //initalisation for shader ID selected where loading meshes
  int selectedShaderID2 = 0;
-
-
-
+ struct World::lerpContainer;
+ World::lerpContainer lightSceneLerp;
+ WorldGrid* worldgridPtr = nullptr;
  std::map<std::string, FramebufferObject> framebuffers;
 
  std::vector<ObjImporter> models;
@@ -152,7 +154,7 @@ Character* character = nullptr;
 std::string GetShapeTypeString(int shapeType);
 void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor);
 void update();//Update character and world data / Also main function for other update functions
-
+void updateLightingData(std::vector<World::Lights>& sceneLights, SSBO lightingSSBO, GLuint shader); // function to update the UI interface with light types and position . uses ssbos
 void setimGUILook();//function for setting the default colours for imgui
 // Variables to hold user inputs for FBO creation
 static bool customViewEnabled = false;  // Checkbox state
@@ -334,6 +336,8 @@ void instanceCubeFunction(GLuint VAO, GLuint VBO, GLuint EBO);
 void showFBOControlPanel();
 void setupFramebuffer(const std::string& name, int width, int height);
 
+int main();
+void drawDebugLighting(std::vector<World::Lights>& sceneLights);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
@@ -530,7 +534,7 @@ int main()
 	}
 	int frameBufferWidth, frameBufferHeight;
 	glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
-	glViewport(200, 150, frameBufferWidth, frameBufferHeight);
+	glViewport(0, 0, frameBufferWidth, frameBufferHeight);
 
 	// resizes viewport based on automatic resize, passes parameters to the gl viewport
 
@@ -1027,7 +1031,7 @@ SetupImGuiStyle2();
 		std::cout << "OpenGL Error afterpolygon mode " << error << std::endl;
 
 	}
-	glClearColor(0.1, 0.3, 0.75, 0.0);
+	glClearColor(0.28, 0.2, 0.55, 0.0);
 	glEnable(GL_DEPTH_TEST);
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error after enabling depth test: " << error << std::endl;
@@ -1113,19 +1117,33 @@ SetupImGuiStyle2();
 	World::Lights sun;
 	World::Lights lamp1;
 	World::Lights stars;
-	sun.position = glm::vec3(2.0, 2.0, 1.0); // Example position, adjust as needed
-	sun.colour = glm::vec3(0.3, 0.1,0.3);   // Example color, adjust as needed
-	sun.strength = 0.5;    
+	World::Lights campfire;
+	World::Lights campfire2;
+	campfire.gpuData.isDirectional = 1.0;
+	campfire.gpuData.colour = glm::vec3(1.0, 0.0, 0.0);
+	campfire.gpuData.strength = 2;
+	campfire.gpuData.direction = glm::vec3(0.0, 1.0, 0.0);
+	campfire.gpuData.startingPosition = glm::vec3(2.0, 3.0, 2.0);;
+
+	campfire2.gpuData.isDirectional = 1.0;
+	campfire2.gpuData.colour = glm::vec3(1.0, 0.0, 0.0);
+	campfire2.gpuData.strength = 2;
+	campfire2.gpuData.direction = glm::vec3(1.0, 1.0, 0.0);
+	campfire2.gpuData.startingPosition = glm::vec3(2.0, 3.0, 2.0);;
+	campfire2.gpuData.position = glm::vec3(2.0, 3.0,2.0);
+	sun.gpuData.position = glm::vec3(2.0, 2.0, 1.0); // Example position, adjust as needed
+	sun.gpuData.colour = glm::vec3(0.3, 0.1,0.3);   // Example color, adjust as needed
+	sun.gpuData.strength = 0.22;
 	// Example strength, adjust as needed
-	sun.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
-	lamp1.position = glm::vec3(1.0, -3.0, 2.0); // Example position, adjust as needed
-	lamp1.colour = glm::vec3(1.0, 0.1, 0.0);   // Example color, adjust as needed
-	lamp1.strength =0.5;                 // Example strength, adjust as needed
-	lamp1.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
-	stars.position = glm::vec3(1.0, -3.0, 2.0); // Example position, adjust as needed
-	stars.colour = glm::vec3(1.0, 1.0, 0.0);   // Example color, adjust as needed
-	stars.strength = 0.5;
-	stars.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+	sun.gpuData.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+	lamp1.gpuData.position = glm::vec3(1.0, -3.0, 2.0); // Example position, adjust as needed
+	lamp1.gpuData.colour = glm::vec3(1.0, 0.1, 0.0);   // Example color, adjust as needed
+	lamp1.gpuData.strength =0.22;                 // Example strength, adjust as needed
+	lamp1.gpuData.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+	stars.gpuData.position = glm::vec3(1.0, -3.0, 2.0); // Example position, adjust as needed
+	stars.gpuData.colour = glm::vec3(1.0, 1.0, 0.0);   // Example color, adjust as needed
+	stars.gpuData.strength = 0.22;
+	stars.gpuData.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
 	World::Material material;
 	material.ambient = glm::vec3(0.2, 0.2, 0.2); // Example ambient color, adjust as needed
 	material.diffuse = glm::vec3(0.5, 0.5, 0.5); // Example diffuse color, adjust as needed
@@ -1133,18 +1151,28 @@ SetupImGuiStyle2();
 	material.shininess =1.0;             // Example shininess, adjust as needed
 	material.transparency = 0.75;
 
+
+	CubeMap skybox;
+	skybox.loadCubeMap();
 	// Get the location of the Material uniform in the shader program
 
-	sceneLights.push_back(sun);
-	sceneLights.push_back(stars);
-	sceneLights.push_back(lamp1);
-	
+	//sceneLights.push_back(sun);
+	//sceneLights.push_back(stars);
+	//sceneLights.push_back(lamp1);
+	sceneLights.push_back(campfire);
+	sceneLights.push_back(campfire2);
+	bool boolDebugLights = true;
 	//sceneLights.push_back(stars);
 	// Upload the sceneLights data to the shader
 	while ((error = glGetError()) != GL_NO_ERROR) {
 		std::cout << "OpenGL Error before binding ssbos: " << error << std::endl;
 	}
-	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
+	std::vector<World::LightGPUData> gpuLightsData(sceneLights.size());
+
+	for (size_t i = 0; i < sceneLights.size(); ++i) {
+		gpuLightsData[i] = sceneLights[i].gpuData;  // Extract only the GPU data
+	}
+	SSBO ssboLighting(0, gpuLightsData.data(), gpuLightsData.size() * sizeof(World::LightGPUData), GL_DYNAMIC_DRAW);
 	SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
 	
 	 cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
@@ -1158,7 +1186,7 @@ SetupImGuiStyle2();
 	World::Lights newLight;
 	glm::vec3 positionNL{ glm::vec3(0.1,0.1,0.1) };
 	glm::vec3 colourNL{ glm::vec3(0.0,1.0,0.5) };
-	float strengthNL{ 0.2 };
+	float strengthNL{ 0.16 };
 	float sceneExposure{ 0.5 };
 
 	//Generate 100 cube instances
@@ -1170,88 +1198,88 @@ SetupImGuiStyle2();
 	std::cout << "\nunsigned int:" << sizeof(unsigned int);
 	
 	rigidBodyVectorPtr = &rigidBodies;
-	//for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < 50; i++) {
 
-	//	glm::dvec3 instancePosition = glm::dvec3(glm::linearRand(glm::vec3(0.0f), glm::vec3(50.0f)));
-	//	glm::dvec3 instanceRotation = glm::linearRand(glm::vec3(-1.0f), glm::vec3(30.0f));
-	//	glm::dvec3 instanceScale = glm::linearRand(glm::vec3(1.0f), glm::vec3(1.0f));
-	//	glm::dmat4 modelMatrix(1.0f);
-	//	modelMatrix = glm::scale(modelMatrix, instanceScale);
-	//	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.x), glm::dvec3(1.0f, 0.0f, 0.0f));
-	//	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.y), glm::dvec3(0.0f, 1.0f, 0.0f));
-	//	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.z), glm::dvec3(0.0f, 0.0f, 1.0f));
-	//	
-	//	modelMatrix = glm::translate(modelMatrix, instancePosition);
-	//	// Create cube data
-	//	World::cubeInstance cube;
-	//	cube.modelMatrix = modelMatrix;
-	//	
-	//	// Create rigid body data
-	//	glm::dvec3 cubePosition = glm::dvec3(cube.modelMatrix[3]);
-	//	glm::vec3 scale = glm::vec3(cube.modelMatrix[0][0], cube.modelMatrix[1][1], cube.modelMatrix[2][2]);
+		glm::dvec3 instancePosition = glm::dvec3(glm::linearRand(glm::vec3(0.0f), glm::vec3(50.0f)));
+		glm::dvec3 instanceRotation = glm::linearRand(glm::vec3(-1.0f), glm::vec3(30.0f));
+		glm::dvec3 instanceScale = glm::linearRand(glm::vec3(1.0f), glm::vec3(1.0f));
+		glm::dmat4 modelMatrix(1.0f);
+		modelMatrix = glm::scale(modelMatrix, instanceScale);
+		modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.x), glm::dvec3(1.0f, 0.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.y), glm::dvec3(0.0f, 1.0f, 0.0f));
+		modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.z), glm::dvec3(0.0f, 0.0f, 1.0f));
+		
+		modelMatrix = glm::translate(modelMatrix, instancePosition);
+		// Create cube data
+		World::cubeInstance cube;
+		cube.modelMatrix = modelMatrix;
+		
+		// Create rigid body data
+		glm::dvec3 cubePosition = glm::dvec3(cube.modelMatrix[3]);
+		glm::vec3 scale = glm::vec3(cube.modelMatrix[0][0], cube.modelMatrix[1][1], cube.modelMatrix[2][2]);
 
-	//	btCollisionShape* boxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
+		btCollisionShape* boxShape = new btBoxShape(btVector3(scale.x * 0.5f, scale.y * 0.5f, scale.z * 0.5f));
 
-	//	btTransform startTransform;
-	//	startTransform.setIdentity();
-	//	startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
+		btTransform startTransform;
+		startTransform.setIdentity();
+		startTransform.setOrigin(btVector3(cubePosition.x, cubePosition.y, cubePosition.z));
 
-	//	btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
-	//	btRigidBody::btRigidBodyConstructionInfo rbInfo(1.0f, motionState, boxShape);
-	//	btRigidBody* rigidBody = new btRigidBody(rbInfo);
-	//	//cube.rigidBody = rigidBody;
-	//	dynamicsWorld->addRigidBody(rigidBody);
-	//	rigidBody->setUserPointer(reinterpret_cast<void*>(cube.ID));
+		btDefaultMotionState* motionState = new btDefaultMotionState(startTransform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(1.0f, motionState, boxShape);
+		btRigidBody* rigidBody = new btRigidBody(rbInfo);
+		//cube.rigidBody = rigidBody;
+		dynamicsWorld->addRigidBody(rigidBody);
+		rigidBody->setUserPointer(reinterpret_cast<void*>(cube.ID));
 
-	//	rigidBodies.push_back(rigidBody); // St
-	//	cubesSSBOVector.push_back(cube);
+		rigidBodies.push_back(rigidBody); // St
+		cubesSSBOVector.push_back(cube);
 
-	//}
+	}
 
-	//btScalar cubeSideLength = 10.0f;
+	btScalar cubeSideLength = 10.0f;
 
-	//// Create a collision shape for the cube
-	//btCollisionShape* cubeShape = new btBoxShape(btVector3(cubeSideLength * 0.5f, cubeSideLength * 0.5f, cubeSideLength * 0.5f));
-	//
-	//// Define random position, rotation, and scale for the cube
-	//glm::vec3 instancePosition = glm::linearRand(glm::vec3(-33.0f), glm::vec3(33.0f));
-	//glm::vec3 instanceRotation = glm::linearRand(glm::vec3(-180.0f), glm::vec3(180.0f));
-	//glm::vec3 instanceScale = glm::linearRand(glm::vec3(1.0f), glm::vec3(1.0f));
+	// Create a collision shape for the cube
+	btCollisionShape* cubeShape = new btBoxShape(btVector3(cubeSideLength * 0.5f, cubeSideLength * 0.5f, cubeSideLength * 0.5f));
+	
+	// Define random position, rotation, and scale for the cube
+	glm::vec3 instancePosition = glm::linearRand(glm::vec3(-33.0f), glm::vec3(33.0f));
+	glm::vec3 instanceRotation = glm::linearRand(glm::vec3(-180.0f), glm::vec3(180.0f));
+	glm::vec3 instanceScale = glm::linearRand(glm::vec3(1.0f), glm::vec3(1.0f));
 
-	//// Create the model matrix for the cube
-	//glm::mat4 modelMatrix(1.0f);
-	//modelMatrix = glm::translate(modelMatrix, instancePosition);
-	//modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-	//modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-	//modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-	//modelMatrix = glm::scale(modelMatrix, instanceScale);
+	// Create the model matrix for the cube
+	glm::mat4 modelMatrix(1.0f);
+	modelMatrix = glm::translate(modelMatrix, instancePosition);
+	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelMatrix = glm::rotate(modelMatrix, glm::radians(instanceRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+	modelMatrix = glm::scale(modelMatrix, instanceScale);
 
-	//// Set the initial transformation for the cube
-	//btTransform cubeTransform;
-	//cubeTransform.setIdentity();
-	//cubeTransform.setOrigin(btVector3(instancePosition.x, instancePosition.y, instancePosition.z));
+	// Set the initial transformation for the cube
+	btTransform cubeTransform;
+	cubeTransform.setIdentity();
+	cubeTransform.setOrigin(btVector3(instancePosition.x, instancePosition.y, instancePosition.z));
 
-	//// Create rigid body for the cube
-	//btScalar cubeMass = 1.0f;
-	//bool isCubeDynamic = (cubeMass != 0.f);
+	// Create rigid body for the cube
+	btScalar cubeMass = 1.0f;
+	bool isCubeDynamic = (cubeMass != 0.f);
 
-	//btVector3 cubeLocalInertia(0, 0, 0);
-	//if (isCubeDynamic)
-	//	cubeShape->calculateLocalInertia(cubeMass, cubeLocalInertia);
+	btVector3 cubeLocalInertia(0, 0, 0);
+	if (isCubeDynamic)
+		cubeShape->calculateLocalInertia(cubeMass, cubeLocalInertia);
 
-	//btDefaultMotionState* cubeMotionState = new btDefaultMotionState(cubeTransform);
-	//btRigidBody::btRigidBodyConstructionInfo cubeRbInfo(cubeMass, cubeMotionState, cubeShape, cubeLocalInertia);
-	//btRigidBody* cubeBody = new btRigidBody(cubeRbInfo);
+	btDefaultMotionState* cubeMotionState = new btDefaultMotionState(cubeTransform);
+	btRigidBody::btRigidBodyConstructionInfo cubeRbInfo(cubeMass, cubeMotionState, cubeShape, cubeLocalInertia);
+	btRigidBody* cubeBody = new btRigidBody(cubeRbInfo);
 
-	//// Add the cube rigid body to the dynamics world
-	//dynamicsWorld->addRigidBody(cubeBody);
-	//collisionShapes.push_back(cubeShape);
+	// Add the cube rigid body to the dynamics world
+	dynamicsWorld->addRigidBody(cubeBody);
+	collisionShapes.push_back(cubeShape);
 
-	//// Create cube data
-	//World::cubeInstance cube;
-	//cube.modelMatrix = modelMatrix;
-	/////cubesSSBOVector.push_back(cube);
-	//
+	// Create cube data
+	World::cubeInstance cube;
+	cube.modelMatrix = modelMatrix;
+	cubesSSBOVector.push_back(cube);
+	
 	//model matrix for unique ground cube to pass to vertex shader if statement
 	
 	modelMatrixLocation = glGetUniformLocation(shaderProgram, "modelUniform");
@@ -1308,6 +1336,8 @@ SetupImGuiStyle2();
 	waterFrameBuffers waterFBOS; 
 	globalWaterShader = &watershade.ID;
 
+
+
 	WaterTile watertile(0, 0, -1);
 	WaterTile watertile2(-20, 0,-1); 
 	WaterTile watertile3(25, 50, -1);
@@ -1332,8 +1362,8 @@ waterTileVector.push_back(watertile3);
 	waterRendererProgram.reflectionTextureID = waterFBOS.getReflectionTexture();
 	waterRendererProgram.refractionTextureID = waterFBOS.getRefractionTexture();
 	camera.setViewMatrix();
-
-
+	WorldGrid worldgrid;
+	worldgridPtr = &worldgrid;
 	//generate fbos for imgui rendering world in window
 
 	glGenFramebuffers(1, &terrain.eng_fbo);
@@ -1462,7 +1492,7 @@ waterTileVector.push_back(watertile3);
 			}
 		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(200, 150, window_width, window_height);
+		glViewport(0, 0, window_width, window_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1474,27 +1504,50 @@ waterTileVector.push_back(watertile3);
 		// Set the viewPos uniform to the camera's position
 		glm::vec3 cameraPosition = camera.mPosition; // Change this to your camera's position
 		glUniform3fv(viewPosLocation, 1, glm::value_ptr(cameraPosition));
+		std::vector<std::vector<glm::vec3>> lightPaths(sceneLights.size());
 
-		float time = glfwGetTime(); // Get current time in seconds
-
-		glm::vec3 center(0.0f, 5.0f, 0.0f); // Center point of the circular motion, adjusted to y-axis
-		float radius = 10.0f; // Increased radius of the circular path
-		float rotationSpeed = 1.0f; // Increased rotation speed in radians per second
-
-		for (int i = 0; i < sceneLights.size(); i++) {
-			glm::vec3 initialPosition = sceneLights[i].startingPosition;
-
-			float angle = rotationSpeed * time + i * (2.0f * glm::pi<float>() / sceneLights.size());
-
-			float x = center.x + radius * glm::cos(angle);
-			float y = center.y + radius * glm::sin(angle); // Using y-axis for movement
-			float z = center.z + radius * glm::sin(angle);
-
-			glm::vec3 newPosition(x, y, z);
-			sceneLights[i].position = newPosition;
+		for (auto& light : sceneLights) {
+			if (light.curvePositions.empty() && light.gpuData.isDirectional == 0.0) { // Ensure we only generate if it's empty
+				for (int i = 0; i < 10; ++i) {
+					float x = static_cast<float>(rand() % 110) - 60; // Random x within [-50, 50]
+					float y = static_cast<float>(rand() % 40) + 11;   // Random y within [5, 55]
+					float z = static_cast<float>(rand() % 110) - 60; // Random z within [-50, 50]
+					light.curvePositions.push_back(glm::vec3(x, y, z)); // Add point to the vector
+				}
+			}
+			if (light.gpuData.isDirectional == 1.0)
+			{
+				light.curvePositions.clear();
+			}
 		}
 
+		// Persistent state for movement for all lights
+		for (auto& light : sceneLights) {
+			// Increment lerp time
+			light.lightLerp.currentLerpTime += deltaTime * light.lightLerp.speedMultiplier;
 
+			if (light.curvePositions.size() < 2) continue; // Ensure we have enough points
+
+			// Check if we need to move to the next point
+			if (light.lightLerp.currentLerpTime >= light.lightLerp.moveDuration) {
+				light.lightLerp.currentLerpTime = 0.0f; // Reset lerp time
+				light.lightLerp.currentPoint = (light.lightLerp.currentPoint + 1) % light.curvePositions.size(); // Move to next point
+			}
+
+
+			// Get the next point index
+			int nextPoint = (light.lightLerp.currentPoint + 1) % light.curvePositions.size();
+
+			// Calculate interpolation factor (t)
+			float t = light.lightLerp.currentLerpTime / light.lightLerp.moveDuration;
+
+			// Lerp between current and next points and update the GPU data position
+			light.gpuData.position = glm::lerp(light.curvePositions[light.lightLerp.currentPoint],
+				light.curvePositions[nextPoint], t);
+		}
+		for (size_t i = 0; i < sceneLights.size(); ++i) {
+			gpuLightsData[i] = sceneLights[i].gpuData;  // Extract only the GPU data
+		}
 		//float currentTime = glfwGetTime(); // Get current time in seconds
 		//
 		//float angle = rotationSpeed * time;
@@ -1504,7 +1557,7 @@ waterTileVector.push_back(watertile3);
 
 		//camera.mPosition = glm::vec3(cameraX, camera.mPosition.y, cameraZ);
 		//camera.setViewMatrix();
-			ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+		ssboLighting.updateData(gpuLightsData.data(), gpuLightsData.size() * sizeof(World::LightGPUData));
 
 		glUseProgram(shaderProgram);
 		camera.update();
@@ -1535,6 +1588,7 @@ waterTileVector.push_back(watertile3);
 		//create variable names for new light object
 		if (boolDrawUI) {
 			 drawUI();
+			
 		}
 
 		int w, h;
@@ -1750,7 +1804,7 @@ waterTileVector.push_back(watertile3);
 			//}
 
 			// End the ImGui window
-			//ImGui::End();
+			ImGui::End();
 	//	This code iterates through all the collision objects in your dynamics world, checks if each object is a rigid body, and prints relevant information like position, linear velocity, and angular velocity to the console.If an object is not a rigid body, it prints "Unknown Collision Object Type." You can customize the output and add more data based on your specific needs.
 
 
@@ -1761,35 +1815,71 @@ waterTileVector.push_back(watertile3);
 
 		if (drawIMGUI) {
 			ImGui::Begin("Add Lighting");
-			if (ImGui::SliderFloat("Exposure", &sceneExposure, 0.01, 1.0f))
-			{
+			ImGui::Selectable("Draw Debug Lights", &boolDebugLights);
+			// Control for scene exposure
+			if (ImGui::SliderFloat("Exposure", &sceneExposure, 0.01f, 1.0f)) {
 				int sceneExposureLocation = glGetUniformLocation(shaderProgram, "exposure");
 				glUniform1f(sceneExposureLocation, sceneExposure);
 			}
+
 			ImGui::Text("Add Light");
-			ImGui::SliderFloat3("Position", glm::value_ptr(positionNL), -10.0f, 10.0f);
-			ImGui::SliderFloat("Strength", &strengthNL, 0.1f, 1.0f);
-			ImGui::ColorEdit3("Colour", glm::value_ptr(colourNL));
-			if (ImGui::Button("Add Light to Scene"))
-			{
-				glUseProgram(shaderProgram);
-				newLight.position = positionNL;
-				newLight.colour = colourNL;
-				newLight.strength = strengthNL;
-				newLight.pad1 = 0.0f;
-				newLight.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+			ImGui::SliderFloat3("Position", glm::value_ptr(positionNL), -40.0f, 40.0f); // Control for new light position
+			ImGui::SliderFloat("Strength", &strengthNL, 0.1f, 5.0f);  // Control for new light strength
+			ImGui::ColorEdit3("Colour", glm::value_ptr(colourNL));    // Control for new light color
+
+			// Adding a new light to the scene
+			if (ImGui::Button("Add Light to Scene")) {
+				glUseProgram(shaderProgram);  // Use the shader program before updating uniforms
+
+				// Fill the new light's GPU data
+				newLight.gpuData.position = positionNL;
+				newLight.gpuData.colour = colourNL;
+				newLight.gpuData.strength = strengthNL;
+				newLight.gpuData.startingPosition = glm::linearRand(glm::vec3(-5.0f), glm::vec3(5.0f));
+
+				// Add the new light to the sceneLights array
 				sceneLights.push_back(newLight);
+				 gpuLightsData.push_back(newLight.gpuData); // Add the new light's GPU data
+
+				// Update the shader uniform for the array size
 				int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
 				glUniform1i(arraySizeLocation, sceneLights.size());
 
-				ssboLighting.Bind();
-				ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+				// Create a container to store only the GPU data
+				std::vector<World::LightGPUData> gpuLightsData(sceneLights.size());
+				for (size_t i = 0; i < sceneLights.size(); ++i) {
+					gpuLightsData[i] = sceneLights[i].gpuData;  // Copy only the GPU data
+				}
 
+				// Use the other shader 
+				if (modelLoaderNew.modelNewVector.size() > 0) {
+					glUseProgram(modelLoaderNew.shaderProgram->ID);
+
+					// Bind and update the SSBO with only the LightGPUData
+					ssboLighting.Bind();
+					ssboLighting.updateData(gpuLightsData.data(), gpuLightsData.size() * sizeof(World::LightGPUData));
+
+					// Update the arraySize in the second shader program as well
+					arraySizeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "arraySize");
+					glUniform1i(arraySizeLocation, sceneLights.size());
+
+					// Switch back to the original shader program
+					glUseProgram(shaderProgram);
+				}
 			}
-			if (ImGui::Button("Remove Last Light"))
-			{
-				if (sceneLights.size() > 0)
+
+			// Option to remove the last light in the scene
+			if (ImGui::Button("Remove Last Light")) {
+				if (!sceneLights.empty()) {
 					sceneLights.pop_back();
+					gpuLightsData.pop_back(); // Add the new light's GPU data
+
+					//for (size_t i = 0; i < sceneLights.size(); ++i) {
+					//	gpuLightsData[i] = sceneLights[i].gpuData;  // Extract only the GPU data
+					//}
+					ssboLighting.updateData(gpuLightsData.data(), gpuLightsData.size() * sizeof(World::LightGPUData));
+
+				}
 			}
 
 			ImGui::End();
@@ -1800,70 +1890,59 @@ waterTileVector.push_back(watertile3);
 
 
 			for (auto& source : sceneLights) {
-				// Sun position sliderss AD
+    // Sun position sliders
+    std::string name = "Sun X " + std::to_string(lightname);
+    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.position.x, -60.0f, 60.0f)) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
+    
+    name = "Sun Y " + std::to_string(lightname);
+    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.position.y, -60.0f, 60.0f)) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
 
-				std::string name = "Sun X " + std::to_string(lightname);
-				if (ImGui::SliderFloat(name.c_str(), &source.position.x, -10.0f, 10.0f))
-				{
-					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-					glUniform1i(arraySizeLocation, sceneLights.size());
-					std::cout << "\Scene Lights Size(if statement): " << sceneLights.size();
+    name = "Sun Z " + std::to_string(lightname);
+    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.position.z, -60.0f, 60.0f)) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
 
-					ssboLighting.Bind();
-					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
+    name = "Strength " + std::to_string(lightname);
+    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.strength, 0.1f, 3.0f)) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
 
-				}
-				name = "Sun Y " + std::to_string(lightname);
-				if (ImGui::SliderFloat(name.c_str(), &source.position.y, -10.0f, 10.0f)) {
-					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-					glUniform1i(arraySizeLocation, sceneLights.size());
-					ssboLighting.Bind();
-					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-				}
-				name = "Sun Z " + std::to_string(lightname);
-				if (ImGui::SliderFloat(name.c_str(), &source.position.z, -10.0f, 10.0f)) {
-					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-					glUniform1i(arraySizeLocation, sceneLights.size());
-					ssboLighting.Bind();
-					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-				}
-				name = "Strength " + std::to_string(lightname);
-				if (ImGui::SliderFloat(name.c_str(), &source.strength, 0.1f, 1.0f)) {
-					int arraySizeLocation = glGetUniformLocation(shaderProgram, "arraySize");
-					glUniform1i(arraySizeLocation, sceneLights.size());
-					ssboLighting.Bind();
-					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-				}
+    name = "Sun Color " + std::to_string(lightname);
+    if (ImGui::ColorEdit3(name.c_str(), glm::value_ptr(source.gpuData.colour))) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
 
-				name = "Transparency " + std::to_string(lightname);
-				if (ImGui::SliderFloat(name.c_str(), &material.transparency, 0.05f, 1.0f)) {
-					ssboMaterial.Bind();
-					ssboMaterial.updateData(&material, sizeof(World::Material));
-				}
+    // Option to switch between directional and non-directional light
+    name = "Directional Light " + std::to_string(lightname);
+    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.isDirectional, 0.0f, 1.0f)) {
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+    }
 
-				name = "Diffuse " + std::to_string(lightname);
-				if (ImGui::SliderFloat3(name.c_str(), &material.diffuse.x, 0.05f, 1.0f)) {
-					ssboMaterial.Bind();
-					ssboMaterial.updateData(&material, sizeof(World::Material));
-				}
+    // If the light is directional, provide sliders to control its direction
+    if (source.gpuData.isDirectional == 1.0f) {
+        name = "Direction X " + std::to_string(lightname);
+        if (ImGui::SliderFloat(name.c_str(), &source.gpuData.direction.x, -1.0f, 1.0f)) {
+			updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+        }
 
-				name = "Ambient " + std::to_string(lightname);
-				if (ImGui::SliderFloat3(name.c_str(), &material.ambient.x, 0.05f, 1.0f)) {
-					ssboMaterial.Bind();
-					ssboMaterial.updateData(&material, sizeof(World::Material));
-				}
-				// Sun color sliders
+        name = "Direction Y " + std::to_string(lightname);
+        if (ImGui::SliderFloat(name.c_str(), &source.gpuData.direction.y, -1.0f, 1.0f)) {
+			updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+        }
 
-				name = "Sun Color " + std::to_string(lightname);
-				if (ImGui::ColorEdit3(name.c_str(), glm::value_ptr(source.colour))) {
+        name = "Direction Z " + std::to_string(lightname);
+        if (ImGui::SliderFloat(name.c_str(), &source.gpuData.direction.z, -1.0f, 1.0f)) {
+            updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+        }
+    }
 
+    lightname++;
+}
 
-					ssboLighting.Bind();
-					ssboLighting.updateData(sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size());
-				}
-
-				lightname++;
-			}
 
 
 
@@ -1881,47 +1960,65 @@ waterTileVector.push_back(watertile3);
 		dynamicsWorld->stepSimulation(deltaTime, 1);
 
 		// Update cube positions based on physics simulation
-	//	if (cubesSSBOVector.size() > 0)
-		{size_t numCubes = cubesSSBOVector.size();
-		// Declare it once outside the loop
-			if (numCubes >0)
-			for (int i = 0; i < numCubes; i++) {
-				btTransform trans;
-				cubesSSBOVector[i].rigidBody->getMotionState()->getWorldTransform(trans);
+		//if (cubesSSBOVector.size() > 0) {
+		//	size_t numCubes = cubesSSBOVector.size();
 
-				// Extract translation
-				glm::dvec3 newPosition(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
+		//	// Ensure there are cubes to process
+		//	if (numCubes > 0) {
+		//		for (int i = 0; i < numCubes; i++) {
+		//			// Check if the rigid body is valid
+		//			if (cubesSSBOVector[i].rigidBody) {
+		//				btTransform trans;
+		//				cubesSSBOVector[i].rigidBody->getMotionState()->getWorldTransform(trans);
 
-				// Extract rotation (as a quaternion)
-				btQuaternion rotation = trans.getRotation();
-				glm::quat newRotation(rotation.w(), rotation.x(), rotation.y(), rotation.z());
+		//				// Extract translation
+		//				glm::dvec3 newPosition(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
 
-				// Extract scale from the collision shape
-				btVector3 collisionShapeScale = rigidBodies[i]->getCollisionShape()->getLocalScaling();
-				glm::vec3 newScale(collisionShapeScale.x(), collisionShapeScale.y(), collisionShapeScale.z());
+		//				// Extract rotation (as a quaternion)
+		//				btQuaternion rotation = trans.getRotation();
+		//				glm::quat newRotation(rotation.w(), rotation.x(), rotation.y(), rotation.z());
 
-				// Create translation matrix
-				glm::mat4 translationMatrix = glm::translate(glm::dmat4(1.0f), newPosition);
+		//				// Check if the corresponding rigid body exists in rigidBodies
+		//				if (i < rigidBodies.size() && rigidBodies[i]) {
+		//					// Extract scale from the collision shape
+		//					btVector3 collisionShapeScale = rigidBodies[i]->getCollisionShape()->getLocalScaling();
+		//					glm::vec3 newScale(collisionShapeScale.x(), collisionShapeScale.y(), collisionShapeScale.z());
 
-				// Create rotation matrix
-				glm::mat4 rotationMatrix = glm::mat4_cast(newRotation);
+		//					// Create translation matrix
+		//					glm::mat4 translationMatrix = glm::translate(glm::dmat4(1.0f), newPosition);
 
-				// Create scale matrix
-				glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(1.0, 1.0, 1.0));
+		//					// Create rotation matrix
+		//					glm::mat4 rotationMatrix = glm::mat4_cast(newRotation);
 
-				// Combine translation, rotation, and scale
-				cubesSSBOVector[i].modelMatrix = translationMatrix * rotationMatrix * scaleMatrix;
-			}
-			else {
-				rigidBodies.clear();
-				cubesSSBOVector.clear();
-				//cubeSSBO.clearSSBO();
+		//					// Create scale matrix
+		//					glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), newScale); // Use newScale instead of (1.0, 1.0, 1.0)
 
-			}
-			cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
-		}
+		//					// Combine translation, rotation, and scale
+		//					cubesSSBOVector[i].modelMatrix = translationMatrix * rotationMatrix * scaleMatrix;
+		//				}
+		//				else {
+		//					// Log a warning or error if the corresponding rigid body is not found
+		//					std::cerr << "Warning: Rigid body at index " << i << " is nullptr or out of bounds." << std::endl;
+		//				}
+		//			}
+		//			else {
+		//				// Log a warning if the rigid body in cubesSSBOVector is nullptr
+		//				std::cerr << "Warning: cubesSSBOVector[" << i << "].rigidBody is nullptr." << std::endl;
+		//			}
+		//		}
+		//	}
+		//	else {
+		//		// If no cubes are present, clear the rigid bodies and cubesSSBOVector
+		//		rigidBodies.clear();
+		//		cubesSSBOVector.clear();
+		//		// cubeSSBO.clearSSBO(); // Uncomment if necessary
+		//	}
+		//	// Update SSBO data
+		//	cubeSSBO.updateData(cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size());
+		//}
 
-
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		skybox.render(camera.getViewMatrix(), projection); // Use the CubeBox's render function
 
 		
 		// Render ImGui UI
@@ -1937,7 +2034,7 @@ waterTileVector.push_back(watertile3);
 	//	glViewport(0, 0, window_width, window_height);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		//cubeSSBOptr->Bind();
+		cubeSSBOptr->Bind();
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeSSBOptr->ssboID);
 		glUniform1i(isInstancedBool, 1);
 	glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, 5000);
@@ -1948,11 +2045,11 @@ waterTileVector.push_back(watertile3);
 	}
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
-		glUniform1i(isInstancedBool,0);
-		
+	
 		//cubeTest.draw();
 		
-	
+		glUniform1i(isInstancedBool, 0);
+
 		
 		mousePickingValue = 0;
 		mousePickingUniformLocation = glGetUniformLocation(shaderProgram, "mousePicking");
@@ -1975,7 +2072,7 @@ waterTileVector.push_back(watertile3);
 		cubeSSBOptr->Unbind();
 		glUseProgram(shaderProgram);
 		glUniform1i(isInstancedBool, 0);
-		////cubeTest.draw();
+	//	cubeTest.draw();
 		glUniform1i(isStencilled, 0);
 		glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 		glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -2063,156 +2160,198 @@ waterTileVector.push_back(watertile3);
 
 		if (terrain.ready)
 		{
-
+				glViewport(0, 0, window_width, window_height);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			waterRendererProgram.render(waterTileVector, camera);
 			glUseProgram(debugger.shaderProgram);
-			waterFBOS.bindReflectionFrameBuffer();
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glEnable(GL_CLIP_DISTANCE0);
-
-			GLint clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
 			GLint view = glGetUniformLocation(debugger.shaderProgram, "view");
-			glUniform4f(clipPlaneLocation, 0.0f, 1.0f, 0.0f, 1.0f); // Assuming the plane is along the y-axis
-			camera.flipPitch();
-			//camera.setViewMatrix();
 			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-			//	printMatrix(camera.mViewMatrix, "first iteration ");
-			instancedInt = 0;
-			glUseProgram(shaderProgram);
-			glUniform1i(isInstancedBool, 1);
-			//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			for (auto& each : SSBOVector)
-			{
-				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
-				instancedInt++;
-			}
+
+			projectionLoc = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+			//	// Reset the draw buffers to the default (back) buffer
+			
+			terrain.render();
+		
+			GLint clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
+			 view = glGetUniformLocation(debugger.shaderProgram, "view");
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+
+	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 			waterFBOS.bindReflectionFrameBuffer();
-			instancedInt = 0;
+			
+			glEnable(GL_CLIP_DISTANCE0);
+	//	glUseProgram(debugger.shaderProgram);
+			//GLint clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
+		//	//GLint view = glGetUniformLocation(debugger.shaderProgram, "view");
+		glUniform4f(clipPlaneLocation, 0.0f, 1.0f, 0.0f, 1.0f); // Assuming the plane is along the y-axis
+			camera.flipPitch();
+			camera.setViewMatrix();//send new view presumably for flipped camera
+			glUseProgram(debugger.shaderProgram);
+			 view = glGetUniformLocation(debugger.shaderProgram, "view");
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+
+			projectionLoc = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+		//	//	printMatrix(camera.mViewMatrix, "first iteration ");
+	//	instancedInt = 0;
+		//glUseProgram(shaderProgram);
+		//glUniform1i(isInstancedBool, 0);
+		//	//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//	/*for (auto& each : SSBOVector)
+		//	{
+		//		instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
+		//		instancedInt++;
+		//	}*/
+		//	waterFBOS.bindReflectionFrameBuffer();
+		////	instancedInt = 0;
 			glUseProgram(debugger.shaderProgram);
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "GL error: " << error << std::endl;
-
+				std::string err = "Gl Error in main render terrain function main.cpp" + std::to_string(error);
+				logger.AddLog(err, ImGuiLogger::LogType::OpenGL);
 			}
 
-			//	glUniform1i(isInstancedBool, 0);
+		//	//	glUniform1i(isInstancedBool, 0);
+		//	//glUseProgram(debugger.shaderProgram);
+		//	waterFBOS.bindReflectionFrameBuffer();
+					watershade.setMatrixUniform(debugger.shaderProgram, camera.mViewMatrix);
 			glUseProgram(debugger.shaderProgram);
-			waterFBOS.bindReflectionFrameBuffer();
-			//		watershade.setMatrixUniform(debugger.shaderProgram, camera.mViewMatrix);
+			
+			 view = glGetUniformLocation(debugger.shaderProgram, "view");
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 
-					//RENDER TERRAIN FOR REFLECTION FBO
-			terrain.render();
-			glUseProgram(debugger.shaderProgram);
-			ImGui::Begin("screenshot fbo");
+			projectionLoc = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+
+		//			//RENDER TERRAIN FOR REFLECTION FBO
+		terrain.render();
+		//	glUseProgram(debugger.shaderProgram);
+		//	//ImGui::Begin("screenshot fbo");
 
 
 			waterFBOS.bindRefractionFrameBuffer();
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			camera.flipPitch();
-			//	camera.setViewMatrix();
+				camera.setViewMatrix();
 			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 
 			clipPlaneLocation = glGetUniformLocation(debugger.shaderProgram, "plane");
 			glUniform4f(clipPlaneLocation, 0.0f, -1.0f, 0.0f, 0.0f); // Assuming the plane is along the y-axis
 
-			instancedInt = 0;
-			glUseProgram(shaderProgram);
-			glUniform1i(isInstancedBool, 1);
-			//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			for (auto& each : SSBOVector)
-			{
-				instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
-				instancedInt++;
-			}
-			waterFBOS.bindRefractionFrameBuffer();
-			//	glUniform1i(isInstancedBool, 0);
-			glUseProgram(debugger.shaderProgram);
-			waterFBOS.bindRefractionFrameBuffer();
-			terrain.render();
-			glUseProgram(debugger.shaderProgram);
-			waterFBOS.unbindCurrentFrameBuffer();
+		//	instancedInt = 0;
+		//	glUseProgram(shaderProgram);
+		//	//glUniform1i(isInstancedBool, 1);
+		//	////	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//	//for (auto& each : SSBOVector)
+		//	//{
+		//	//	instancedMeshVector[instancedInt]->renderInstance(shaderProgram, each->ssboID, each->instanceAmount);
+		//	//	instancedInt++;
+		//	//}
+		// 
+		//	//waterFBOS.bindRefractionFrameBuffer();
+		//	//	glUniform1i(isInstancedBool, 0);
 			glDisable(GL_CLIP_DISTANCE0);
 
-
-			//	CC("before loading view in render", "debug");
+			
 			glUseProgram(debugger.shaderProgram);
-			terrain.render();
-			glUseProgram(debugger.shaderProgram);
-			//Uncomment to see the FBOs for the reflection and refractions of the water 
-			//uimanager->renderUI();
-
-
-			GLint currentFramebuffer;
-			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
-			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-
-			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-				std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
-			}
-			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-			GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT1 };
-			glDrawBuffers(1, drawBuffers);
-			glUseProgram(debugger.shaderProgram);
+			 view = glGetUniformLocation(debugger.shaderProgram, "view");
 			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-			GLint projectionLocation = glGetUniformLocation(debugger.shaderProgram, "projection");
-			glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
 
-			GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
-			glUniform1i(editModeLocation, terrainPickingSwitch);
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-			}
+			projectionLoc = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+		//	waterFBOS.bindRefractionFrameBuffer();
 			terrain.render();
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-			}
-			/*	GLenum defaultDrawBuffer = GL_BACK;
-				glDrawBuffer(defaultDrawBuffer);
-				glReadBuffer(defaultDrawBuffer);*/
-				//SEEMS TO BE an error when switching buffers, lets debug with this:
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-			}
-
-			//lets see if we still error once we have terrain setup and use the fbo
-			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-			}
-			glUseProgram(debugger.shaderProgram);
-			terrain.terrainEditUI(window);
-
-			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-			std::cout << "\ncurrent frame buffer after switching:" << currentFramebuffer;
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error: " << error << std::endl;
-			}
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-			// Reset the draw buffers to the default (back) buffer
-
-			waterRendererProgram.render(waterTileVector, camera);
-
-			 
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			showFBOControlPanel();
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//	glUseProgram(debugger.shaderProgram);
+		//	waterFBOS.unbindCurrentFrameBuffer();
 		
+
+		//	//	CC("before loading view in render", "debug");
+		//	glUseProgram(debugger.shaderProgram);
+		//	//terrain.render();
+		//	glUseProgram(debugger.shaderProgram);
+		//	//Uncomment to see the FBOs for the reflection and refractions of the water 
+		//	uimanager->renderUI();
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//	glUseProgram(debugger.shaderProgram);
+		//	terrain.render();
+		//	GLint currentFramebuffer;
+		//	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+		//	std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
+		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+
+		//	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		//		std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
+		//	}
+		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+		//	GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT1 };
+		//	glDrawBuffers(1, drawBuffers);
+		//	glUseProgram(debugger.shaderProgram);
+		//	glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		//	GLint projectionLocation = glGetUniformLocation(debugger.shaderProgram, "projection");
+		//	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+
+		//	GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+		//	glUniform1i(editModeLocation, terrainPickingSwitch);
+		//	while ((error = glGetError()) != GL_NO_ERROR) {
+		//		std::cout << "OpenGL Error: " << error << std::endl;
+		//	}
+		//	terrain.render();//rendering terrain for displaying edit mode
+		//	while ((error = glGetError()) != GL_NO_ERROR) {
+		//		std::cout << "OpenGL Error: " << error << std::endl;
+		//	}
+		//	/*	GLenum defaultDrawBuffer = GL_BACK;
+		//		glDrawBuffer(defaultDrawBuffer);
+		//		glReadBuffer(defaultDrawBuffer);*/
+		//		//SEEMS TO BE an error when switching buffers, lets debug with this:
+		//	while ((error = glGetError()) != GL_NO_ERROR) {
+		//		std::cout << "OpenGL Error: " << error << std::endl;
+		//	}
+
+		//	//lets see if we still error once we have terrain setup and use the fbo
+		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+		//	while ((error = glGetError()) != GL_NO_ERROR) {
+		//		std::cout << "OpenGL Error: " << error << std::endl;
+		//	}
+		//	glUseProgram(debugger.shaderProgram);
+		//	terrain.terrainEditUI(window);
+
+		//	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+		//	std::cout << "\ncurrent frame buffer after switching:" << currentFramebuffer;
+		//	while ((error = glGetError()) != GL_NO_ERROR) {
+		//		std::cout << "OpenGL Error: " << error << std::endl;
+		//	}
+		
+
+		
+
+		//	 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			showFBOControlPanel();
+		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//
 
 			for (const auto& entry : framebuffers) {
 				const FramebufferObject& fboObj = entry.second;
 				drawFBOToScreen(fboObj.name, fboObj.texColorBuffer, fboObj.width, fboObj.height);
 			}
 
-			for (auto& model : models) {
-				//glViewport(0, 0, window_width, window_height);
-				model.draw(model.shaderProgram);
+		//	for (auto& model : models) {
+		//		//glViewport(0, 0, window_width, window_height);
+		//		model.draw(model.shaderProgram);
 
-				//lets just draw in one location as before, when it worked fine!!
-			}
-			
+		//		//lets just draw in one location as before, when it worked fine!!
+		//	}
+		//	
 		}
-		glUseProgram(shaderProgram);
+		//glUseProgram(shaderProgram);
 
 	
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2222,10 +2361,31 @@ waterTileVector.push_back(watertile3);
 		
 		//modelLoaderNew.showMaterialEditor(modelLoaderNew.modelNewVector, modelLoaderNew.activeModelIndex, modelLoaderNew.activeSubMeshIndex);
 		// Render the texture to an ImGui window
+		if (worldgrid.boolShowGrid)
+		{
+			worldgrid.draw(projection);
+		
+
+		}
+		
 		if (modelLoaderNew.modelNewVector.size() > 0) {
 			modelLoaderNew.Render(1);
+			//worldgrid.draw(projection);
+		
+			
 		}
-		logger.Draw("Debug Console", &logger.logWindowOpen);
+	
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		
+		if (drawIMGUI) {
+			logger.Draw("Debug Console", &logger.logWindowOpen);
+		}
+		if (boolDebugLights && modelLoaderNew.modelNewVector.size() > 0) {
+			drawDebugLighting(sceneLights);
+			glUseProgram(0);
+		}
+
+
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
 			 UIdrawn = false;
@@ -2267,6 +2427,25 @@ waterTileVector.push_back(watertile3);
 	
 }
 
+void drawDebugLighting(std::vector<World::Lights>& sceneLights)
+{
+	for (const auto& light : sceneLights) {
+		glUseProgram(modelLoaderNew.shaderProgram->ID);
+		Sphere lightSphere(2.0, 36, 18);
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), light.gpuData.position); // Create model matrix for the sphere
+		glUniform3fv(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "material.diffuseColor"), 1, glm::value_ptr(light.gpuData.colour)); // Pass light color
+		glUniform3fv(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "material.specularColor"), 1, glm::value_ptr(light.gpuData.colour)); // Pass light color
+		//glUniform3fv(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "material.emissiveColor"), 1, glm::value_ptr(light.colour)); // Pass light color
+
+		glUniformMatrix4fv(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix())); // Set model matrix
+
+		glUniformMatrix4fv(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "model"), 1, GL_FALSE, glm::value_ptr(model)); // Set model matrix
+		glUniform1f(glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "material.transparency"), 0.3f); // Pass transparency
+
+		lightSphere.draw(); // Draw the sphere at the light's position
+	}
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	// Update the viewport to match the new window size
 	GLenum error;
@@ -2281,7 +2460,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	window_width = framebufferWidth; // Update your global width
 	window_height = framebufferHeight; // Update your global height
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-	glViewport(200, 150, width, height);
+	glViewport(0, 0, width, height);
 	std::cout << "\ncolorFBO buffer ID is: " << colorFBO << "\n";
 	// Update any framebuffer attachments that depend on window size
 	
@@ -2323,7 +2502,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
 
 // Set viewport
-glViewport(200, 150, width, height);
+glViewport(0, 0, width, height);
 
 
 // Bind texture for GL_COLOR_ATTACHMENT0 (assuming colorTexture is defined somewhere)
@@ -2399,9 +2578,9 @@ void drawUI()
 	if (drawIMGUI) {
 
 
-		
+
 		// Declare the uniform location in your rendering code
-		
+
 		// ...
 
 		// In your rendering loop
@@ -2635,106 +2814,107 @@ void drawUI()
 	//	ImGui::End();
 
 		//
-	ImGui::Begin("Create SSBO for Mesh");
+	if (drawIMGUI) {
+		ImGui::Begin("Create SSBO for Mesh");
 
-	ImGui::InputText("Mesh Name", &meshNameBufferInstanced[0], 10000);
-	ImGui::InputInt("Mesh Count", &meshCountInstanced);
-	ImGui::InputFloat("Scale Min", &scalemin);
-	ImGui::InputFloat("Max", &scalemax);
-	ImGui::Text("Import Mesh onto landscape (Y Axis)");
-	if (ImGui::Button("Create SSBO For Terrain Y")) {
+		ImGui::InputText("Mesh Name", &meshNameBufferInstanced[0], 10000);
+		ImGui::InputInt("Mesh Count", &meshCountInstanced);
+		ImGui::InputFloat("Scale Min", &scalemin);
+		ImGui::InputFloat("Max", &scalemax);
+		ImGui::Text("Import Mesh onto landscape (Y Axis)");
+		if (ImGui::Button("Create SSBO For Terrain Y")) {
 
 
-		Mesh* newInstancedMesh;
-		newInstancedMesh = new Mesh;
-		newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
-		newInstancedMesh->shaderProgram = 3;
-		newInstancedMesh->customShaderProgramID = 3;
-		if (customShaders.size() == 0)
+			Mesh* newInstancedMesh;
+			newInstancedMesh = new Mesh;
+			newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
+			newInstancedMesh->shaderProgram = 3;
 			newInstancedMesh->customShaderProgramID = 3;
-		else
+			if (customShaders.size() == 0)
+				newInstancedMesh->customShaderProgramID = 3;
+			else
+				newInstancedMesh->customShaderProgramID = 3;
+
+			newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
+			newInstancedMesh->cameraPtr = &camera;
+
+
+			SSBO* instancedSSBO;
+			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
+			instancedSSBO->instanceAmount = meshCountInstanced;
+			instancedSSBO->instancedMesh = newInstancedMesh;
+			SSBOVector.push_back(instancedSSBO);
+
+
+			//if name is wrong causes errors.
+			instancedMeshVector.push_back(newInstancedMesh);
+
+
+			generateSSBOInstanceToY(terrain.heightmapData.heights, terrain.size, meshCountInstanced, 0, 0, newInstancedMesh->meshName, scalemin, scalemax);
+		}
+		if (ImGui::Button("Create SSBO"))
+		{
+
+			Mesh* newInstancedMesh;
+			newInstancedMesh = new Mesh;
+			newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
+			newInstancedMesh->shaderProgram = 3;
 			newInstancedMesh->customShaderProgramID = 3;
+			if (customShaders.size() == 0)
+				newInstancedMesh->customShaderProgramID = 3;
+			else
+				newInstancedMesh->customShaderProgramID = 3;
 
-		newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
-		newInstancedMesh->cameraPtr = &camera;
-
-
-		SSBO* instancedSSBO;
-		instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
-		instancedSSBO->instanceAmount = meshCountInstanced;
-		instancedSSBO->instancedMesh = newInstancedMesh;
-		SSBOVector.push_back(instancedSSBO);
+			newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
+			newInstancedMesh->cameraPtr = &camera;
 
 
-		//if name is wrong causes errors.
-		instancedMeshVector.push_back(newInstancedMesh);
+			SSBO* instancedSSBO;
+			instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
+			instancedSSBO->instanceAmount = meshCountInstanced;
+			instancedSSBO->instancedMesh = newInstancedMesh;
+			SSBOVector.push_back(instancedSSBO);
 
 
-		generateSSBOInstanceToY(terrain.heightmapData.heights, terrain.size, meshCountInstanced, 0, 0, newInstancedMesh->meshName, scalemin, scalemax);
-	}
-	if (ImGui::Button("Create SSBO"))
-	{
-
-		Mesh* newInstancedMesh;
-		newInstancedMesh = new Mesh;
-		newInstancedMesh->meshName = meshNameBufferInstanced; // Set the mesh name
-		newInstancedMesh->shaderProgram = 3;
-		newInstancedMesh->customShaderProgramID = 3;
-		if (customShaders.size() == 0)
-			newInstancedMesh->customShaderProgramID = 3;
-		else
-			newInstancedMesh->customShaderProgramID = 3;
-
-		newInstancedMesh->loadMesh(meshNameBufferInstanced, newInstancedMesh->customShaderProgramID);
-		newInstancedMesh->cameraPtr = &camera;
+			//if name is wrong causes errors.
+			instancedMeshVector.push_back(newInstancedMesh);
 
 
-		SSBO* instancedSSBO;
-		instancedSSBO = new SSBO(2, meshInstancesVector.data(), sizeof(meshInstancesVector[0]) * meshInstancesVector.size(), GL_DYNAMIC_DRAW);
-		instancedSSBO->instanceAmount = meshCountInstanced;
-		instancedSSBO->instancedMesh = newInstancedMesh;
-		SSBOVector.push_back(instancedSSBO);
+			generateSSBOInstance(meshCountInstanced, newInstancedMesh->meshName);
 
+			//need to load  mesh into new vector (pointer)
+			// need to create instances (do random positions based on amount first // then make it Y relative for grass etc)
+			// // that should be with meshinstance in worldobjects
+			// then add instances to vector in loop, then can create the ssbo.
+			// then add the ssbo to a vector of them. need to connect the mesh to the ssbo mesh. indexing across both vectors.
+			//	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
+			//SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
 
-		//if name is wrong causes errors.
-		instancedMeshVector.push_back(newInstancedMesh);
+			cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
 
+			// Assuming you have access to the SSBO class and the necessary functions
+			// Here, you can create the SSBO for the entered mesh name and count
+			// You can use the 'mesh_name' and 'mesh_count' variables for this purpose
+			// Example:
+			// SSBO newSSBO(bindingIndex, data, dataSize, useage);
+			// newSSBO.Bind(); // Bind the SSBO
+			// ...
 
-		generateSSBOInstance(meshCountInstanced, newInstancedMesh->meshName);
+			// Placeholder message for demonstration
+			std::cout << "\nSSBO created for mesh %s with count: " << meshNameBufferInstanced << " " << meshCountInstanced;
+		}
 
-		//need to load  mesh into new vector (pointer)
-		// need to create instances (do random positions based on amount first // then make it Y relative for grass etc)
-		// // that should be with meshinstance in worldobjects
-		// then add instances to vector in loop, then can create the ssbo.
-		// then add the ssbo to a vector of them. need to connect the mesh to the ssbo mesh. indexing across both vectors.
-		//	SSBO ssboLighting(0, sceneLights.data(), sizeof(sceneLights[0]) * sceneLights.size(), GL_DYNAMIC_DRAW);
-		//SSBO ssboMaterial(1, &material, sizeof(material), GL_DYNAMIC_DRAW);
+		ImGui::End();
 
-		//cubeSSBO = SSBO(2, cubesSSBOVector.data(), sizeof(cubesSSBOVector[0]) * cubesSSBOVector.size(), GL_DYNAMIC_DRAW);
+		//ImGui::Begin("Edit SSBOs");
 
-		// Assuming you have access to the SSBO class and the necessary functions
-		// Here, you can create the SSBO for the entered mesh name and count
-		// You can use the 'mesh_name' and 'mesh_count' variables for this purpose
-		// Example:
-		// SSBO newSSBO(bindingIndex, data, dataSize, useage);
-		// newSSBO.Bind(); // Bind the SSBO
-		// ...
+		// Assuming 'mesh.scene' is the Assimp root node
 
-		// Placeholder message for demonstration
-		std::cout << "\nSSBO created for mesh %s with count: " << meshNameBufferInstanced << " " << meshCountInstanced;
-	}
-
-	ImGui::End();
-
-	//ImGui::Begin("Edit SSBOs");
-
-	// Assuming 'mesh.scene' is the Assimp root node
-
-	ImGui::Begin("Assimp Scene Information");
-	//char file = fileNameBuffer[0];
-	//char meshName = meshNameBuffer[0];
-	ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
-	ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
+		ImGui::Begin("Assimp Scene Information");
+		//char file = fileNameBuffer[0];
+		//char meshName = meshNameBuffer[0];
+		ImGui::InputText("File Name", &fileNameBuffer2[0], 10000);
+		ImGui::InputText("Mesh Name", &meshNameBuffer[0], 10000);
 
 
 
@@ -2780,194 +2960,199 @@ void drawUI()
 
 
 		}
-		ImGui::Checkbox("Backup Model Loading", &loadModelTwo);
+	}
+	if (drawIMGUI) {
 		showLoadModelWindow(&loadModelTwo);
-	
-		GLenum error = glGetError();
-		if (error != GL_NO_ERROR) {
-			std::cerr << "OpenGL error after showload mdoel window: " << error << std::endl;
-		}
-		if (!mesh.scenePtr) {
-			//std::cout << "Assimp scene is not loaded." << std::endl;
-			ImGui::Text("Assimp scene is not loaded.");
+		worldgridPtr->drawGridUI();
 
-		}
-		else {
-			const aiScene* scene = mesh.scenePtr;
-
-			bool hasTextures = scene->HasTextures();
-			bool hasMaterials = scene->HasMaterials();
-
-			if (hasTextures) {
-				std::cout << "Scene has textures." << std::endl;
-				ImGui::Text("Scene has textures.");
-			}
-			else {
-				std::cout << "Scene does not have textures." << std::endl;
-				ImGui::Text("Scene does not have textures.");
-			}
-
-			if (hasMaterials) {
-				std::cout << "Scene has materials." << std::endl;
-				ImGui::Text("Scene has materials.");
-			}
-			else {
-				std::cout << "Scene does not have materials." << std::endl;
-				ImGui::Text("Scene does not have materials.");
-			}
-
-			int numModels = scene->mNumMeshes;
-			std::cout << "Number of Models/Meshes: " << numModels << std::endl;
-			ImGui::Text("Number of Models/Meshes: %d", numModels);
-
-			for (int i = 0; i < numModels; ++i) {
-				const aiMesh* paiMesh = scene->mMeshes[i];
-
-				if (!paiMesh) {
-					std::cout << "Invalid mesh at index: " << i << std::endl;
-					ImGui::Text("Invalid mesh at index: %d", i);
-					continue;
-				}
-
-				ImGui::Separator();
-				ImGui::Text("Model %d", i + 1);
-
-				ImGui::Text("Number of Vertices: %d", paiMesh->mNumVertices);
-				//ImGui::Text("Base Vertex: %d", paiMesh->mBaseVertex);
-			}
-		}
 		ImGui::End();
+	}
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		std::cerr << "OpenGL error after showload mdoel window: " << error << std::endl;
+	}
+	//if (!mesh.scenePtr) {
+	//	//std::cout << "Assimp scene is not loaded." << std::endl;
+	//	ImGui::Text("Assimp scene is not loaded.");
 
-		ImGui::Begin("Mesh Properties");
-		if (!meshVector.empty()) {
-			std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before Delete\n";
-			ImGui::Text("Selected Mesh Index number is: %d", selectedMeshIndex);
-			if (ImGui::Button("Delete Mesh")) {
-				std::cout << "pressed delete\n";
-				if (selectedMeshIndex >= 0 && selectedMeshIndex < meshVector.size()) {
-					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before erase\n";
-					if (meshVector.size() == 1) {
-						meshVector.clear();
-						Mesh::meshNames.clear();
-					}
-					else {
-						meshVector.erase(meshVector.begin() + selectedMeshIndex);
-						Mesh::meshNames.erase(Mesh::meshNames.begin() + selectedMeshIndex);
-					}
-					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after .erase\n";
-					if (selectedMeshIndex >= meshVector.size()) {
-						selectedMeshIndex = meshVector.empty() ? -1 : meshVector.size() - 1;
-					}
-				}
-			}
+	//}
+	//else {
+	//	const aiScene* scene = mesh.scenePtr;
 
+	//	bool hasTextures = scene->HasTextures();
+	//	bool hasMaterials = scene->HasMaterials();
 
+	//	if (hasTextures) {
+	//		std::cout << "Scene has textures." << std::endl;
+	//		ImGui::Text("Scene has textures.");
+	//	}
+	//	else {
+	//		std::cout << "Scene does not have textures." << std::endl;
+	//		ImGui::Text("Scene does not have textures.");
+	//	}
 
-			if (meshVector.size() > 0) {
-				std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after selectedmesh if\n";
-				// Dropdown for selecting a mesh
-				if (ImGui::BeginCombo("Select Mesh", selectedMeshIndex >= 0 ? Mesh::meshNames[selectedMeshIndex].c_str() : "-")) {
-					for (int i = 0; i < Mesh::meshNames.size(); ++i) {
-						bool isSelected = (i == selectedMeshIndex);
-						if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
-							selectedMeshIndex = i;
+	//	if (hasMaterials) {
+	//		std::cout << "Scene has materials." << std::endl;
+	//		ImGui::Text("Scene has materials.");
+	//	}
+	//	else {
+	//		std::cout << "Scene does not have materials." << std::endl;
+	//		ImGui::Text("Scene does not have materials.");
+	//	}
+
+	//	int numModels = scene->mNumMeshes;
+	//	std::cout << "Number of Models/Meshes: " << numModels << std::endl;
+	//	ImGui::Text("Number of Models/Meshes: %d", numModels);
+
+	//	for (int i = 0; i < numModels; ++i) {
+	//		const aiMesh* paiMesh = scene->mMeshes[i];
+
+	//		if (!paiMesh) {
+	//			std::cout << "Invalid mesh at index: " << i << std::endl;
+	//			ImGui::Text("Invalid mesh at index: %d", i);
+	//			continue;
+	//		}
+
+	//		ImGui::Separator();
+	//		ImGui::Text("Model %d", i + 1);
+
+	//		ImGui::Text("Number of Vertices: %d", paiMesh->mNumVertices);
+	//		//ImGui::Text("Base Vertex: %d", paiMesh->mBaseVertex);
+	//	}
+	//}
+	//ImGui::End();
+
+		if (drawIMGUI) {
+			ImGui::Begin("Mesh Properties");
+			if (!meshVector.empty()) {
+				std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before Delete\n";
+				ImGui::Text("Selected Mesh Index number is: %d", selectedMeshIndex);
+				if (ImGui::Button("Delete Mesh")) {
+					std::cout << "pressed delete\n";
+					if (selectedMeshIndex >= 0 && selectedMeshIndex < meshVector.size()) {
+						std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "before erase\n";
+						if (meshVector.size() == 1) {
+							meshVector.clear();
+							Mesh::meshNames.clear();
 						}
-						if (isSelected) {
-							ImGui::SetItemDefaultFocus(); // Set the default selection
+						else {
+							meshVector.erase(meshVector.begin() + selectedMeshIndex);
+							Mesh::meshNames.erase(Mesh::meshNames.begin() + selectedMeshIndex);
+						}
+						std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after .erase\n";
+						if (selectedMeshIndex >= meshVector.size()) {
+							selectedMeshIndex = meshVector.empty() ? -1 : meshVector.size() - 1;
 						}
 					}
-					ImGui::EndCombo();
-
 				}
 
-				if (customShaders.size() > 0) {
-					shaderIDStrings.clear();
-					for (const auto& shader : customShaders) {
-						shaderIDStrings.push_back(std::to_string(shader->shaderProgramID));
+
+
+				if (meshVector.size() > 0) {
+					std::cout << "\nindex: " << selectedMeshIndex << "Vector size: " << meshVector.size() << "after selectedmesh if\n";
+					// Dropdown for selecting a mesh
+					if (ImGui::BeginCombo("Select Mesh", selectedMeshIndex >= 0 ? Mesh::meshNames[selectedMeshIndex].c_str() : "-")) {
+						for (int i = 0; i < Mesh::meshNames.size(); ++i) {
+							bool isSelected = (i == selectedMeshIndex);
+							if (ImGui::Selectable(Mesh::meshNames[i].c_str(), isSelected)) {
+								selectedMeshIndex = i;
+							}
+							if (isSelected) {
+								ImGui::SetItemDefaultFocus(); // Set the default selection
+							}
+						}
+						ImGui::EndCombo();
+
 					}
 
-					std::vector<const char*> shaderIDs;
-					for (const auto& idString : shaderIDStrings) {
-						shaderIDs.push_back(idString.c_str());
+					if (customShaders.size() > 0) {
+						shaderIDStrings.clear();
+						for (const auto& shader : customShaders) {
+							shaderIDStrings.push_back(std::to_string(shader->shaderProgramID));
+						}
+
+						std::vector<const char*> shaderIDs;
+						for (const auto& idString : shaderIDStrings) {
+							shaderIDs.push_back(idString.c_str());
+						}
+
+						ImGui::Combo("Custom Shader ID", &selectedShaderID2, shaderIDs.data(), shaderIDs.size());
+
+						if (ImGui::Button("Change Shader") && selectedShaderID2 != -1 && selectedMeshIndex != -1 && selectedMeshIndex < meshVector.size()) {
+							meshVector[selectedMeshIndex]->shaderProgram = customShaders[selectedShaderID2]->shaderProgramID;
+							meshVector[selectedMeshIndex]->customShaderProgramID = customShaders[selectedShaderID2]->shaderProgramID;
+
+						}
+						// This line was missing
+
 					}
 
-					ImGui::Combo("Custom Shader ID", &selectedShaderID2, shaderIDs.data(), shaderIDs.size());
 
-					if (ImGui::Button("Change Shader") && selectedShaderID2 != -1 && selectedMeshIndex != -1 && selectedMeshIndex < meshVector.size()) {
-						meshVector[selectedMeshIndex]->shaderProgram = customShaders[selectedShaderID2]->shaderProgramID;
-						meshVector[selectedMeshIndex]->customShaderProgramID = customShaders[selectedShaderID2]->shaderProgramID;
 
+					ImGui::Text(std::to_string(meshVector[selectedMeshIndex]->customShaderProgramID).c_str());
+					if (ImGui::Button("Reset Transformations")) {
+						// Reset transformations to identity matrix
+						meshVector[selectedMeshIndex]->SetScale(glm::vec3(1.0f));
+						meshVector[selectedMeshIndex]->SetRotation(glm::vec3(0.0f));
+						meshVector[selectedMeshIndex]->SetTranslation(glm::vec3(0.0f));
 					}
-					// This line was missing
+
+					if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex]->scale.x, 0.1f, 10.0f)) {
+						meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+					}
+
+					if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex]->scale.y, 0.1f, 10.0f)) {
+						meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+					}
+
+					if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex]->scale.z, 0.1f, 10.0f)) {
+						meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
+					}
+
+					// For SetRotation
+					if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex]->rotation.x, -180.0f, 180.0f)) {
+						meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+					}
+
+					if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex]->rotation.y, -180.0f, 180.0f)) {
+						meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+					}
+
+					if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex]->rotation.z, -180.0f, 180.0f)) {
+						meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
+					}
+
+					// For SetTranslation
+					if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex]->translation.x)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+
+					if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex]->translation.y)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+
+					if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex]->translation.z)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+					if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex]->translation.x, -800.0f, 800.0f)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+
+					if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex]->translation.y, -800.0f, 800.0f)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+
+					if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex]->translation.z, -800.0f, 800.0f)) {
+						meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
+					}
+
 
 				}
-
-
-
-				ImGui::Text(std::to_string(meshVector[selectedMeshIndex]->customShaderProgramID).c_str());
-				if (ImGui::Button("Reset Transformations")) {
-					// Reset transformations to identity matrix
-					meshVector[selectedMeshIndex]->SetScale(glm::vec3(1.0f));
-					meshVector[selectedMeshIndex]->SetRotation(glm::vec3(0.0f));
-					meshVector[selectedMeshIndex]->SetTranslation(glm::vec3(0.0f));
-				}
-
-				if (ImGui::SliderFloat("Scale X", &meshVector[selectedMeshIndex]->scale.x, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
-				}
-
-				if (ImGui::SliderFloat("Scale Y", &meshVector[selectedMeshIndex]->scale.y, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
-				}
-
-				if (ImGui::SliderFloat("Scale Z", &meshVector[selectedMeshIndex]->scale.z, 0.1f, 10.0f)) {
-					meshVector[selectedMeshIndex]->SetScale(meshVector[selectedMeshIndex]->scale);
-				}
-
-				// For SetRotation
-				if (ImGui::SliderFloat("Rotation X", &meshVector[selectedMeshIndex]->rotation.x, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
-				}
-
-				if (ImGui::SliderFloat("Rotation Y", &meshVector[selectedMeshIndex]->rotation.y, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
-				}
-
-				if (ImGui::SliderFloat("Rotation Z", &meshVector[selectedMeshIndex]->rotation.z, -180.0f, 180.0f)) {
-					meshVector[selectedMeshIndex]->SetRotation(meshVector[selectedMeshIndex]->rotation);
-				}
-
-				// For SetTranslation
-				if (ImGui::InputFloat("Translation X", &meshVector[selectedMeshIndex]->translation.x)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-
-				if (ImGui::InputFloat("Translation Y", &meshVector[selectedMeshIndex]->translation.y)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-
-				if (ImGui::InputFloat("Translation Z", &meshVector[selectedMeshIndex]->translation.z)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-				if (ImGui::SliderFloat("Translation X2", &meshVector[selectedMeshIndex]->translation.x, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-
-				if (ImGui::SliderFloat("Translation Y2", &meshVector[selectedMeshIndex]->translation.y, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-
-				if (ImGui::SliderFloat("Translation Z2", &meshVector[selectedMeshIndex]->translation.z, -800.0f, 800.0f)) {
-					meshVector[selectedMeshIndex]->SetTranslation(meshVector[selectedMeshIndex]->translation);
-				}
-
+				//	ImGui::EndCombo();
 
 			}
-			//	ImGui::EndCombo();
-
+			ImGui::End();
 		}
-		ImGui::End();
-	
 	if (drawIMGUI) {
 		ImGui::Begin("Style Settings");
 
@@ -2994,7 +3179,7 @@ void drawUI()
 		if (character->characterActive)
 		{
 			lMouseClicked = true;
-			ImGui::Text("TFGH to contrrl character (as WASD)");
+			ImGui::Text("TFGH to control character (as WASD)");
 		}
 		//else { lMouseClicked = false; }
 		ImGui::Checkbox("Wireframe", &wireframe);
@@ -3016,7 +3201,7 @@ void drawUI()
 	}
 	// Create ImGui window
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
-	glViewport(200, 150, window_width, window_height);
+	glViewport(0, 0, window_width, window_height);
 	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "Framebuffer is not complete! Error code: " << framebufferStatus << std::endl;
@@ -3348,7 +3533,7 @@ void drawUI()
 			}
 
 
-			if (ImGui::SliderInt("Number of Octaves", &terrain.numOctaves, 1, 10)) {
+			if (ImGui::SliderInt("Number of Octaves", &terrain.numOctaves, 1, 20)) {
 				// Recalculate octaves if the number changes
 				// You can also adjust their properties here
 			}
@@ -3364,7 +3549,7 @@ void drawUI()
 			{
 				terrain.generateHeightMap();
 			}
-
+			
 			if (ImGui::SliderFloat("Amplitude", &terrain.amplitude, 0.01f, 100.0f))
 			{
 				terrain.generateHeightMap();
@@ -3878,6 +4063,20 @@ void update() {
 	character->update();
 }
 
+void updateLightingData(std::vector<World::Lights>& sceneLights, SSBO lightingSSBO, GLuint shader)
+{
+	 int arraySizeLocation = glGetUniformLocation(shader, "arraySize");
+    glUniform1i(arraySizeLocation, sceneLights.size());
+
+	std::vector<World::LightGPUData> gpuLightsData(sceneLights.size());
+	for (size_t i = 0; i < sceneLights.size(); ++i) {
+		gpuLightsData[i] = sceneLights[i].gpuData;  // Copy only the GPU data
+	}
+
+	lightingSSBO.Bind();
+	lightingSSBO.updateData(gpuLightsData.data(), sizeof(sceneLights[0]) * sceneLights.size());
+}
+
 
 void SetImGuiStyleColors(ImVec4 bgColor, ImVec4 buttonColor) {
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -4331,10 +4530,10 @@ void setupFramebuffer(const std::string& name, int width, int height, bool custo
 void showLoadModelWindow(bool* pOpen) {
 	ImGui::Begin("Load Model", pOpen);
 
-	 char objFilePath[256] = ""; // Buffer for the file path input
-	 std::string assimpFilename; // No initial assignment needed
+	// char objFilePath[256] = ""; // Buffer for the file path input
+//	 std::string assimpFilename; // No initial assignment needed
 
-	ImGui::InputText("OBJ File Path", objFilePath, sizeof(objFilePath));
+//	ImGui::InputText("OBJ File Path", objFilePath, sizeof(objFilePath));
 
 	//if (ImGui::Button("Load OBJ")) {
 	//	//std::string filePath(objFilePath);
@@ -4348,117 +4547,142 @@ void showLoadModelWindow(bool* pOpen) {
 	//	//	std::cerr << "Failed to load OBJ file: " << filePath << std::endl;
 	//	//}
 	//}
-
-	if (ImGui::Button("Open/Load Model")) {
-		const char* filterPatterns[] = { "*.3ds", "*.obj", "*.bmp", "*.tiff", "*.gif", NULL };
-		const char* filename = tinyfd_openFileDialog(
-			"Select an Image File",
-			"",
-			5,
-			filterPatterns,
-			NULL,
-			0
-		);
-		std::string fname = filename;
-		filename = "";
-		if  (!fname.empty()) {
-			//printf("Selected file: %s\n", filename);s A
-			assimpFilename = fname; // Save the filename s
-			logger.AddLog(fname); // Log the action
-
-			
-
-			// Load the model file
-			const aiScene* scene = importer->ReadFile(
-				assimpFilename.c_str(),
-				aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
+	
+	if (ImGui::CollapsingHeader("Load Models New"))
+	{
+		ImGui::Checkbox("Pause Model Renderer", &modelLoaderNew.boolDontRender);
+		if (ImGui::Button("Open/Load Model")) {
+			std::cout << "\nUser pressed 'open/load model' in main.cpp";
+			fname.clear();
+			std::cout << "\nWill now attempt to open dialog with parameters (main.cpp)";
+			lTheOpenFileName = tinyfd_openFileDialog(
+				"Select Image",
+				"",
+				1,
+				filterPatterns,
+				NULL,
+				0
 			);
+			std::cout << "\n'successful'";
+			// Convert filename to std::string for easier handling
+			//fname = filename;
+			if (!lTheOpenFileName) {
+				// Log that no file was selected and return early
+				//logger.AddLog("No file selected.", ImGuiLogger::LogType::Warning);
+				return; // Exit the function to avoid further logic that depends on the filename
+			}
+			if (lTheOpenFileName) {
+				fname = lTheOpenFileName;// Store the filename for later use
+				std::string assimpFilename2 = fname;
+				logger.AddLog("Selected file: " + fname); // Log the action
 
-			// Check if the scene was loaded successfully
-			if (scene) {
-				modelLoaderNew.initFromScene(scene, assimpFilename);
-				
-				logger.AddLog("Model Loaded", ImGuiLogger::LogType::Assimp);
-				for (auto& m : modelLoaderNew.modelNewVector) {
-					logger.AddLog("Loaded: " + m->name);
-					logger.AddLog("ID: " + m->modelID);
-					//Print all mesh names to output logger (can cause massive slow down - use only to debug - will also print to log.txt in directory)
-					/*for (auto& sub : m->subMeshes)
-					{
 
-						logger.AddLog("VAO ID: " + std::to_string(sub->VAO));
-						logger.AddLog("Texture couunt: " + std::to_string(sub->textures.size()));
+				//modelLoaderNew.cleanup();  // Implement this method to clear model resources
+				// Add OpenGL cleanup here as necessary
+				 //for (auto& m : modelLoaderNew.modelNewVector) {
+				 //    glDeleteVertexArrays(1, &m->VAO);
+				 //    // ... additional cleanup for VBOs, textures, etc.
+				 //}
 
-						logger.AddLog("Vertices count: " + std::to_string(sub->vertices.size()));
-					}*/
+				// Loop 7 times to load the model multiple times
+				for (int i = 0; i < 6; ++i) {
+					// Attempt to load the model file
+					const aiScene* scene = importer->ReadFile(
+						assimpFilename2.c_str(),
+						aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
+					);
+
+					// Check if the scene was loaded successfully
+					if (scene) {
+						// Initialize model loader with the scene and filename
+						modelLoaderNew.initFromScene(scene, assimpFilename2);
+
+						// Log successful loading with instance number
+						std::string modelLoadedLog = "Model Loaded - Instance " + std::to_string(i + 1);
+						logger.AddLog(modelLoadedLog, ImGuiLogger::LogType::Assimp);
+
+						// Log details about the loaded model
+						for (auto& m : modelLoaderNew.modelNewVector) {
+							std::string modelNameLog = "Loaded: " + m->name + " - Instance " + std::to_string(i + 1);
+							logger.AddLog(modelNameLog, ImGuiLogger::LogType::Assimp);
+						}
+					}
+					else {
+						// Handle model loading errors
+						const char* errorMsg = importer->GetErrorString();
+						std::string errorLogMessage = "Error loading model: " + std::string(errorMsg);
+						logger.AddLog(errorLogMessage, ImGuiLogger::LogType::Error);
+					}
 				}
+				fname = "";
+				//filename = "";
+				assimpFilename2 = "";
 			}
 			else {
-				// Handle errors more gracefully
-				const char* errorMsg = importer->GetErrorString();
-				printf("Error loading model: %s\n", errorMsg);
-				logger.AddLog(std::string("Error loading model: ") + errorMsg, ImGuiLogger::LogType::Error);
+				return;
+				std::string noFileLog = "No file selected.";
+				logger.AddLog(noFileLog, ImGuiLogger::LogType::Warning);
 			}
 		}
-		else {
-			printf("No file selected.\n");
+
+		if (ImGui::Button("Delete Models")) {
+			modelLoaderNew.modelNewVector.clear();
+			return;
+		}
+		if (ImGui::Button("Delete last")) {
+			if (modelLoaderNew.modelNewVector.size() > 0) {
+				modelLoaderNew.modelNewVector.pop_back();
+				return;
+			}
+		}
+
+		if (ImGui::ColorEdit3("- Light Colour - ", &sun.DiffuseColor.x)) {
+			GLint diffuseColorLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "diffuseColor");
+			glUniform3fv(diffuseColorLocation, 1, &sun.DiffuseColor.x);
+
 		}
 
 
-	}
-	if (ImGui::Button("Delete Models")) {
-		modelLoaderNew.modelNewVector.clear();
-	}
-	if (ImGui::Button("Delete last")) {
-		modelLoaderNew.modelNewVector.pop_back();
-	}
+		if (ImGui::SliderFloat("Sun Brightness", &sun.Brightness, 0.1, 5.0f)) {
 
-	if (ImGui::ColorEdit3("- Light Colour - ", &sun.DiffuseColor.x)) {
-		GLint diffuseColorLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "diffuseColor");
-		glUniform3fv(diffuseColorLocation, 1, &sun.DiffuseColor.x);
+			GLint sunBrightnessLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "sunBrightness");
+			glUniform1f(sunBrightnessLocation, sun.Brightness);
+
+		}
+
+		//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
+		//	// Update the sun's position whenever the time of day changes
+		//	// You can use this callback to trigger any other time-dependent effects
+		//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+		//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
+
+		//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
+		//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
+
+		//}
+			//timeOfDay = 18.0;
+		if (sun.radiansTime >= 360.0) {
+			// Switch to decreasing
+			sun.movingForward = false;
+		}
+		else if (sun.radiansTime <= 0.0) {
+			// Switch to increasing
+			sun.movingForward = true;
+		}
+
+		if (sun.movingForward) {
+			sun.radiansTime += 0.30;
+		}
+		else {
+			sun.radiansTime -= 0.30;
+		}
+		if (ImGui::SliderFloat("Time", &sun.radiansTime, 0.0f, 360.0f)) {
+			GLint sunRadiansTimeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "radiansTime");
+			glUniform1f(sunRadiansTimeLocation, sun.radiansTime);
+
+		}
 		
 	}
-
-	
-	if (ImGui::SliderFloat("Sun Brightness", &sun.Brightness, 0.1, 5.0f)) {
-		
-		GLint sunBrightnessLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "sunBrightness");
-		glUniform1f(sunBrightnessLocation, sun.Brightness);
-		
-	}
-
-	//if (ImGui::SliderFloat("Time of Day", &timeOfDay, 0.0f, 24.0f)) {
-	//	// Update the sun's position whenever the time of day changes
-	//	// You can use this callback to trigger any other time-dependent effects
-	//	 sunX = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-	//	 sunY = glm::clamp(-std::abs(timeOfDay - 12.0f) / 6.0f + 1.0f, -1.0f, 1.0f);
-
-	//	sunPosition = glm::vec3(sunX, -sunY, 0.0f);
-	//	glUniform3fv(lightDirectionLocation, 1, &sunPosition.x);
-
-	//}
-		//timeOfDay = 18.0;
-	if (sun.radiansTime >= 360.0) {
-		// Switch to decreasing
-		sun.movingForward = false;
-	}
-	else if (sun.radiansTime <= 0.0) {
-		// Switch to increasing
-		sun.movingForward = true;
-	}
-
-	if (sun.movingForward) {
-		sun.radiansTime += 0.30;
-	}
-	else {
-		sun.radiansTime -= 0.30;
-	}
-	if (ImGui::SliderFloat("Time", &sun.radiansTime, 0.0f, 360.0f)) {
-		GLint sunRadiansTimeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "radiansTime");
-		glUniform1f(sunRadiansTimeLocation, sun.radiansTime);
-
-	}
-	ImGui::End();
 	if (modelLoaderNew.shaderProgram != nullptr)
 	{
 		GLint sunRadiansTimeLocation = glGetUniformLocation(modelLoaderNew.shaderProgram->ID, "radiansTime");
@@ -4467,15 +4691,5 @@ void showLoadModelWindow(bool* pOpen) {
 
 		
 
-	// Display the currently selected filename
-	ImGui::Text("Current Model: %s", assimpFilename.c_str());
-
 	
-	if (ImGui::Button("Remove Last")) {
-		
-		if (models.size()>0)
-		models.pop_back();//remove last model loaded
-
-	}
-	ImGui::End();
 }

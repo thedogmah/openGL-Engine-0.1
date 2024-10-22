@@ -17,8 +17,8 @@ Terrain::Terrain()
 	
 //	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//vertices.reserve(size * size);
-	this->size = 256; //set a default terrain size.
-	this->heightmapData.size =16;
+	this->size = 128; //set a default terrain size.
+	this->heightmapData.size =128;
 	std::mt19937 gen(rd()); //for generate river variables.
 
 	currentTerrainClickedRGB.clear();//Clear the vector before adding latest picked locations (X,Y,Z)
@@ -55,9 +55,9 @@ void Terrain::render()
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
 //	glUseProgram(*this->shaderPtr);
-
+	renderTextureLoader();
 	if (UIdrawn == false) {
-		renderTextureLoader();
+		
 		if (drawIMGUI) {
 			ImGui::Begin("Terrain Settings");
 
@@ -783,7 +783,7 @@ bool Terrain::createTerrainMesh()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	int mudMapWidth, mudMapHeight, mudMapChannels;
-	unsigned char* mudMapData = stbi_load("grass2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
+	unsigned char* mudMapData = stbi_load("mud2.jpg", &mudMapWidth, &mudMapHeight, &mudMapChannels, 0);
 
 	if (mudMapData) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mudMapWidth, mudMapHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, mudMapData);
@@ -1001,7 +1001,7 @@ bool Terrain::createTerrainMesh()
 	//We need to loop through the vertices, each X<Y<Z and turn it into a unique value that is noralised (between 0 and 1,
 	//and pass that number to the colour
 
-	for (int i = 0; i < verticesID.size(); i+=3) {
+	for (int i = 0; i ==1; i+=3) {
 	//	std::cout << "\nBefore normalisation: " << i;//
 
 		float minValue = 0.1;// *std::min_element(verticesID.begin(), verticesID.end());
@@ -1124,36 +1124,45 @@ bool Terrain::createTerrainMesh()
 			// Add the triangle to the btTriangleMesh
 			terrainMesh->addTriangle(vertex1, vertex2, vertex3);
 		}
+		terrainMesh = new btTriangleMesh();
 
-		// Create a btBvhTriangleMeshShape using the btTriangleMesh
-		 terrainShapePtr = new btBvhTriangleMeshShape(terrainMesh, true, true);
-
-		// Set the local scaling if needed
-		btVector3 localScaling(1.0f, 1.0f, 1.0f);
-		terrainShapePtr->setLocalScaling(localScaling);
-
-		// Create a btRigidBodyConstructionInfo as before
-		btTransform startTransform;
-		startTransform.setIdentity();
-		startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));
-		btDefaultMotionState* terrainMotionState = new btDefaultMotionState(startTransform);
-
-		btRigidBody::btRigidBodyConstructionInfo terrainRigidBodyCI(
-			0.0f,                      // Mass (0 for static object)
-			terrainMotionState,
-			terrainShapePtr,           // Use the btBvhTriangleMeshShape
-			btVector3(0, 0, 0)        // Local inertia (0 for static object)
+		// Populate the btTriangleMesh with your vertex and index data
+		// Create the btHeightfieldTerrainShape using your heightmap data
+		terrainShapePtr = new btHeightfieldTerrainShape(
+			size,                 // Width of the heightmap (number of points along X axis)
+			size,                 // Length of the heightmap (number of points along Z axis)
+			&heightmapData.heights,      // Pointer to your heightmap height data
+			1.0f,                           // Height scale (usually 1.0f, adjust as needed)
+			0,                      // Minimum height value
+			12,                      // Maximum height value
+			1,                              // Up axis (Y-axis in this case, so it's 1)
+			PHY_FLOAT,                      // Data type of height (here, float)
+			false                           // FlipQuadEdges (usually false)
 		);
 
-		// Create the btRigidBody as before
-		 terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
-		 dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
-		 if (terrainMeshRigidBody == nullptr)
-		 {
-			 std::cout << "\nRemoved rigid body from dynamics world to generate new terrain and RB";
-			 dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
-		 }
-		
+		// Optionally set scaling if needed (adjust this as per your terrain size)
+		btVector3 localScaling(1.0, 1.0f, 1.0);  // Scale for X, Z axes (Y scale is managed by heightmap heights)
+		terrainShapePtr->setLocalScaling(localScaling);
+		logger.AddLog(std::to_string(minHeight),ImGuiLogger::LogType::Physics );
+		logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
+		// Now create the rigid body for the terrain
+		btTransform startTransform;
+		startTransform.setIdentity();
+		startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));  // Position the terrain at origin
+
+		btDefaultMotionState* terrainMotionState = new btDefaultMotionState(startTransform);
+
+		// Create the rigid body construction info
+		btRigidBody::btRigidBodyConstructionInfo terrainRigidBodyCI(
+			0.0f,  // Mass of 0, because it's static
+			terrainMotionState,
+			terrainShapePtr,
+			btVector3(0, 0, 0)  // Local inertia is zero for static objects
+		);
+
+		// Create the terrain rigid body
+		terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
+		dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
 		// Set any additional properties for the terrainRigidBody if needed
 
 		// Mark your terrain as ready
@@ -1724,6 +1733,8 @@ void Terrain::renderTextureLoader()
 
 	if (textureIDs.size() > 0) {
 		if (textureIDs.size() > 0 && textureIDs[0] != 0) {
+			logger.AddLog("inside texture function");
+			std::cout << "inside texture functdion";
 			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txGrass");
 			glActiveTexture(GL_TEXTURE2); // Texture unit 0
 			glBindTexture(GL_TEXTURE_2D, textureIDs[0]);
@@ -2190,12 +2201,12 @@ GLuint Terrain::loadTexture(const char* path)
 			for (int i = 0; i < verticesID.size(); i += 3) {
 				//	std::cout << "\nBefore normalisation: " << i;//
 
-				float minValue = 0.1;// *std::min_element(verticesID.begin(), verticesID.end());
-				float maxValue = 1.0;// *std::max_element(verticesID.begin(), verticesID.end());
+				//float minValue std::min_element(verticesID.begin(), verticesID.end());
+				//float maxValue std::max_element(verticesID.begin(), verticesID.end());
 
-				std::transform(verticesID.begin(), verticesID.end(), verticesID.begin(),
-					[&](float value) { return (value - minValue) / (maxValue - minValue); });
-				//	std::cout << "\tValue: " << verticesID[i];
+				//std::transform(verticesID.begin(), verticesID.end(), verticesID.begin(),
+				//	[&](float value) { return (value - minValue) / (maxValue - minValue); });
+				////	std::cout << "\tValue: " << verticesID[i];
 
 			}
 			createUVs();
@@ -2237,43 +2248,46 @@ GLuint Terrain::loadTexture(const char* path)
 			for (int i = 1; i < vertices.size(); i += 3) {
 				heightData2.push_back(vertices[i]);
 			}
-			terrainMesh = new btTriangleMesh();
+			//terrainMesh = new btTriangleMesh();
 
 			// Populate the btTriangleMesh with your vertex and index data
-
-			for (size_t i = 0; i < indices.size(); i += 3) {
-				// Get the vertices of the current triangle
-				btVector3 vertex1(vertices[indices[i] * 3], vertices[indices[i] * 3 + 1], vertices[indices[i] * 3 + 2]);
-				btVector3 vertex2(vertices[indices[i + 1] * 3], vertices[indices[i + 1] * 3 + 1], vertices[indices[i + 1] * 3 + 2]);
-				btVector3 vertex3(vertices[indices[i + 2] * 3], vertices[indices[i + 2] * 3 + 1], vertices[indices[i + 2] * 3 + 2]);
-
-				// Add the triangle to the btTriangleMesh
-				terrainMesh->addTriangle(vertex1, vertex2, vertex3);
-			}
-
-			// Create a btBvhTriangleMeshShape using the btTriangleMesh
-			terrainShapePtr = new btBvhTriangleMeshShape(terrainMesh, true, true);
-
-			// Set the local scaling if needed
-			btVector3 localScaling(1.0f, 1.0f, 1.0f);
+			// Create the btHeightfieldTerrainShape using your heightmap data
+			terrainShapePtr = new btHeightfieldTerrainShape(
+				size,                 // Width of the heightmap (number of points along X axis)
+				size,                 // Length of the heightmap (number of points along Z axis)
+				&heightmapData.heights,      // Pointer to your heightmap height data
+				1.0f,                           // Height scale (usually 1.0f, adjust as needed)
+				0,                      // Minimum height value
+				12,                      // Maximum height value
+				1,                              // Up axis (Y-axis in this case, so it's 1)
+				PHY_FLOAT,                      // Data type of height (here, float)
+				false                           // FlipQuadEdges (usually false)
+			);
+			logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
+			logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
+			// Optionally set scaling if needed (adjust this as per your terrain size)
+			btVector3 localScaling(1.0, 1.0f, 1.0);  // Scale for X, Z axes (Y scale is managed by heightmap heights)
 			terrainShapePtr->setLocalScaling(localScaling);
 
-			// Create a btRigidBodyConstructionInfo as before
+			// Now create the rigid body for the terrain
 			btTransform startTransform;
 			startTransform.setIdentity();
-			startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));
+			startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));  // Position the terrain at origin
+
 			btDefaultMotionState* terrainMotionState = new btDefaultMotionState(startTransform);
 
+			// Create the rigid body construction info
 			btRigidBody::btRigidBodyConstructionInfo terrainRigidBodyCI(
-				0.0f,                      // Mass (0 for static object)
+				0.0f,  // Mass of 0, because it's static
 				terrainMotionState,
-				terrainShapePtr,           // Use the btBvhTriangleMeshShape
-				btVector3(0, 0, 0)        // Local inertia (0 for static object)
+				terrainShapePtr,
+				btVector3(0, 0, 0)  // Local inertia is zero for static objects
 			);
 
-			// Create the btRigidBody as before
+			// Create the terrain rigid body
 			terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
 			dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
+
 			if (terrainMeshRigidBody == nullptr)
 			{
 				std::cout << "\nRemoved rigid body from dynamics world to generate new terrain and RB";

@@ -70,7 +70,8 @@ vec3 diffuse = material.diffuse * textureColor;
 
 //array size below comes from an obscure variable (sceneLights.size()
 
- for (int i = 0; i < arraySize; i++) {
+ for (int i = 0; i < arraySize; i++)
+ {
     vec3 sunDir = normalize(lights[i].position - FragPosWorld);
     float diff = max(dot(normalize(Normal), sunDir), 0.0); // Diffuse
 

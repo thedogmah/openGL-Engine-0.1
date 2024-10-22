@@ -180,11 +180,11 @@ else{
     // Apply displacement only to the Y-coordinate of the vertex position
     vec3 displacedPosition = position + vec3(0.0, -mudDisplacement, 0.0);
 
-    gl_Position = projection * view * vec4(displacedPosition, 1.0f);
+ //   gl_Position = projection * view * vec4(displacedPosition, 1.0f);
     fragPosition = projection * vec4(displacedPosition, 1.0f);
     fColor = color;
 
- //   gl_Position = projection * view * vec4(position, 1.0f);
+    gl_Position = projection * view * vec4(position, 1.0f);
    // fColor = color; // Pass color directly to the fragment shader
 }
 }
@@ -344,14 +344,23 @@ originalColor  = texture(mudTexture, uvsOut * 5).rgb;
     float specularIntensity = pow(max(dot(viewDirection, reflectDirection), 0.0), shininess);
 
     // Combine the sun's color and intensity with your existing lighting model
-    vec3 ambient = (ambientColor * 0.4);
-    vec3 diffuse = (sunIntensity * sunBrightness) * sunColor; // Use sunColor for sunlight and apply sampled texture color
+    vec3 ambient = (ambientColor * 0.1);
+    vec3 diffuse = (sunIntensity * sunBrightness) *( sunColor *0.3); // Use sunColor for sunlight and apply sampled texture color
     vec3 specular = (specularIntensity * 0.05) * specularColor; // Use specular color directly
 
     // Final color output
     vec3 blendedColor = mix(sampledColor, mudColor, smoothstep(slopeThreshold - 0.6, slopeThreshold, slopeFactor));
+// Adjust the factors as needed
+float ambientFactor = 0.5; // Lower factor for ambient
+float diffuseFactor =0.2; // Full influence from diffuse
+float specularFactor = 0.5; // Moderate influence from specular
 
-     finalColor = mudColor+ ambient + diffuse + specular;
+// Calculate the final color
+finalColor = blendedColor * diffuse * diffuseFactor + ambient * ambientFactor + specular * specularFactor;
+
+// Optionally clamp the final color
+//finalColor = clamp(finalColor, 0.0, 1.0);
+     finalColor = blendedColor+ ambient + diffuse + specular;
     //finalColor 
     // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
     // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)

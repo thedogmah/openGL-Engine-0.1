@@ -141,7 +141,7 @@ PhysDebug::PhysDebug()
 		btScalar distanceTo = (to - playerPosition).length();
 
 		// Specify your distance threshold here (e.g., 10 meters)
-		btScalar distanceThreshold = 10.0;
+		btScalar distanceThreshold = 500.0;
 
 		// Check if either 'from' or 'to' points are within the distance threshold
 		if (distanceFrom <= distanceThreshold || distanceTo <= distanceThreshold) {

@@ -65,23 +65,25 @@ void Character::handleInput()
 
 void Character::update()
 {
-	ImGui::Begin("Character Debugging");
+	if (drawIMGUI) {
+		ImGui::Begin("Character Debugging");
 
 
-	// ImGui for setting location
-	ImGui::Text("Set Location:");
-	static float newLocation[3] = { rigidBody->getWorldTransform().getOrigin().getX(),
-									rigidBody->getWorldTransform().getOrigin().getY(),
-									rigidBody->getWorldTransform().getOrigin().getZ() };
+		// ImGui for setting location
+		ImGui::Text("Set Location:");
+		static float newLocation[3] = { rigidBody->getWorldTransform().getOrigin().getX(),
+										rigidBody->getWorldTransform().getOrigin().getY(),
+										rigidBody->getWorldTransform().getOrigin().getZ() };
 
-	ImGui::InputFloat3("X, Y, Z", newLocation);
+		ImGui::InputFloat3("X, Y, Z", newLocation);
 
-	if (ImGui::Button("Set Location"))
-	{
-		setLocation(newLocation[0], newLocation[1], newLocation[2]);
+		if (ImGui::Button("Set Location"))
+		{
+			setLocation(newLocation[0], newLocation[1], newLocation[2]);
+		}
+
+		ImGui::End();
 	}
-
-	ImGui::End();
 
 	handleInput();
 	applyMovement();

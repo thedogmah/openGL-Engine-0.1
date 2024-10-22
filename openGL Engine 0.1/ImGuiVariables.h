@@ -9,12 +9,14 @@ extern std::string fileNameBuffer2;
 extern std::string meshNameBuffer;
 extern std::string stringMeshPathOverride;
 extern bool boolPathOverride;
-
+extern std::string fname;
 extern std::string meshNameBufferInstanced;
 extern int meshCountInstanced;
 extern float scalemin;
 extern float scalemax;
 static int bindingIndexCount;
+extern const char* filterPatterns[6];
+extern const char* filename[];
 
 extern int selectedSSBOID ; ////variable to remember what item in the SSBO edit imgui is selected and its bools
 extern Mesh* selectedMeshInstance;

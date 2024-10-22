@@ -9,6 +9,7 @@ uniform sampler2D fboTextureReflection;
 uniform sampler2D fboTextureRefraction;
 uniform sampler2D DUDVmap;
 uniform vec3 diffuseColor;
+uniform vec3 sunColor;
 //const float tiling = 5.0;
 void main() {
     vec3 viewDirection = normalize(vec3(clipSpace.xy / clipSpace.w - vec2(0.5, 0.5), 1.0));
@@ -43,9 +44,12 @@ void main() {
     float refractiveVector = dot(viewVector, vec3(0.0, 1.0, 0.0));
 
    // Adjust blending factors for reflection and water tint
-    vec3 waterColor = vec3(0.5, 0.4, 0.99);// * (diffuseColor * 0.6);
+    vec3 waterColor = vec3(0.1, 0.5, 0.89);// * (diffuseColor * 0.6);
     vec3 finalColor = mix(reflectionColor.rgb, refractionColor.rgb, refractiveVector);
-  finalColor = mix(finalColor, waterColor, 0.3);
+ vec3 waterSun = mix(waterColor, sunColor, 0.45);
+ finalColor = mix(finalColor, waterSun, 0.2);
+  //Mix sunColor with final color.ww
+
 
     // Output the final color
  out_Color = vec4(finalColor, 1.0);

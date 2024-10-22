@@ -106,6 +106,10 @@ public:
             glUniform1f(glGetUniformLocation(ID, (name + ".indexOfRefraction").c_str()), value.indexOfRefraction);
             glUniform1i(glGetUniformLocation(ID, (name + ".illuminationModel").c_str()), value.illuminationModel);
         }
+        // Add this case for glm::mat4
+        else if constexpr (std::is_same<T, glm::mat4>::value) {
+            glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
+        }
     }
 
 	

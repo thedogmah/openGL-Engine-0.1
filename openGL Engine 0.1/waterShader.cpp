@@ -61,7 +61,26 @@ void waterShader::loadViewMatrix(const Camera& cam) {
 
 void waterShader::connectTextureUnits()
 {
+   // float timeValue = glfwGetTime(); // Get time for animation
+   // glUniform1f(glGetUniformLocation(shaderProgramID, "time"), timeValue);
+    // Get the location of the uniform
+    glUseProgram(ID);
+    GLint sunColorLocation = glGetUniformLocation(ID, "sunColor");
+        GLint timeLocation = glGetUniformLocation(ID, "Time");
+        if (timeLocation != -1) {
+            // Get time value for animation
+            float timeValue = glfwGetTime(); // or whatever your global time is
+            // Send the time value to the shader
+            glUniform1f(timeLocation, timeValue);
+            //std::cout << "Water shader found time uniform for rotating skycube/box";
+        }
+        else {
+            // Handle error: uniform not found
+         //   std::cout << "Uniform 'moveTime' not found in shader program!" << std::endl;
+        }
+    glUniform3fv(sunColorLocation, 1, &sun.DiffuseColor.x);
 
+    //glUniform3fv(ID, glGetUniformLocation(ID, "sunColor"), &sun.DiffuseColor.x);
     glProgramUniform1i(ID, glGetUniformLocation(ID, "fboTextureReflection"), 15);
     glProgramUniform1i(ID, glGetUniformLocation(ID, "fboTextureRefraction"), 16);
     glProgramUniform1i(ID, glGetUniformLocation(ID, "DUDVmap"), 14);

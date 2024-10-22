@@ -139,7 +139,7 @@ void Camera::flipPitch()
 	mViewMatrix = glm::lookAt(mPosition, mPosition + mFront, mUp);
 
 	// Print the updated mViewMatrixbut 
-		printMatrix(mViewMatrix, "Reflection View Matrix");
+		//printMatrix(mViewMatrix, "Reflection View Matrix");
 
 }
 

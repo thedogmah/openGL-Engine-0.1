@@ -1,4 +1,4 @@
-#pragma once
+#pragma oncect vertexnew
 #include <iostream>
 #include <vector>
 #include <string>
@@ -151,14 +151,15 @@ public:
         : worldTransform(glm::mat4(1.0f)) {
         static std::random_device rd;
         static std::mt19937 gen(rd());
-        static std::uniform_real_distribution<> distrib(-20.0f,30.0f);
+        static std::uniform_real_distribution<> distrib(-70.0f,80.0f);
 
         // Generate random positions within the specified range
         float randomX = distrib(gen);
+        float randomY = distrib(gen);
         float randomZ = distrib(gen);
 
         // Set the position in the worldTransform matrix
-        worldTransform = glm::translate(glm::mat4(1.0f), glm::vec3(randomX, 0.0f, randomZ));
+        worldTransform = glm::translate(glm::mat4(1.0f), glm::vec3(randomX, randomY/2, randomZ));
     }// Initialize to identity matrix
 
     modelNew(const modelNew& other)
@@ -210,6 +211,9 @@ struct VertexNew {
     glm::vec3 Position;    // Vertex position
     glm::vec3 Normal;      // Vertex normal
     glm::vec2 TexCoords;   // Texture coordinates
+
+    glm::ivec4 boneIDs = glm::ivec4(0);  // Initialize with 0
+    glm::vec4 weights = glm::vec4(0.0f); // Initialize with 0.0f
 };
 
 struct TextureNew {
@@ -238,6 +242,8 @@ public:
 
     void countVertAndIndices(const aiScene* scenePtr, unsigned int& numVerts, unsigned int& numIndices);
 
+    void loadAnimations(const aiScene* scene);
+
     void reserveSpace(unsigned int numVertices, unsigned int numIndices);// reserve space for vectors
 
     // Initialize all meshes in the scene
@@ -245,6 +251,7 @@ public:
 
     // Initialize a single mesh
     void initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, const std::string& filename);
+    void assignBoneToVertex(VertexNew& vertex, int boneID, float weight);
     int activeModelIndex = 0;//imgui data for clicking models to edit
     int activeSubMeshIndex = 0;//imgui data for clicking models to edit
     void renderSubmesh(MeshNew& model, GLuint VAO);
@@ -271,6 +278,7 @@ public:
 
     //Submesh Inspector Resources
     GLuint submeshFBO, subMeshTexture;
+    float submeshRenderCam[3] = { 0.0f, 0.0f, -1.0f }; // Initial values for X, Y, Z
     bool boolRenderSubmesh = false;
     MeshNew* submeshRendered;
     GLuint VAOtoRender;
@@ -284,7 +292,7 @@ public:
     std::vector<MeshNew> meshes; //vector to store all mesh struct data
     std::vector<std::unique_ptr<modelNew>> modelNewVector; // Vector to hold models
 
-
+    bool boolDontRender = false;
     glm::mat4 worldTransform;                    // Transformation matrix for the model
     std::vector<VertexNew> vertices;                // Vertex data
     std::vector<unsigned int> indices;           // Index data

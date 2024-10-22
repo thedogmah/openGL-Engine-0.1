@@ -2,6 +2,8 @@
 #include <filesystem>
 #include "stb_image_write.h"
 #include <stb/stb_image.h>
+#include <unordered_map>
+#include "Animation.h"
 namespace fs = std::filesystem;
 
 struct TextureNew;
@@ -46,15 +48,24 @@ void modelLoader::initAllMeshes(const aiScene* scene, const std::string& filenam
 	modelNewVector.back()->name = scene->mRootNode->mName.C_Str();
 }
 bool modelLoader::initFromScene(const aiScene* scenePtr, const std::string& filename) {
-
+	std::cout << "\init from Scene function start";
 	if (!scenePtr || scenePtr->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scenePtr->mRootNode)
 	{
 			std::cout << "Error: Assimp could not load the model from: " << filename << std::endl;
 		logger.AddLog("Assimple could not load the model", ImGuiLogger::LogType::Assimp);
 		return false;
 	}
-
+	
 	initAllMeshes(scenePtr, filename);
+
+
+	if (scenePtr->mNumAnimations > 0) {
+		loadAnimations(scenePtr);
+		logger.AddLog("Animations loaded successfully", ImGuiLogger::LogType::Assimp);
+	}
+	else {
+		logger.AddLog("No animations found for this model", ImGuiLogger::LogType::Assimp);
+	}
 
 	/*if (!initMaterials(scenePtr, filename)) {
 		std::cout << "Error init materials from: " << filename << std::endl;
@@ -67,7 +78,7 @@ bool modelLoader::initFromScene(const aiScene* scenePtr, const std::string& file
 	
 	createShaderProgram();
 	
-	
+	std::cout << "\init from Scene function end";
 	
 	return true;
 
@@ -78,6 +89,7 @@ void modelLoader::countVertAndIndices(const aiScene* scenePtr, unsigned int& num
 	numVerts = 0;
 	numIndices = 0;
 
+	std::cout << "\nCount Vertices function start";
 
 	for (unsigned int i = 0; i < scenePtr->mNumMeshes; ++i) {
 
@@ -94,15 +106,65 @@ void modelLoader::countVertAndIndices(const aiScene* scenePtr, unsigned int& num
 
 
 }
+void modelLoader::loadAnimations(const aiScene* scene) {
+	for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
+		const aiAnimation* animation = scene->mAnimations[i];
+
+		// Store animation information (duration, channels, etc.)
+		AnimationData animData;
+		animData.duration = animation->mDuration;
+		animData.ticksPerSecond = animation->mTicksPerSecond != 0 ? animation->mTicksPerSecond : 25.0f;
+
+		for (unsigned int j = 0; j < animation->mNumChannels; j++) {
+			aiNodeAnim* channel = animation->mChannels[j];
+
+			// Extract position, rotation, and scaling keyframes for each bone
+			BoneAnimation boneAnim;
+			boneAnim.boneName = channel->mNodeName.data;
+
+			// Process position keyframes
+			for (unsigned int k = 0; k < channel->mNumPositionKeys; k++) {
+				PositionKey posKey;
+				posKey.time = channel->mPositionKeys[k].mTime;
+				posKey.value = channel->mPositionKeys[k].mValue; // aiVector3D
+				boneAnim.positions.push_back(posKey);
+			}
+
+			// Process rotation keyframes
+			for (unsigned int k = 0; k < channel->mNumRotationKeys; k++) {
+				RotationKey rotKey;
+				rotKey.time = channel->mRotationKeys[k].mTime;
+				rotKey.value = channel->mRotationKeys[k].mValue; // aiQuaternion
+				boneAnim.rotations.push_back(rotKey);
+			}
+
+			// Process scaling keyframes
+			for (unsigned int k = 0; k < channel->mNumScalingKeys; k++) {
+				ScalingKey scaleKey;
+				scaleKey.time = channel->mScalingKeys[k].mTime;
+				scaleKey.value = channel->mScalingKeys[k].mValue; // aiVector3D
+				boneAnim.scales.push_back(scaleKey);
+			}
+
+			// Add this bone animation to the animation data
+			animData.boneAnimations.push_back(boneAnim);
+		}
+
+		// Add the full animation to your animations list
+		animations.push_back(animData);
+	}
+}
 
 void modelLoader::reserveSpace(unsigned int numVertices, unsigned int numIndices)
 {
+	std::cout << "\nReserve space model function";
 	vertices.reserve(numVertices);
 	indices.reserve(numIndices);
 
 	logger.AddLog("Reserved space for " + std::to_string(numVertices) + " vertices and " 
 	+ std::to_string(numIndices) + " indices", ImGuiLogger::LogType::Assimp);
 
+	std::cout << "\nreserve space function end";
 }
 void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, const std::string& filename) {
 	if (!meshPtr || !scene) {
@@ -131,6 +193,36 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 
 		meshData->vertices.push_back(vertex);
 	}
+	std::unordered_map<std::string, int> boneMapping;
+
+	// Iterate over all bones in the mesh
+	for (unsigned int i = 0; i < meshPtr->mNumBones; ++i) {
+		aiBone* bone = meshPtr->mBones[i];
+
+		int boneIndex = 0;  // Variable to hold bone index
+		std::string boneName(bone->mName.data);
+
+		// Check if this bone is already in the bone mapping
+		if (boneMapping.find(boneName) == boneMapping.end()) {
+			// If boneName not found, assign a new index
+			boneIndex = boneMapping.size();
+			boneMapping[boneName] = boneIndex;
+		}
+		else {
+			// If boneName found, use the existing index
+			boneIndex = boneMapping[boneName];
+		}
+
+		// Loop through the vertices affected by this bone
+		for (unsigned int j = 0; j < bone->mNumWeights; j++) {
+			unsigned int vertexID = bone->mWeights[j].mVertexId;
+			float weight = bone->mWeights[j].mWeight;
+
+			// Add the bone influence to the vertex
+			assignBoneToVertex(vertices[vertexID], boneIndex, weight);
+		}
+	}
+
 
 	// Process indices
 	for (unsigned int i = 0; i < meshPtr->mNumFaces; ++i) {
@@ -143,6 +235,7 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 	// Insert the processed vertices and indices into the class member vectors
 	vertices.insert(vertices.end(), meshData->vertices.begin(), meshData->vertices.end());
 	indices.insert(indices.end(), meshData->indices.begin(), meshData->indices.end());
+
 
 	// Process material and textures for this mesh
 	if (meshPtr->mMaterialIndex >= 0) {
@@ -164,26 +257,83 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 	modelNewVector.back()->subMeshes.push_back(std::move(meshData));  // Move ownership of the mesh data
 }
 
+void modelLoader::assignBoneToVertex(VertexNew& vertex, int boneID, float weight) {
+    for (int i = 0; i < 4; ++i) {
+        if (vertex.weights[i] == 0.0f) {
+            vertex.boneIDs[i] = boneID;
+            vertex.weights[i] = weight;
+            return;
+        }
+    }
+    // In case the vertex has more than 4 bones influencing it, discard the extra influences.
+}
+
 void modelLoader::renderSubmesh(MeshNew& model, GLuint VAO2)
 {
-
+	std::cout << "\nRendering submesh function";
 // Extract the model position from the existing model matrix
-glm::vec3 modelPosition = glm::vec3(subMatrixView[3]); // Assuming subMatrixView is your existing view matrix
+	
+glm::vec3 modelPosition = glm::vec3(0.0,-0.13,-1.0); // Assuming subMatrixView is your existing view matrix
 
 // Set the camera position relative to the model
-glm::vec3 cameraOffset(0.0f, 0.0f, 8.0f); // Adjust as needed
+glm::vec3 cameraOffset(submeshRenderCam[0], submeshRenderCam[1], submeshRenderCam[2]); // Move the camera further back
 glm::vec3 cameraPosition = modelPosition + cameraOffset;
 
 // Create the look-at view matrix
 glm::mat4 lookAtViewMatrix = glm::lookAt(cameraPosition, modelPosition, glm::vec3(0.0f, 1.0f, 0.0f));
 
 // Combine the existing view matrix with the lookAt transformation
-glm::mat4 combinedViewMatrix = subMatrixView * lookAtViewMatrix; // or subMatrixView * lookAtViewMatrix depending on your needs
+glm::mat4 combinedViewMatrix = lookAtViewMatrix; // or subMatrixView * lookAtViewMatrix depending on your needs
 
 
 	glUseProgram(this->shaderProgram->ID);
 	glBindFramebuffer(GL_FRAMEBUFFER, submeshFBO);
 	
+
+
+	bool diffuseBound = false;
+	bool specularBound = false;
+	unsigned int placeholderTexture = CreatePlaceholderTexture();
+	// Iterate over each texture in the sub-mesh
+	for (const auto& texture : model.textures) {
+
+		if (texture.type == "texture_diffuse") {
+			// Bind diffuse texture to texture unit 0
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture.id);
+			GLint diffuseSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_diffuse");
+			glUniform1i(diffuseSamplerLoc, 0);
+			diffuseBound = true;
+
+			// Log texture binding
+		//	logger.AddLog("Bound diffuse texture ID: " + std::to_string(texture.id));
+		}
+		else if (texture.type == "texture_specular") {
+			// Bind specular texture to texture unit 1
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, texture.id);
+			GLint specularSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_normal");
+			glUniform1i(specularSamplerLoc, 1);
+			specularBound = true;
+
+			// Log texture binding
+		//	logger.AddLog("Bound specular texture ID: " + std::to_string(texture.id));
+		}
+	}
+
+	// Bind placeholder texture if no diffuse texture was bound
+	if (!diffuseBound) {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, placeholderTexture);
+		//	logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
+	}
+
+	// Bind placeholder texture if no specular texture was bound
+	if (!specularBound) {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, placeholderTexture);
+		//logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
+	}
 	// Set material properties
 	Material& mat = model.material;
 	GLint materialAmbientLoc = glGetUniformLocation(this->shaderProgram->ID, "material.ambient");
@@ -214,8 +364,8 @@ glm::mat4 combinedViewMatrix = subMatrixView * lookAtViewMatrix; // or subMatrix
 	// Set view matrix
 	GLint viewLoc = glGetUniformLocation(this->shaderProgram->ID, "view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(combinedViewMatrix));
-	glActiveTexture(GL_TEXTURE0);  // Activate texture unit 0
-	glBindTexture(GL_TEXTURE_2D, subMeshTexture);  // Bind the FBO texture
+	//glActiveTexture(GL_TEXTURE0);  // Activate texture unit 0
+	//glBindTexture(GL_TEXTURE_2D, subMeshTexture);  // Bind the FBO texture
 	// Set projection matrix
 	
 	GLint diffuseSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_diffuse");
@@ -227,7 +377,7 @@ glm::mat4 combinedViewMatrix = subMatrixView * lookAtViewMatrix; // or subMatrix
 		std::cerr << "Could not find uniform 'diffuse_texture' in shader." << std::endl;
 	}
 	
-	glViewport(0, 0, window_width, window_height );  // Set the viewport to match FBO size
+	glViewport(0, 0, window_width, window_height);// Set the viewport to match FBO size
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Clear FBO buffers (color and depth)
 	
 	// Bind and render the submesh VAO
@@ -242,7 +392,7 @@ glm::mat4 combinedViewMatrix = subMatrixView * lookAtViewMatrix; // or subMatrix
 	ImGui::Begin("Submesh FBO Render");
 	ImGui::Text("FBO Texture:");
 	// Set the position and size of the image
-	ImVec2 imageSize = ImVec2(400, 400);
+	ImVec2 imageSize = ImVec2(window_width, window_height);
 	ImVec2 imagePosition = ImGui::GetCursorScreenPos(); // Get the current cursor position
 
 	// Draw the border using ImGui::GetWindowDrawList()
@@ -290,7 +440,7 @@ glm::mat4 combinedViewMatrix = subMatrixView * lookAtViewMatrix; // or subMatrix
 
 	// Display the rendered texture inside the border
 	ImGui::Image((ImTextureID)(intptr_t)subMeshTexture, imageSize, ImVec2(0, 1), ImVec2(1, 0));
-
+	ImGui::SliderFloat3("Camera XYZ", submeshRenderCam, -10.0f, 10.0f);  
 	
 	//ImGui::Image((ImTextureID)(intptr_t)subMeshTexture, ImVec2(700, 700), ImVec2(0, 1), ImVec2(1, 0), ImVec4(1.0,1.0,1.0, 1.0));  // Display the rendered texture
 	ImGui::End();
@@ -361,7 +511,6 @@ Material modelLoader::processMaterial(aiMaterial* material, const aiScene* scene
 
 void modelLoader::setupBuffersNew(MeshNew& mesh)
 {
-
 	GLuint VAO1, VBO1, EBO1;
 
 	// Generate and bind VAO
@@ -380,152 +529,163 @@ void modelLoader::setupBuffersNew(MeshNew& mesh)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(unsigned int), mesh.indices.data(), GL_STATIC_DRAW);
 
 	// Set vertex attributes
-	// Position attribute
+	// Position attribute (layout location = 0)
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNew), (void*)offsetof(VertexNew, Position));
 	glEnableVertexAttribArray(0);
 
-	// Normal attribute
+	// Normal attribute (layout location = 1)
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexNew), (void*)offsetof(VertexNew, Normal));
 	glEnableVertexAttribArray(1);
 
-	// Texture coordinate attribute
+	// Texture coordinate attribute (layout location = 2)
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexNew), (void*)offsetof(VertexNew, TexCoords));
 	glEnableVertexAttribArray(2);
+
+	// Bone IDs attribute (layout location = 3)
+	// Since boneIDs are integers, use `glVertexAttribIPointer` instead of `glVertexAttribPointer`
+	glVertexAttribIPointer(3, 4, GL_INT, sizeof(VertexNew), (void*)offsetof(VertexNew, boneIDs));
+	glEnableVertexAttribArray(3);
+
+	// Bone Weights attribute (layout location = 4)
+	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(VertexNew), (void*)offsetof(VertexNew, weights));
+	glEnableVertexAttribArray(4);
 
 	// Unbind the VAO (it's good practice)
 	glBindVertexArray(0);
 
 	// Store the VAO in the meshData for later use in rendering
 	mesh.VAO = VAO1;
-	//.meshID
-	
-		
-
-	
-	
 }
+
 void modelLoader::Render(unsigned int shaderProgram) {
 	// Use the shader program passed to the function
-	showMaterialEditor(modelNewVector, activeModelIndex, activeSubMeshIndex);
-	glUseProgram(this->shaderProgram->ID); // Use the shader program
 
-	// Set sun properties
-	GLint sunBrightnessLoc = glGetUniformLocation(this->shaderProgram->ID, "sunBrightness");
-	glUniform1f(sunBrightnessLoc, sun.Brightness);
+	//THERES AN ERORR WITH RENDEIRNG SUBMESH - SO WE WILL TRY TO FIX IT ON STREAM.
+	if (!boolDontRender) {
+		showMaterialEditor(modelNewVector, activeModelIndex, activeSubMeshIndex);
+		glUseProgram(this->shaderProgram->ID); // Use the shader program
 
-	GLint sunDiffuseColorLoc = glGetUniformLocation(this->shaderProgram->ID, "sunDiffuseColor");
-	glUniform3f(sunDiffuseColorLoc, sun.DiffuseColor.r, sun.DiffuseColor.g, sun.DiffuseColor.b);
+		// Set sun properties
+		GLint sunBrightnessLoc = glGetUniformLocation(this->shaderProgram->ID, "sunBrightness");
+		glUniform1f(sunBrightnessLoc, sun.Brightness);
 
-	GLint radiansTimeLoc = glGetUniformLocation(this->shaderProgram->ID, "radiansTime");
-	glUniform1f(radiansTimeLoc, sun.radiansTime);
+		GLint sunDiffuseColorLoc = glGetUniformLocation(this->shaderProgram->ID, "sunDiffuseColor");
+		glUniform3f(sunDiffuseColorLoc, sun.DiffuseColor.r, sun.DiffuseColor.g, sun.DiffuseColor.b);
 
-	// ImGui Control Panel
-	ImGui::Begin("Control Panel");
-	ImGui::SliderFloat("Ambient Light Intensity", &ambientLightIntensity, 0.0f, 10.0f);
-	ImGui::SliderFloat3("Light Pos", glm::value_ptr(lightPosInput), -200, 200);
-	ImGui::End();
+		GLint radiansTimeLoc = glGetUniformLocation(this->shaderProgram->ID, "radiansTime");
+		glUniform1f(radiansTimeLoc, sun.radiansTime);
 
-	// Set ambient light uniform
-	GLint ambientLightLoc = glGetUniformLocation(this->shaderProgram->ID, "ambientLight");
-	glUniform3f(ambientLightLoc, ambientLightIntensity, ambientLightIntensity, ambientLightIntensity);
+		// ImGui Control Panel
+		ImGui::Begin("Control Panel");
+		ImGui::SliderFloat("Ambient Light Intensity", &ambientLightIntensity, 0.0f, 10.0f);
+		ImGui::SliderFloat3("Light Pos", glm::value_ptr(lightPosInput), -200, 200);
+		ImGui::End();
 
-	// Set light position
-	GLint lightPosLoc = glGetUniformLocation(this->shaderProgram->ID, "lightPos");
-	glUniform3f(lightPosLoc, lightPosInput.x, lightPosInput.y, lightPosInput.z);
+		// Set ambient light uniform
+		GLint ambientLightLoc = glGetUniformLocation(this->shaderProgram->ID, "ambientLight");
+		glUniform3f(ambientLightLoc, ambientLightIntensity, ambientLightIntensity, ambientLightIntensity);
 
-	// Set view position
-	GLint viewPosLoc = glGetUniformLocation(this->shaderProgram->ID, "viewPos");
-	glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.getPosition()));
+		// Set light position
+		GLint lightPosLoc = glGetUniformLocation(this->shaderProgram->ID, "lightPos");
+		glUniform3f(lightPosLoc, lightPosInput.x, lightPosInput.y, lightPosInput.z);
 
-	// Set view matrix
-	GLint viewLoc = glGetUniformLocation(this->shaderProgram->ID, "view");
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		// Set view position
+		GLint viewPosLoc = glGetUniformLocation(this->shaderProgram->ID, "viewPos");
+		glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.getPosition()));
 
-	// Set projection matrix
-	GLint projLoc = glGetUniformLocation(this->shaderProgram->ID, "projection");
-	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+		// Set view matrix
+		GLint viewLoc = glGetUniformLocation(this->shaderProgram->ID, "view");
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		glm::mat4 projections = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 30000.0f);
+		// Set projection matrix
+		GLint projLoc = glGetUniformLocation(this->shaderProgram->ID, "projection");
+		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projections));
 
-	// Placeholder texture
-	unsigned int placeholderTexture = CreatePlaceholderTexture();
+		// Placeholder texture
+		unsigned int placeholderTexture = CreatePlaceholderTexture();
 
-	for (const auto& modelPtr : modelNewVector) {
-		for (const auto& subMesh : modelPtr->subMeshes) {
-			// Set model matrix
-			GLint modelLoc = glGetUniformLocation(this->shaderProgram->ID, "model");
-			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelPtr->worldTransform));
+		for (const auto& modelPtr : modelNewVector) {
+			for (const auto& subMesh : modelPtr->subMeshes) {
+				// Set model matrix
+				GLint modelLoc = glGetUniformLocation(this->shaderProgram->ID, "model");
+				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelPtr->worldTransform));
 
-			bool diffuseBound = false;
-			bool specularBound = false;
+				bool diffuseBound = false;
+				bool specularBound = false;
 
-			// Iterate over each texture in the sub-mesh
-			for (const auto& texture : subMesh->textures) {
-				if (texture.type == "texture_diffuse") {
-					// Bind diffuse texture to texture unit 0
+				// Iterate over each texture in the sub-mesh
+				for (const auto& texture : subMesh->textures) {
+					if (texture.type == "texture_diffuse") {
+						// Bind diffuse texture to texture unit 0
+						glActiveTexture(GL_TEXTURE0);
+						glBindTexture(GL_TEXTURE_2D, texture.id);
+						GLint diffuseSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_diffuse");
+						glUniform1i(diffuseSamplerLoc, 0);
+						diffuseBound = true;
+
+						// Log texture binding
+					//	logger.AddLog("Bound diffuse texture ID: " + std::to_string(texture.id));
+					}
+					else if (texture.type == "texture_specular") {
+						// Bind specular texture to texture unit 1
+						glActiveTexture(GL_TEXTURE1);
+						glBindTexture(GL_TEXTURE_2D, texture.id);
+						GLint specularSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_normal");
+						glUniform1i(specularSamplerLoc, 1);
+						specularBound = true;
+
+						// Log texture binding
+					//	logger.AddLog("Bound specular texture ID: " + std::to_string(texture.id));
+					}
+				}
+
+				// Bind placeholder texture if no diffuse texture was bound
+				if (!diffuseBound) {
 					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, texture.id);
-					GLint diffuseSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_diffuse");
-					glUniform1i(diffuseSamplerLoc, 0);
-					diffuseBound = true;
-
-					// Log texture binding
-				//	logger.AddLog("Bound diffuse texture ID: " + std::to_string(texture.id));
+					glBindTexture(GL_TEXTURE_2D, placeholderTexture);
+					//	logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
 				}
-				else if (texture.type == "texture_specular") {
-					// Bind specular texture to texture unit 1
+
+				// Bind placeholder texture if no specular texture was bound
+				if (!specularBound) {
 					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_2D, texture.id);
-					GLint specularSamplerLoc = glGetUniformLocation(this->shaderProgram->ID, "texture_normal");
-					glUniform1i(specularSamplerLoc, 1);
-					specularBound = true;
-
-					// Log texture binding
-				//	logger.AddLog("Bound specular texture ID: " + std::to_string(texture.id));
+					glBindTexture(GL_TEXTURE_2D, placeholderTexture);
+					//logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
 				}
+
+				// Set material properties
+				Material& mat = subMesh->material;
+				GLint materialAmbientLoc = glGetUniformLocation(this->shaderProgram->ID, "material.ambient");
+				GLint materialDiffuseLoc = glGetUniformLocation(this->shaderProgram->ID, "material.diffuseColor");
+				GLint materialSpecularLoc = glGetUniformLocation(this->shaderProgram->ID, "material.specularColor");
+				GLint materialShininessLoc = glGetUniformLocation(this->shaderProgram->ID, "material.shininess");
+				glUniform1f(glGetUniformLocation(this->shaderProgram->ID, "material.transparency"), mat.transparency);
+
+				if (materialAmbientLoc != -1) glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(mat.ambient));
+				if (materialDiffuseLoc != -1) glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(mat.diffuseColor));
+				if (materialSpecularLoc != -1) glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(mat.specularColor));
+				if (materialShininessLoc != -1) glUniform1f(materialShininessLoc, mat.shininess);
+
+				// Draw the subMesh
+				glBindVertexArray(subMesh->VAO);
+				std::string drawnstr = "Whole Submesh VAO DRawn is: " + std::to_string(subMesh->VAO);
+				logger.AddLog(drawnstr, ImGuiLogger::LogType::Assimp);
+				glDrawElements(GL_TRIANGLES, subMesh->indices.size(), GL_UNSIGNED_INT, 0);
+
+				// Unbind VAO and textures
+				glBindVertexArray(0);
+				glBindTexture(GL_TEXTURE_2D, 0);  // Unbind diffuse texture
+				glBindTexture(GL_TEXTURE_2D, 1);  // Unbind specular texture
 			}
+		}
 
-			// Bind placeholder texture if no diffuse texture was bound
-			if (!diffuseBound) {
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, placeholderTexture);
-			//	logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
-			}
-
-			// Bind placeholder texture if no specular texture was bound
-			if (!specularBound) {
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, placeholderTexture);
-				//logger.AddLog("Bound placeholder texture ID: " + std::to_string(placeholderTexture)); // Log placeholder
-			}
-
-			// Set material properties
-			Material& mat = subMesh->material;
-			GLint materialAmbientLoc = glGetUniformLocation(this->shaderProgram->ID, "material.ambient");
-			GLint materialDiffuseLoc = glGetUniformLocation(this->shaderProgram->ID, "material.diffuseColor");
-			GLint materialSpecularLoc = glGetUniformLocation(this->shaderProgram->ID, "material.specularColor");
-			GLint materialShininessLoc = glGetUniformLocation(this->shaderProgram->ID, "material.shininess");
-			glUniform1f(glGetUniformLocation(this->shaderProgram->ID, "material.transparency"), mat.transparency);
-
-			if (materialAmbientLoc != -1) glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(mat.ambient));
-			if (materialDiffuseLoc != -1) glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(mat.diffuseColor));
-			if (materialSpecularLoc != -1) glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(mat.specularColor));
-			if (materialShininessLoc != -1) glUniform1f(materialShininessLoc, mat.shininess);
-
-			// Draw the subMesh
-			glBindVertexArray(subMesh->VAO);
-			glDrawElements(GL_TRIANGLES, subMesh->indices.size(), GL_UNSIGNED_INT, 0);
-
-			// Unbind VAO and textures
-			glBindVertexArray(0);
-			glBindTexture(GL_TEXTURE_2D, 0);  // Unbind diffuse texture
-			glBindTexture(GL_TEXTURE_2D, 1);  // Unbind specular texture
+		// Restore default texture unit
+		glActiveTexture(GL_TEXTURE0);
+		if (boolRenderSubmesh) {
+			renderSubmesh(*submeshRendered, VAOtoRender);
+			
 		}
 	}
-
-	// Restore default texture unit
-	glActiveTexture(GL_TEXTURE0);
-	if (boolRenderSubmesh) {
-		renderSubmesh(*submeshRendered, VAOtoRender);
-		}
 	}
 	
 
@@ -582,7 +742,7 @@ unsigned int modelLoader::loadTextureFromFile(const char* path, const std::strin
 			std::cout << "Texture failed to load at path: " << path << std::endl;
 			logger.AddLog("Texture failed to load at path: " + std::string(path), ImGuiLogger::LogType::Assimp);
 
-			stbi_image_free(data);
+			
 		}
 	return textureID;
 
@@ -857,7 +1017,9 @@ MeshNew* activeSubMesh = activeModel.subMeshes[activeSubMeshIndex].get(); // Acc
 	Material& material = activeSubMesh->material;
 	
 	submeshRendered = activeSubMesh;
-	VAOtoRender = activeSubMesh->VAO;
+	VAOtoRender = activeSubMesh->VAO; //WHEN WE HAVE LIGHTS IN THE SCENE, THE WRONG VAO IS RENDERED FOR A SUBMESH
+	logger.AddLog(std::to_string(VAOtoRender), ImGuiLogger::LogType::Assimp);
+	//THIS WILL BE THE LOCATION OF THE ERROR
 	subMatrixView = activeModel.worldTransform;
 	sumMeshVAOSize = activeModel.subMeshes.size();
 	// Now let's draw the world transform window near the selected submesh
@@ -936,6 +1098,29 @@ MeshNew* activeSubMesh = activeModel.subMeshes[activeSubMeshIndex].get(); // Acc
 
 	// Illumination model (assuming it's an integer)
 	ImGui::InputInt("Illumination Model", &material.illuminationModel);
+
+	ImGui::Separator();
+	ImGui::Text("Animation Information");
+
+	// Assuming `animations` is a vector containing all animations for the model
+	if (animations.empty()) {
+		ImGui::Text("No animations available.");
+	}
+	else {
+		ImGui::Text("Total Animations: %d", (int)animations.size());
+		for (int i = 0; i < animations.size(); ++i) {
+			const AnimationData& animData = animations[i];
+			ImGui::Text("Animation %d: Duration: %.2f, Ticks Per Second: %.2f", i + 1, animData.duration, animData.ticksPerSecond);
+			ImGui::Text("Bone Animations: %d", (int)animData.boneAnimations.size());
+			for (int j = 0; j < animData.boneAnimations.size(); ++j) {
+				ImGui::Text("  Bone %d: %s", j + 1, animData.boneAnimations[j].boneName.c_str());
+				ImGui::Text("  Position Keys: %d, Rotation Keys: %d, Scaling Keys: %d",
+					(int)animData.boneAnimations[j].positions.size(),
+					(int)animData.boneAnimations[j].rotations.size(),
+					(int)animData.boneAnimations[j].scales.size());
+			}
+		}
+	}
 
 	ImGui::End(); // End the ImGui window
 

@@ -1,8 +1,11 @@
 #version 450 core
 
-layout(location = 0) in vec3 aPos;          // Vertex position
-layout(location = 1) in vec3 aNormal;       // Vertex normal
-layout(location = 2) in vec2 aTexCoord;     // Vertex texture coordinates
+
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoord;
+layout(location = 3) in ivec4 boneIDs;
+layout(location = 4) in vec4 weights;
 
 // Uniforms for transformation matrices
 uniform mat4 model;                          // Model matrix
@@ -26,4 +29,5 @@ void main() {
 
     // Compute fragment position in world space
     FragPos = vec3(model * vec4(aPos, 1.0));
+
 }

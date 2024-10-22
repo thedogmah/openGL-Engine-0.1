@@ -73,7 +73,7 @@ public:
 	int coordinatesToIndex(int i, int j); //converts 2d coordinates to 1d index;
 	int findHighestPoint(const std::vector<GLfloat>& vertices);
 	std::mt19937 rng;  // Mersenne Twister PRNG
-	int numOctaves = 5; // for heightmap
+	int numOctaves = 4; // for heightmap
 	void createUVs();
 	std::vector<GLfloat> GenerateFractalTerrain(std::vector<GLfloat>& Vertices,
 	int iIterations,
@@ -232,7 +232,7 @@ public:
 	//the terrain before it exists.
 	//physics
 	btTriangleMesh* terrainMesh = nullptr;
-	btBvhTriangleMeshShape* terrainShapePtr = nullptr;
+	btHeightfieldTerrainShape* terrainShapePtr = nullptr;
 	btRigidBody* terrainRigidBody = nullptr;
 	btRigidBody* terrainMeshRigidBody = nullptr;
 	btDefaultMotionState* terrainMotionState = nullptr;

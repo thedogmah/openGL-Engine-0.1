@@ -117,6 +117,15 @@
     <ClCompile Include="..\..\tinyfiledialogs.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Sphere.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Grid.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CubeMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cube.h">
@@ -242,6 +251,15 @@
     <ClInclude Include="libraries\include\tinyfiledialogs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Grid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CubeMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="basic.frag">
@@ -269,6 +287,15 @@
     <None Include="modelfragment.glsl">
       <Filter>Header Files\Shaders</Filter>
     </None>
+    <None Include="worldGrid.vert">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="skybox.vert">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
+    <None Include="skybox.frag">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg">
@@ -280,6 +307,9 @@
       <Filter>Source Files\Shaders</Filter>
     </Text>
     <Text Include="waterFragment.txt">
+      <Filter>Source Files\Shaders</Filter>
+    </Text>
+    <Text Include="worldGrid.frag">
       <Filter>Source Files\Shaders</Filter>
     </Text>
   </ItemGroup>

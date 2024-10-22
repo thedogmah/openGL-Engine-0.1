@@ -166,3 +166,7 @@ extern std::vector<btRigidBody*> rigidBodies;
 extern btRigidBody* groundBody;
 extern 	GLuint modelMatrixLocation;
 extern SSBO cubeSSBO;
+
+// Vertex Shader source code as a const char* string
+
+
