@@ -32,6 +32,7 @@
 class Character
 {
 public:
+
 	Character(btDynamicsWorld* world, float initialX, float initialY, float initialZ, GLFWwindow* window);
 	
 	void handleInput();

@@ -10,7 +10,6 @@ SSBO* selectedSSBO = nullptr;
 Mesh* selectedMeshInstance = nullptr;
 //int intSelectedmapSSBOMeshInstance = 0;//variable to remember what item in the SSBO edit imgui is selected
 bool showSecondDropdown = false;
-const char* filterPatterns[] = { "*.obj", NULL };
 //const char* filename ="";
 std::string fname = "";
 std::string fileNameBuffer2 = "File name";

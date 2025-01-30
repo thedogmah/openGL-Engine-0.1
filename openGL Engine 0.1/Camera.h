@@ -36,5 +36,12 @@ public:
 	float mMouseSensitivity; 
 	float mZoom;
 	Character* character = nullptr;
+	float yOffset;
+	//mosue scroll varaibles
+	double lastYPos = 0.0;
+	double currentYPos;
+	double mouseSensitivity = 0.05; // Tweak this for desired responsiveness
+	double scrollSpeed = mMovementSpeed * 3.0; // Adjust multiplier for faster movement
+
 };
 

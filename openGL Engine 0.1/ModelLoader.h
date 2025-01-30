@@ -18,6 +18,8 @@
 #include <stdexcept> // For std::runtime_error
 #include "globals.h"
 #include "Shader.h"
+#include "poly2tri/poly2tri.h"
+#include <unordered_map>
 struct VertexNew;
 struct TextureNew;
 struct MeshNew;
@@ -25,17 +27,22 @@ static int meshNewId = 0;//a count of the given mesh ID as we add a unique mesh 
 
 struct modelNew {
 public:
+    aiNode* rootNode = nullptr;
+    aiScene* loadedScene = nullptr;
     std::vector<std::unique_ptr<MeshNew>> subMeshes; // Holds pointers to sub-meshes for this model
     std::string name;                // Optional: Name of the model
     int modelID;                     // Unique identifier for the model
     //forward declare
+    bool meshIsAnimated = false;
     glm::mat4 worldTransform;        // World transformation matrix
     glm::mat4 GetModelMatrix() const {
         // Extract the position from the worldTransform matrix
         return worldTransform; // Return the position as a vec3
         std::vector<Material> materials;
     }
- 
+     aiScene* getScene()  {
+        return loadedScene;
+    }
     void SetPosition(const glm::vec3& position) {
         // Set the X, Y, Z components of the translation (position) in the worldTransform matrix
         worldTransform[3] = glm::vec4(position, worldTransform[3].w); // Preserve the 'w' component
@@ -225,7 +232,7 @@ struct TextureNew {
 class modelLoader {
 public:
     modelLoader() {
-
+        
         worldTransform = glm::mat4(1.0f);
 
 
@@ -233,8 +240,8 @@ public:
        
     }
     //~modelLoader();
-
-
+    AnimationController* animationController = animationControllerPtr;
+   void normalizeBoneWeights(VertexNew& vertex);
     void clear();//Function to clear the model data.
 
     //init model from assimp scene
@@ -258,6 +265,10 @@ public:
     // Initialize materials for the model
     //bool initMaterials(const aiScene* scenePtr, const std::string& filename);
     void showMaterialEditor(std::vector<std::unique_ptr<modelNew>>& modelNewVector, int& activemodelindex, int& activeSubmeshindex);
+    bool boolDisplayExtraAnimationData = false;//show extra animtion and contents of bone transofrms etc
+
+    void displayAnimationDebugWindow(const std::vector<glm::mat4>& finalBoneTransforms, const std::unordered_map<std::string, aiMatrix4x4>& boneTransforms);
+
     Material processMaterial( aiMaterial* material, const aiScene* scene, const std::string& filename, std::vector<TextureNew>& textures);
     // Setters for model transformations
     void SetRotation(const glm::vec3& rotationAngles);
@@ -265,7 +276,7 @@ public:
     void SetTranslation(const glm::vec3& translation);
     void setupBuffersNew(MeshNew& meshData);
     // Render the model using the specified shader program
-    void Render(unsigned int shaderProgram);
+    void Render(unsigned int shaderProgram, float deltaTime);
 
     bool createShaderProgram();
     void useShader();

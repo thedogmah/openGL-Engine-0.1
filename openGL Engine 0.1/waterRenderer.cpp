@@ -17,6 +17,8 @@ WaterRenderer::WaterRenderer(Loader& loader, waterShader& shader, const glm::mat
 
 void WaterRenderer::render(const std::vector<WaterTile>& water, const Camera& camera) {
    // shader.use();
+    if (!boolShowWater)//dont render water
+        return;
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime.time_since_epoch());

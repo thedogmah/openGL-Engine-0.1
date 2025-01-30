@@ -12,7 +12,7 @@ void main()
     
     // Sample the skybox color
     vec4 skyboxColor = texture(skybox, TexCoords);
-    sunFactor =0.4;
+    sunFactor =0.6;
     // Blend the sunColor with the skybox color using sunFactor
     vec4 finalColor = mix(skyboxColor, skyboxColor * vec4(sunColor, 1.0), sunFactor);
 

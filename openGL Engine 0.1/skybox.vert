@@ -10,7 +10,7 @@ uniform float time; // Time for rotation
 void main()
 {
     // Create a rotation angle based on time
-    float angle = time * 0.07; // Control the speed of rotation
+    float angle = time * 0.08; // Control the speed of rotation
 
     // Create a rotation matrix (rotation around Y-axis)
     mat4 rotationMatrix = mat4(

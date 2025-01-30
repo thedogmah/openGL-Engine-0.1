@@ -15,7 +15,7 @@ extern int meshCountInstanced;
 extern float scalemin;
 extern float scalemax;
 static int bindingIndexCount;
-extern const char* filterPatterns[6];
+//extern static const char* filterPatterns[2];
 extern const char* filename[];
 
 extern int selectedSSBOID ; ////variable to remember what item in the SSBO edit imgui is selected and its bools

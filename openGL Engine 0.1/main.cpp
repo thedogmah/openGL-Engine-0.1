@@ -5,10 +5,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-
 #define BT_USE_DOUBLE_PRECISION
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <winrt/Windows.Foundation.h>
+#include <exception>  // Standard header for exceptions like std::exception
 
 #include <windows.h>
 #include <commdlg.h>
@@ -29,6 +30,7 @@
 #include <glm/gtx/compatibility.hpp> // for glm::lerp
 #include <glm/gtx/compatibility.hpp> // for glm::lerp
 #include <cstdlib> // for rand
+//Bullet libraries for PHYSICS
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
 #include "CubeMap.h"
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\btBulletCollisionCommon.h"
@@ -59,7 +61,7 @@
 #include "SSBO.h"
 #include "openGLDrawable.h"
 #include "PhysDebug.h"
-#include "Engine.h"
+#include "Engine.h" //Main TERRAIN class
 #include "Character.h"
 #include <filesystem>
 #include "Mesh.h"
@@ -71,14 +73,20 @@
 #include "waterFrameBuffer.h"
 #include "tinyfiledialogs.h"
 #include "Grid.h"
-char const* lTheOpenFileName;
+#include "Animation.h"
+bool boolShowGrid = true;
+bool boolShowWater = true;
+//char const* lTheOpenFileName;
 #include "ImGuiLogger.h"
 #include "ModelLoader.h"
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyMesh;
 UIManager* uimanager;
 ObjImporter* objimporter;
+float deltaTimeGlobal = 0.0;
 ImGuiLogger logger;
 modelLoader modelLoaderNew;
+
+float currentTime, deltaTime;
 //Customer shader variables
 std::string customVertexShaderCode;
 std::string customFragmentShaderCode;
@@ -89,7 +97,7 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
  World::lerpContainer lightSceneLerp;
  WorldGrid* worldgridPtr = nullptr;
  std::map<std::string, FramebufferObject> framebuffers;
-
+ AnimationController* animationControllerPtr = new AnimationController();//pointer to access animation controller globally
  std::vector<ObjImporter> models;
  float scalemin, scalemax;
   int meshCountInstanced;
@@ -124,6 +132,7 @@ GLuint* globalWaterShader = new GLuint;
 
 
 GLuint captureTexture = 0;//used for rendering world to imgui window 
+//This means the world can be rendered into an additional / separate UI box ...
 
 btRigidBody* groundBody;
 int modelLoc;
@@ -220,51 +229,52 @@ void SetupImGuiStyle2()
 	static ImVec3 color_for_text = ImVec3(236.f / 255.f, 240.f / 255.f, 241.f / 255.f);
 	static ImVec3 color_for_head = ImVec3(41.f / 255.f, 128.f / 255.f, 185.f / 255.f);
 	static ImVec3 color_for_area = ImVec3(57.f / 255.f, 79.f / 255.f, 105.f / 255.f);
-	static ImVec3 color_for_body = ImVec3(44.f / 255.f, 62.f / 255.f, 80.f / 255.f);
+	static ImVec3 color_for_body = ImVec3(94.f / 255.f, 112.f / 255.f, 166.f / 255.f);
 	static ImVec3 color_for_pops = ImVec3(33.f / 255.f, 46.f / 255.f, 60.f / 255.f);
 	imgui_easy_theming(color_for_text, color_for_head, color_for_area, color_for_body, color_for_pops);
 }
 void showFBOControlPanel() {
 	bool uniqueView = false;
+	if (drawIMGUI) {
+		ImGui::Begin("FBO Control Panel");
 
-	ImGui::Begin("FBO Control Panel");
+		// Input field for FBO name
+		ImGui::InputText("FBO Name", fboName, sizeof(fboName));
 
-	// Input field for FBO name
-	ImGui::InputText("FBO Name", fboName, sizeof(fboName));
+		// Input fields for width and height
+		ImGui::InputInt("FBO Width", &fboWidth);
+		ImGui::InputInt("FBO Height", &fboHeight);
+		ImGui::Checkbox("Enable Custom View", &customViewEnabled);
 
-	// Input fields for width and height
-	ImGui::InputInt("FBO Width", &fboWidth);
-	ImGui::InputInt("FBO Height", &fboHeight);
-	ImGui::Checkbox("Enable Custom View", &customViewEnabled);
-
-	// Button to create the FBO
-	if (ImGui::Button("Create FBO")) {
-		// Create a new FBO based on the user inputs
-		std::string name(fboName);
-		setupFramebuffer(name, fboWidth, fboHeight, customViewEnabled);
+		// Button to create the FBO
+		if (ImGui::Button("Create FBO")) {
+			// Create a new FBO based on the user inputs
+			std::string name(fboName);
+			setupFramebuffer(name, fboWidth, fboHeight, customViewEnabled);
 			// Button to create the FBO
-	
-	
-	}
 
-	// Button to remove the last FBO
-	if (ImGui::Button("Remove Last")) {
-		if (!framebuffers.empty()) {
-			// Remove the last FBO added to the map
-			auto lastIt = std::prev(framebuffers.end());
-			framebuffers.erase(lastIt);
+
 		}
-		else {
-			std::cerr << "No FBOs to remove!" << std::endl;
+
+		// Button to remove the last FBO
+		if (ImGui::Button("Remove Last")) {
+			if (!framebuffers.empty()) {
+				// Remove the last FBO added to the map
+				auto lastIt = std::prev(framebuffers.end());
+				framebuffers.erase(lastIt);
+			}
+			else {
+				std::cerr << "No FBOs to remove!" << std::endl;
+			}
 		}
-	}
 
-	// Button to clear all FBOs
-	if (ImGui::Button("Clear Views")) {
-		framebuffers.clear();
-	}
+		// Button to clear all FBOs
+		if (ImGui::Button("Clear Views")) {
+			framebuffers.clear();
+		}
 
-	ImGui::End();
+		ImGui::End();
+	}
 }
 
 //pointer to dynamics world and a vector containing rigid bodies to keep track of
@@ -348,11 +358,44 @@ Cube* findCubeByColour(const glm::vec3 color); //used to access teh cubes proper
 int cubesToGenerate; //for IMGUI input
 glm::mat4 createCamera(glm::vec3& cameraPosition, glm::vec3& targetPosition, glm::vec3& upVector);
 using namespace Assimp;
+#include <assimp/Logger.hpp>
+#include <assimp/DefaultLogger.hpp>
+std::vector<std::shared_ptr<Importer>> importers;
 std::shared_ptr<Importer> importer = std::make_shared<Importer>(); //assimp importer
+void setupAssimpLogging() {
+	// Initialize Assimp logging with verbose output
+	Assimp::DefaultLogger::create("", Assimp::Logger::VERBOSE);
+	Assimp::DefaultLogger::get()->info("Assimp logging initialized.");
+}
+std::vector<const aiScene*>scenes;
 int main()
 {
 	
+	importers.push_back(importer);
+	setupAssimpLogging();
+
+	// Use smart pointer for the Assimp Importer
+	std::unique_ptr<Assimp::Importer> importer = std::make_unique<Assimp::Importer>();
+
+	// Get the list of supported file extensions
+	std::string supportedFormats;
+	importer->GetExtensionList(supportedFormats);
+
+	// Print the supported file formats
+	std::cout << "Supported file formats: " << supportedFormats << std::endl;
+
+	// Check if FBX is supported by searching in the list of supported formats
+	if (supportedFormats.find(".fbx") != std::string::npos) {
+		std::cout << "FBX format is supported." << std::endl;
+	}
+	else {
+		std::cout << "FBX format is not supported." << std::endl;
+	}
+
+	// Cleanup Assimp logger
 	
+	   // Cleanup Assimp logger
+	Assimp::DefaultLogger::kill();
 
 // Replace with your model file path
 	//const aiScene* scene = aiImportFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -511,7 +554,7 @@ int main()
 	int count;
 	GLFWmonitor** monitors = glfwGetMonitors(&count);
 	GLFWmonitor* monitor = monitors[0];
-	GLFWwindow* window = glfwCreateWindow(2560, 1440, "Shape Engine",NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(2560, 1440, "Barcelona Engine",NULL, NULL);
 	
 	//GLFWmonitor 
 	//int width, height;
@@ -823,7 +866,7 @@ int main()
 	}
 	stbi_set_flip_vertically_on_load(true);
 	int imgWidth, imgHeight, colChannels;
-	unsigned char* imgData = stbi_load("me.jpg", &imgWidth, &imgHeight, &colChannels, 3);
+	unsigned char* imgData = stbi_load("grass2.jpg", &imgWidth, &imgHeight, &colChannels, 3); //Defaut ecndary texture that the terrain texture can blend into
 	////std::cout << imgData;
 
 	GLuint texture;
@@ -930,6 +973,7 @@ SetupImGuiStyle2();
 	}
 
 
+	//Setup buffers used for (I think) terrain picking for terrain size editing)
 	glGenFramebuffers(1, &colorFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, colorFBO);
 
@@ -1125,7 +1169,7 @@ SetupImGuiStyle2();
 	campfire.gpuData.direction = glm::vec3(0.0, 1.0, 0.0);
 	campfire.gpuData.startingPosition = glm::vec3(2.0, 3.0, 2.0);;
 
-	campfire2.gpuData.isDirectional = 1.0;
+	campfire2.gpuData.isDirectional = 0.0;
 	campfire2.gpuData.colour = glm::vec3(1.0, 0.0, 0.0);
 	campfire2.gpuData.strength = 2;
 	campfire2.gpuData.direction = glm::vec3(1.0, 1.0, 0.0);
@@ -1322,11 +1366,13 @@ SetupImGuiStyle2();
 		}
 	}
 	cubeSSBOptr = &cubeSSBO;
-	float currentTime, deltaTime;
+	
 
 	//initalise game / variables and start location
-
-	initialise(-17.0, -17.0, 37.0, window);
+	
+	
+	//passing character start locations
+	initialise(43.0, 53.0, 37.0, window);
 
 		//fps details
 	
@@ -1388,6 +1434,10 @@ waterTileVector.push_back(watertile3);
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	else { std::cout << "Created fbos etc for rendering world to imgui window"; }
+	AnimationController animationController;
+
+	animationControllerPtr = &animationController;
+	float lastFrame = 0.0;
 	while (!glfwWindowShouldClose(window))
 	{
 		//Get frame time
@@ -1395,6 +1445,7 @@ waterTileVector.push_back(watertile3);
 		// Calculate the elapsed time since the start of the loop
 		deltaTime = currentTime - initialTime;
 		initialTime = currentTime;
+		lastFrame = currentTime;
 		frameTimes.push_back(deltaTime);
 		while (frameTimes.size() > 100) {
 			frameTimes.erase(frameTimes.begin());
@@ -1918,10 +1969,15 @@ waterTileVector.push_back(watertile3);
 
     // Option to switch between directional and non-directional light
     name = "Directional Light " + std::to_string(lightname);
-    if (ImGui::SliderFloat(name.c_str(), &source.gpuData.isDirectional, 0.0f, 1.0f)) {
-		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
-    }
+	bool isDirectional = (source.gpuData.isDirectional != 0.0f);
 
+	if (ImGui::Checkbox(name.c_str(), &isDirectional)) {
+		// Update the float value based on the checkbox state
+		source.gpuData.isDirectional = isDirectional ? 1.0f : 0.0f;
+
+		// Update lighting data if needed
+		updateLightingData(sceneLights, ssboLighting, modelLoaderNew.shaderProgram->ID);
+	}
     // If the light is directional, provide sliders to control its direction
     if (source.gpuData.isDirectional == 1.0f) {
         name = "Direction X " + std::to_string(lightname);
@@ -2018,8 +2074,9 @@ waterTileVector.push_back(watertile3);
 		//}
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		skybox.render(camera.getViewMatrix(), projection); // Use the CubeBox's render function
-
+		if (terrain.renderSkyBox) {
+			skybox.render(camera.getViewMatrix(), projection); // Use the CubeBox's render function
+		}
 		
 		// Render ImGui UI
 	//	debugger.SetMatrices(camera.getViewMatrix(), projection);
@@ -2272,68 +2329,68 @@ waterTileVector.push_back(watertile3);
 		//	waterFBOS.unbindCurrentFrameBuffer();
 		
 
-		//	//	CC("before loading view in render", "debug");
-		//	glUseProgram(debugger.shaderProgram);
-		//	//terrain.render();
-		//	glUseProgram(debugger.shaderProgram);
-		//	//Uncomment to see the FBOs for the reflection and refractions of the water 
-		//	uimanager->renderUI();
-			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//	glUseProgram(debugger.shaderProgram);
-		//	terrain.render();
-		//	GLint currentFramebuffer;
-		//	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-		//	std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
-		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			//	CC("before loading view in render", "debug");
+			glUseProgram(debugger.shaderProgram);
+			//terrain.render();
+			glUseProgram(debugger.shaderProgram);
+			//Uncomment to see the FBOs for the reflection and refractions of the water 
+			//uimanager->renderUI();
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glUseProgram(debugger.shaderProgram);
+			terrain.render();
+			GLint currentFramebuffer;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			std::cout << "\ncurrent frame buffer:" << currentFramebuffer;
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
 
-		//	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		//		std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
-		//	}
-		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-		//	GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT1 };
-		//	glDrawBuffers(1, drawBuffers);
-		//	glUseProgram(debugger.shaderProgram);
-		//	glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-		//	GLint projectionLocation = glGetUniformLocation(debugger.shaderProgram, "projection");
-		//	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				std::cout << "Framebuffer is not complete after MAIN terrain.render!" << std::endl;
+			}
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(1, drawBuffers);
+			glUseProgram(debugger.shaderProgram);
+			glUniformMatrix4fv(view, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+			GLint projectionLocation = glGetUniformLocation(debugger.shaderProgram, "projection");
+			glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
 
-		//	GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
-		//	glUniform1i(editModeLocation, terrainPickingSwitch);
-		//	while ((error = glGetError()) != GL_NO_ERROR) {
-		//		std::cout << "OpenGL Error: " << error << std::endl;
-		//	}
-		//	terrain.render();//rendering terrain for displaying edit mode
-		//	while ((error = glGetError()) != GL_NO_ERROR) {
-		//		std::cout << "OpenGL Error: " << error << std::endl;
-		//	}
-		//	/*	GLenum defaultDrawBuffer = GL_BACK;
-		//		glDrawBuffer(defaultDrawBuffer);
-		//		glReadBuffer(defaultDrawBuffer);*/
-		//		//SEEMS TO BE an error when switching buffers, lets debug with this:
-		//	while ((error = glGetError()) != GL_NO_ERROR) {
-		//		std::cout << "OpenGL Error: " << error << std::endl;
-		//	}
+			GLint editModeLocation = glGetUniformLocation(*terrain.shaderPtr, "terrainEditMode");
+			glUniform1i(editModeLocation, terrainPickingSwitch);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			terrain.render();//rendering terrain for displaying edit mode
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			/*	GLenum defaultDrawBuffer = GL_BACK;
+				glDrawBuffer(defaultDrawBuffer);
+				glReadBuffer(defaultDrawBuffer);*/
+				//SEEMS TO BE an error when switching buffers, lets debug with this:
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
 
-		//	//lets see if we still error once we have terrain setup and use the fbo
-		//	glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
-		//	while ((error = glGetError()) != GL_NO_ERROR) {
-		//		std::cout << "OpenGL Error: " << error << std::endl;
-		//	}
-		//	glUseProgram(debugger.shaderProgram);
-		//	terrain.terrainEditUI(window);
+			//lets see if we still error once we have terrain setup and use the fbo
+			glBindFramebuffer(GL_FRAMEBUFFER, terrain.terrainPickFBO);
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
+			glUseProgram(debugger.shaderProgram);
+			terrain.terrainEditUI(window);
 
-		//	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
-		//	std::cout << "\ncurrent frame buffer after switching:" << currentFramebuffer;
-		//	while ((error = glGetError()) != GL_NO_ERROR) {
-		//		std::cout << "OpenGL Error: " << error << std::endl;
-		//	}
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFramebuffer);
+			std::cout << "\ncurrent frame buffer after switching:" << currentFramebuffer;
+			while ((error = glGetError()) != GL_NO_ERROR) {
+				std::cout << "OpenGL Error: " << error << std::endl;
+			}
 		
 
 		
 
-		//	 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			showFBOControlPanel();
 		//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		//
@@ -2361,15 +2418,18 @@ waterTileVector.push_back(watertile3);
 		
 		//modelLoaderNew.showMaterialEditor(modelLoaderNew.modelNewVector, modelLoaderNew.activeModelIndex, modelLoaderNew.activeSubMeshIndex);
 		// Render the texture to an ImGui window
-		if (worldgrid.boolShowGrid)
+		if (boolShowGrid)
 		{
 			worldgrid.draw(projection);
 		
 
 		}
 		
+
+		//For every model within modelNewVector, we call render and pass in the shader and the current time 
 		if (modelLoaderNew.modelNewVector.size() > 0) {
-			modelLoaderNew.Render(1);
+			modelLoaderNew.Render(1, deltaTime);
+			
 			//worldgrid.draw(projection);
 		
 			
@@ -3487,13 +3547,13 @@ void drawUI()
 
 		// Create a button to generate the heightmap
 		  // Iterate through the normals vector and display them in sets of 3
-		for (size_t i = 0; i + 2 < terrain.normals.size() && i < 16; i += 3) {
+		for (size_t i = 0; i + 2 < terrain.Normals.size() && i < 16; i += 3) {
 			ImGui::Text("Set %zu", i / 3); // Display a label for the set
 
 			// Display each normal in the set
 			for (int j = 0; j < 3; ++j) {
 				ImGui::Text("Normal %d: (%.4f, %.4f, %.4f)", j + 1,
-					terrain.normals[i + j].x, terrain.normals[i + j].y, terrain.normals[i + j].z);
+					terrain.Normals[i + j].x, terrain.Normals[i + j].y, terrain.Normals[i + j].z);
 			}
 
 			ImGui::Separator(); // Add a separator between sets
@@ -3502,6 +3562,10 @@ void drawUI()
 
 		if (boolDrawHeightMap) {
 			// Button to export the heightmap to a raw file
+			ImGui::Checkbox("Show Terrain", &terrain.boolDrawTerrainAlways);
+			ImGui::Checkbox("Show Sky", &terrain.renderSkyBox);
+			ImGui::Checkbox("Show Grid", &boolShowGrid);
+			ImGui::Checkbox("Show Water", &boolShowWater);
 			if (ImGui::Button("Export to Raw")) {
 				terrain.riverPath.clear();
 				std::ofstream file("map.raw", std::ios::binary);
@@ -3529,6 +3593,35 @@ void drawUI()
 				terrain.createTerrainMesh();
 
 				dynamicsWorldPtr->updateAabbs();
+
+			}
+			if (ImGui::Button("Save Terrain")) {
+				terrain.saveTerrainData();
+
+			}
+			if (ImGui::Button("Load  Terrain")) {
+				terrain.loadTerrainData();
+				glBindVertexArray(terrain.VAO);
+
+
+				glBindBuffer(GL_ARRAY_BUFFER, terrain.VBO);
+				glBufferData(GL_ARRAY_BUFFER, terrain.vertices.size() * sizeof(GLfloat), terrain.vertices.data(), GL_STATIC_DRAW);
+
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain.EBO);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, terrain.indices.size() * sizeof(GLuint), terrain.indices.data(), GL_STATIC_DRAW);
+				glEnableVertexAttribArray(0);
+				// Specify vertex attribute pointers
+				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+
+				
+
+				glGenBuffers(1, &terrain.normalBuffer);
+				glBindBuffer(GL_ARRAY_BUFFER, terrain.normalBuffer);
+				glBufferData(GL_ARRAY_BUFFER, terrain.Normals.size() * sizeof(glm::vec3), terrain.Normals.data(), GL_STATIC_DRAW);
+
+
+				glEnableVertexAttribArray(2);
+				glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (GLvoid*)0);
 
 			}
 
@@ -4478,10 +4571,10 @@ void setimGUILook() {
 	ImGuiStyle& style = ImGui::GetStyle();
 
 	// Background color
-	style.Colors[ImGuiCol_WindowBg] = ImVec4(101.0f / 255.0f, 105.0f / 255.0f, 119.0f / 255.0f, 255.0f / 255.0f);
+	style.Colors[ImGuiCol_WindowBg] = ImVec4(37.0f / 255.0f, 117.0f / 255.0f, 119.0f / 166.0f, 255.0f / 255.0f);
 
 	// Button color
-	style.Colors[ImGuiCol_Button] = ImVec4(218.0f / 255.0f, 163.0f / 255.0f, 13.0f / 255.0f, 255.0f / 255.0f);
+	style.Colors[ImGuiCol_Button] = ImVec4(218.0f / 255.0f, 063.0f / 255.0f, 113.0f / 255.0f, 255.0f / 255.0f);
 
 	// Optionally, button hover and active color
 	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(218.0f / 255.0f, 183.0f / 255.0f, 33.0f / 255.0f, 255.0f / 255.0f);  // Slightly lighter for hover
@@ -4551,77 +4644,93 @@ void showLoadModelWindow(bool* pOpen) {
 	if (ImGui::CollapsingHeader("Load Models New"))
 	{
 		ImGui::Checkbox("Pause Model Renderer", &modelLoaderNew.boolDontRender);
+		const char* aFilterPatterns[] = { "*.obj", "*.fbx" };
+
 		if (ImGui::Button("Open/Load Model")) {
+			FILE* lIn;
+			lIn = nullptr;
+			constexpr size_t bufferSize = 512; // Define a reasonable buffer size
+			char filePathBuffer[bufferSize] = ""; // Buffer for safely handling filename
+			char const* lTheOpenFileName = nullptr;
+
 			std::cout << "\nUser pressed 'open/load model' in main.cpp";
 			fname.clear();
 			std::cout << "\nWill now attempt to open dialog with parameters (main.cpp)";
-			lTheOpenFileName = tinyfd_openFileDialog(
-				"Select Image",
-				"",
-				1,
-				filterPatterns,
-				NULL,
-				0
-			);
-			std::cout << "\n'successful'";
-			// Convert filename to std::string for easier handling
-			//fname = filename;
-			if (!lTheOpenFileName) {
-				// Log that no file was selected and return early
-				//logger.AddLog("No file selected.", ImGuiLogger::LogType::Warning);
-				return; // Exit the function to avoid further logic that depends on the filename
+
+			try {
+				// Attempt to open the file dialog
+				lTheOpenFileName = tinyfd_openFileDialog(
+					"Select Image",
+					"",
+					2,
+					aFilterPatterns,
+					NULL,
+					0
+				);
+				
+			
+				// Check if the file dialog was successful
+				if (lTheOpenFileName == nullptr) {
+					std::cout << "File dialog failed or was cancelled.";
+				}
+				else { lIn = fopen(lTheOpenFileName, "r"); 
+				// Copy filename to buffer safely
+				strncpy(filePathBuffer, lTheOpenFileName, bufferSize - 1);
+				filePathBuffer[bufferSize - 1] = '\0'; // Ensure null termination
+
+				std::cout << "Selected file: " << filePathBuffer << std::endl;
+				}
+			
 			}
-			if (lTheOpenFileName) {
-				fname = lTheOpenFileName;// Store the filename for later use
-				std::string assimpFilename2 = fname;
-				logger.AddLog("Selected file: " + fname); // Log the action
+			catch (const std::exception& e) {
+				std::cerr << "Error: " << e.what() << std::endl;
+			}
+			catch (...) {
+				std::cerr << "An unknown error occurred." << std::endl;
+			}
 
+			if (strlen(filePathBuffer) > 0 && lTheOpenFileName != nullptr) { // Proceed only if a valid filename was selected
+				//fname = filePathBuffer;
+				std::string assimpFilename2 = filePathBuffer;
+				//logger.AddLog("Selected file: " + filePathBuffer);
 
-				//modelLoaderNew.cleanup();  // Implement this method to clear model resources
-				// Add OpenGL cleanup here as necessary
-				 //for (auto& m : modelLoaderNew.modelNewVector) {
-				 //    glDeleteVertexArrays(1, &m->VAO);
-				 //    // ... additional cleanup for VBOs, textures, etc.
-				 //}
+				// Model cleanup logic if needed
+				// modelLoaderNew.cleanup();
 
-				// Loop 7 times to load the model multiple times
-				for (int i = 0; i < 6; ++i) {
-					// Attempt to load the model file
+				for (int i = 0; i < 1; ++i) {
 					const aiScene* scene = importer->ReadFile(
 						assimpFilename2.c_str(),
 						aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
-					);
+					);  
+					
 
-					// Check if the scene was loaded successfully
 					if (scene) {
-						// Initialize model loader with the scene and filename
+						scenes.push_back(scene);
 						modelLoaderNew.initFromScene(scene, assimpFilename2);
 
-						// Log successful loading with instance number
 						std::string modelLoadedLog = "Model Loaded - Instance " + std::to_string(i + 1);
 						logger.AddLog(modelLoadedLog, ImGuiLogger::LogType::Assimp);
 
-						// Log details about the loaded model
 						for (auto& m : modelLoaderNew.modelNewVector) {
 							std::string modelNameLog = "Loaded: " + m->name + " - Instance " + std::to_string(i + 1);
 							logger.AddLog(modelNameLog, ImGuiLogger::LogType::Assimp);
 						}
+
+						//s aimporter->FreeScene(); // Free after processing each model
 					}
 					else {
-						// Handle model loading errors
 						const char* errorMsg = importer->GetErrorString();
 						std::string errorLogMessage = "Error loading model: " + std::string(errorMsg);
 						logger.AddLog(errorLogMessage, ImGuiLogger::LogType::Error);
 					}
 				}
-				fname = "";
-				//filename = "";
-				assimpFilename2 = "";
+
+				//fname.clear(); // Clear filename after processing
+				//assimpFilename2.clear();
+				//(lIn);
 			}
 			else {
-				return;
-				std::string noFileLog = "No file selected.";
-				logger.AddLog(noFileLog, ImGuiLogger::LogType::Warning);
+				logger.AddLog("No file selected.", ImGuiLogger::LogType::Warning);
 			}
 		}
 
@@ -4692,4 +4801,45 @@ void showLoadModelWindow(bool* pOpen) {
 		
 
 	
+}
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	if (!io.WantCaptureMouse) {
+		if (yoffset > 0) {
+			// Mouse scrolled up
+			std::cout << "Scrolled up: " << yoffset << std::endl;
+			if (terrainPickingSwitch == 1)
+			{
+
+				boolToolResized = true;
+			}
+
+			camera.mPosition += camera.mFront * camera.mMovementSpeed * 14.0f;
+		}
+		else if (yoffset < 0) {
+			// Mouse scrolled down
+			std::cout << "Scrolled down: " << xoffset << std::endl;
+			if (terrainPickingSwitch == 1)
+			{
+				boolToolResized = true;
+			}
+			camera.mPosition -= camera.mFront * camera.mMovementSpeed * 14.0f;
+		}
+
+		// Assume mMovementSpeed is scaled appropriately
+		//mPosition += mFront * mMovementSpeed;
+
+		//camera.update();
+		if (currentTool == Tool::TERRAIN_SCULPT) {
+			if (yoffset > 0) {
+				brushSize += 1.0; // Increase brush size
+			}
+			else if (yoffset < 0) {
+				brushSize -= 1.0; // Decrease brush size
+			}
+		}
+		//camera.mPosition += camera.mFront * camera.mMovementSpeed * 3.0f;
+		camera.update();
+	}
 }

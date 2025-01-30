@@ -7,6 +7,8 @@
 #include <chrono>
 
 
+
+//times from globals (DeltaTime is)
 class ImGuiLogger {
     public:
         enum class LogType {
@@ -31,7 +33,7 @@ public:
     bool showPhysics = true;
     bool pauseLogging = true;
 
-    float fontScale = 1.35; //change size of font within program
+    float fontScale = 1.40; //change size of font within program
 
     struct Log {
         std::string message;
@@ -75,7 +77,7 @@ public:
         timeStream << std::put_time(&local_time, "%H:%M:%S");
         return timeStream.str();
     }
-
+    
     std::string formatTimestamp(const std::chrono::system_clock::time_point& timestamp) {
         // Convert time_point to time_t
         std::time_t time_t_timestamp = std::chrono::system_clock::to_time_t(timestamp);
@@ -110,6 +112,7 @@ public:
             ImGui::Checkbox("Pause Logging", &pauseLogging);
             ImGui::PushItemWidth(100.0f);
             ImGui::SliderFloat("Text Size", &fontScale, 0.9, 2.0);
+            
             ImGui::PopItemWidth();
             ImGui::BeginChild("LogOutput", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
 

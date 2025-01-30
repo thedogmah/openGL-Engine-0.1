@@ -128,8 +128,8 @@ PhysDebug::PhysDebug()
 
 	void PhysDebug::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
 	{
-
-		//  shaderProgram.setVec3("lineColor", glm::vec3(color.x(), color.y(), color.z()));
+	
+		//  shaderProgram.ssetVec3("lineColor", glm::vec3(color.x(), color.y(), color.z()));
 		glUseProgram(shaderProgram);
 		// Specify the vertices of the line directly in the shader
 		GLfloat points[12];
@@ -141,7 +141,7 @@ PhysDebug::PhysDebug()
 		btScalar distanceTo = (to - playerPosition).length();
 
 		// Specify your distance threshold here (e.g., 10 meters)
-		btScalar distanceThreshold = 500.0;
+		btScalar distanceThreshold = 300.0;
 
 		// Check if either 'from' or 'to' points are within the distance threshold
 		if (distanceFrom <= distanceThreshold || distanceTo <= distanceThreshold) {

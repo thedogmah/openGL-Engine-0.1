@@ -15,6 +15,7 @@
 #include <c:\Users\ryanb\vcpkg\packages\bullet3_x64-windows\include\bullet\LinearMath/btVector3.h>
 #include "Texture.h"
 #include "Mesh.h"
+#include <assimp/scene.h>
 #include "ImGuiLogger.h"
 #include "ObjImporter.h"
 
@@ -22,7 +23,7 @@
 
 
 
-
+extern float deltaTimeGlobal;
 //#include "Camera.h"
 class ObjImporter;
 
@@ -47,6 +48,8 @@ struct FramebufferObject {
 
 
 class Texture;
+//assimp scenes (AIscene)
+extern std::vector<const aiScene*>scenes;
 extern bool boolToolResized; // if mouse wheel is scrolled this turns true, then if terrrain edit mode is also on, tool will change ize visually, then this bool go bk to fals
 extern bool terrainLMouseClicked;
 extern float globalTime;
@@ -64,6 +67,8 @@ extern float characterCameraZOffset;
 class Camera;
 extern Camera camera;
 extern bool drawIMGUI;  
+extern bool boolShowGrid;
+extern bool boolShowWater;
 class SSBO;
 extern glm::mat4 cubeModelMatrix;
 
@@ -82,6 +87,13 @@ extern int projectionLoc ;
 inline extern int selectedOption = 1;
 inline extern bool wireframe = false;
 extern 	GLuint terrainPickingSwitch;
+//animation resources
+struct AnimationData;
+extern std::vector<AnimationData> animationsNew;
+class AnimationController;
+extern AnimationController* animationControllerPtr;
+
+
 inline extern float window_height= 1200, window_width= 2400;
 inline extern int mousePickingValue = 0;
 //inline extern bool lMouseClicked= false;

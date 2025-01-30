@@ -98,34 +98,6 @@ int rgbSelected[4];
 
 SSBO* cubeSSBOptr = nullptr;
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	if (yoffset > 0) {
-		// Mouse scrolled up
-		std::cout << "Scrolled up: " << yoffset << std::endl;
-		if (terrainPickingSwitch == 1)
-		{
-
-			boolToolResized = true;
-		}
-	}
-	else if (yoffset < 0) {
-		// Mouse scrolled down
-		std::cout << "Scrolled down: " << xoffset << std::endl;
-		if (terrainPickingSwitch == 1)
-		{
-			boolToolResized = true;
-		}
-	}
-
-	if (currentTool == Tool::TERRAIN_SCULPT) {
-		if (yoffset > 0) {
-			brushSize += 1.0; // Increase brush size
-		}
-		else if (yoffset < 0) {
-			brushSize -= 1.0; // Decrease brush size
-		}
-	}
-}
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 	
 	

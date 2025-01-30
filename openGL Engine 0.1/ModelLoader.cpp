@@ -4,7 +4,10 @@
 #include <stb/stb_image.h>
 #include <unordered_map>
 #include "Animation.h"
+#include <assimp/scene.h>
+
 namespace fs = std::filesystem;
+
 
 struct TextureNew;
 Sun sun  = {
@@ -27,7 +30,7 @@ void modelLoader::initAllMeshes(const aiScene* scene, const std::string& filenam
 		logger.AddLog("Error: Scene is null.", ImGuiLogger::LogType::Assimp);
 		throw std::runtime_error("Scene is null");
 	}
-
+	
 	meshNewId++;
 	auto model = std::make_unique<modelNew>();
 
@@ -38,12 +41,22 @@ void modelLoader::initAllMeshes(const aiScene* scene, const std::string& filenam
 
 	// Reserve space for vertices and indices
 	reserveSpace(numVerts, numIndices);
+	model->rootNode = scene->mRootNode;//###
+	if (scene->mNumAnimations > 0)
+	{
+
+		model->meshIsAnimated = true;
+	}
+	model->loadedScene = const_cast<aiScene*>(scene); // Casting to non-const if necessary###
+
 	modelNewVector.push_back(std::move(model)); // Move ownership of the model
 
 	// Process the root node to initialize all meshes
 	processNode(scene->mRootNode, scene, filename);
 	logger.AddLog("Initialized All Meshes", ImGuiLogger::LogType::Assimp);
 
+	//Scene has been added to the model vector (of structs)
+	//Now we add a unique ID (meshNewID which we incremented) and the name of the root node
 	modelNewVector.back()->modelID = meshNewId;
 	modelNewVector.back()->name = scene->mRootNode->mName.C_Str();
 }
@@ -64,6 +77,7 @@ bool modelLoader::initFromScene(const aiScene* scenePtr, const std::string& file
 		logger.AddLog("Animations loaded successfully", ImGuiLogger::LogType::Assimp);
 	}
 	else {
+
 		logger.AddLog("No animations found for this model", ImGuiLogger::LogType::Assimp);
 	}
 
@@ -81,7 +95,7 @@ bool modelLoader::initFromScene(const aiScene* scenePtr, const std::string& file
 	std::cout << "\init from Scene function end";
 	
 	return true;
-
+	
 
 }
 
@@ -109,7 +123,7 @@ void modelLoader::countVertAndIndices(const aiScene* scenePtr, unsigned int& num
 void modelLoader::loadAnimations(const aiScene* scene) {
 	for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
 		const aiAnimation* animation = scene->mAnimations[i];
-
+		
 		// Store animation information (duration, channels, etc.)
 		AnimationData animData;
 		animData.duration = animation->mDuration;
@@ -151,7 +165,7 @@ void modelLoader::loadAnimations(const aiScene* scene) {
 		}
 
 		// Add the full animation to your animations list
-		animations.push_back(animData);
+		animationsNew.push_back(animData);
 	}
 }
 
@@ -172,6 +186,8 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 		throw std::runtime_error("meshPtr or scene is null");
 	}
 
+
+
 	auto meshData = std::make_unique<MeshNew>();
 	meshData->name = meshPtr->mName.C_Str();
 	meshData->meshID = meshNewId;
@@ -190,7 +206,7 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 		vertex.TexCoords = meshPtr->mTextureCoords[0]
 			? glm::vec2(meshPtr->mTextureCoords[0][i].x, meshPtr->mTextureCoords[0][i].y)
 			: glm::vec2(0.0f, 0.0f); // Default UV
-
+		//HERE
 		meshData->vertices.push_back(vertex);
 	}
 	std::unordered_map<std::string, int> boneMapping;
@@ -219,7 +235,7 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 			float weight = bone->mWeights[j].mWeight;
 
 			// Add the bone influence to the vertex
-			assignBoneToVertex(vertices[vertexID], boneIndex, weight);
+			assignBoneToVertex(meshData->vertices[vertexID], boneIndex, weight);
 		}
 	}
 
@@ -258,14 +274,50 @@ void modelLoader::initSingleMesh(const aiMesh* meshPtr, const aiScene* scene, co
 }
 
 void modelLoader::assignBoneToVertex(VertexNew& vertex, int boneID, float weight) {
-    for (int i = 0; i < 4; ++i) {
-        if (vertex.weights[i] == 0.0f) {
-            vertex.boneIDs[i] = boneID;
-            vertex.weights[i] = weight;
-            return;
-        }
-    }
-    // In case the vertex has more than 4 bones influencing it, discard the extra influences.
+	int emptySlot = -1;
+	float lowestWeight = 1.0f; // Start with maximum weight
+	int lowestWeightIndex = -1;
+
+	for (int i = 0; i < 4; ++i) {
+		if (vertex.weights[i] == 0.0f) {
+			emptySlot = i;
+			break; // Found an empty slot, no need to continue
+		}
+		else if (vertex.weights[i] < lowestWeight) {
+			lowestWeight = vertex.weights[i];
+			lowestWeightIndex = i;
+		}
+	}
+
+	if (emptySlot != -1) {
+		// Found an empty slot, assign directly
+		vertex.boneIDs[emptySlot] = boneID;
+		vertex.weights[emptySlot] = weight;
+	}
+	else if (weight > lowestWeight) {
+		// No empty slots, but this bone has more influence than the least influential one
+		vertex.boneIDs[lowestWeightIndex] = boneID;
+		vertex.weights[lowestWeightIndex] = weight;
+	}
+	else {
+		// Bone influence is too low, discard (or consider blending)
+		// You might want to log a warning here
+	}
+
+	// Normalize weights
+	normalizeBoneWeights(vertex);
+}
+
+void modelLoader::normalizeBoneWeights(VertexNew& vertex) {
+	float totalWeight = 0.0f;
+	for (int i = 0; i < 4; ++i) {
+		totalWeight += vertex.weights[i];
+	}
+	if (totalWeight > 0.0f) {
+		for (int i = 0; i < 4; ++i) {
+			vertex.weights[i] /= totalWeight;
+		}
+	}
 }
 
 void modelLoader::renderSubmesh(MeshNew& model, GLuint VAO2)
@@ -557,14 +609,56 @@ void modelLoader::setupBuffersNew(MeshNew& mesh)
 	mesh.VAO = VAO1;
 }
 
-void modelLoader::Render(unsigned int shaderProgram) {
+void modelLoader::displayAnimationDebugWindow(const std::vector<glm::mat4>& finalBoneTransforms, const std::unordered_map<std::string, aiMatrix4x4>& boneTransforms)
+{ 
+	if (!boolDisplayExtraAnimationData) return;
+
+	ImGui::Begin("Animation Debug Information");
+
+	// Display the size of the bone transform vectors
+	ImGui::Text("finalBoneTransforms Size: %d", static_cast<int>(finalBoneTransforms.size()));
+	ImGui::Text("boneTransforms Size: %d", static_cast<int>(boneTransforms.size()));
+
+	// Display details for each element in finalBoneTransforms
+	ImGui::Separator();
+	ImGui::Text("Final Bone Transforms (GLM Matrices):");
+	for (size_t i = 0; i < finalBoneTransforms.size(); ++i) {
+		const glm::mat4& matrix = finalBoneTransforms[i];
+		ImGui::Text("Bone %zu Matrix:", i);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3]);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3]);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3]);
+	}
+
+	// Display details for each element in boneTransforms
+	ImGui::Separator();
+	ImGui::Text("Bone Transforms (Assimp Matrices):");
+	for (const auto& [boneName, aiMatrix] : boneTransforms) {
+		ImGui::Text("Bone: %s", boneName.c_str());
+		ImGui::Text("  %.2f %.2f %.2f %.2f", aiMatrix.a1, aiMatrix.a2, aiMatrix.a3, aiMatrix.a4);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", aiMatrix.b1, aiMatrix.b2, aiMatrix.b3, aiMatrix.b4);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", aiMatrix.c1, aiMatrix.c2, aiMatrix.c3, aiMatrix.c4);
+		ImGui::Text("  %.2f %.2f %.2f %.2f", aiMatrix.d1, aiMatrix.d2, aiMatrix.d3, aiMatrix.d4);
+	}
+
+	ImGui::End();
+}
+
+
+void modelLoader::Render(unsigned int shaderProgram, float deltaTime) {
 	// Use the shader program passed to the function
 
-	//THERES AN ERORR WITH RENDEIRNG SUBMESH - SO WE WILL TRY TO FIX IT ON STREAM.
+
 	if (!boolDontRender) {
+		//if (!modelNewVector.empty())
 		showMaterialEditor(modelNewVector, activeModelIndex, activeSubMeshIndex);
+	
 		glUseProgram(this->shaderProgram->ID); // Use the shader program
 
+		static float totalTime = 0.0f;
+		totalTime = deltaTimeGlobal;
+		//deltaTime = deltaTimeGlobal;
 		// Set sun properties
 		GLint sunBrightnessLoc = glGetUniformLocation(this->shaderProgram->ID, "sunBrightness");
 		glUniform1f(sunBrightnessLoc, sun.Brightness);
@@ -576,11 +670,12 @@ void modelLoader::Render(unsigned int shaderProgram) {
 		glUniform1f(radiansTimeLoc, sun.radiansTime);
 
 		// ImGui Control Panel
-		ImGui::Begin("Control Panel");
-		ImGui::SliderFloat("Ambient Light Intensity", &ambientLightIntensity, 0.0f, 10.0f);
-		ImGui::SliderFloat3("Light Pos", glm::value_ptr(lightPosInput), -200, 200);
-		ImGui::End();
-
+		if (drawIMGUI) {
+			ImGui::Begin("Control Panel");
+			ImGui::SliderFloat("Ambient Light Intensity", &ambientLightIntensity, 0.0f, 10.0f);
+			ImGui::SliderFloat3("Light Pos", glm::value_ptr(lightPosInput), -200, 200);
+			ImGui::End();
+		}
 		// Set ambient light uniform
 		GLint ambientLightLoc = glGetUniformLocation(this->shaderProgram->ID, "ambientLight");
 		glUniform3f(ambientLightLoc, ambientLightIntensity, ambientLightIntensity, ambientLightIntensity);
@@ -603,9 +698,75 @@ void modelLoader::Render(unsigned int shaderProgram) {
 
 		// Placeholder texture
 		unsigned int placeholderTexture = CreatePlaceholderTexture();
-
+		unsigned int isAnimation = 0;
+	
 		for (const auto& modelPtr : modelNewVector) {
-			for (const auto& subMesh : modelPtr->subMeshes) {
+			float animationTime = totalTime; // Adjust for animation timing
+
+			if (!modelPtr->rootNode || !animationControllerPtr) {
+				isAnimation = 0;
+				GLint isAnimationLoc = glGetUniformLocation(this->shaderProgram->ID, "isAnimation");
+				glUniform1i(isAnimationLoc, isAnimation);
+				continue;  // Skip the rest of the loop for this model
+			}
+
+			aiScene* scene = modelPtr->getScene();  // Assuming you have a method to get the scene
+
+			// Check if the scene has animations and the model is animated
+			bool hasValidAnimations = scene->mNumAnimations > 0 && scene->HasAnimations() ;
+			bool hasBones = false;
+
+			// Iterate through all meshes in the scene
+			for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
+				if (!scene->mMeshes[i]) {
+					std::cerr << "Warning: Null mesh encountered at index " << i << "." << std::endl;
+					continue; // Skip this mesh and proceed to the next
+				}
+
+				if (scene->mMeshes[i]->mNumBones > 0) {
+					hasBones = true;
+					break; // No need to check further
+				}
+			}
+
+			if (hasBones) {
+				isAnimation = 1;
+				GLint isAnimationLoc = glGetUniformLocation(this->shaderProgram->ID, "isAnimation");
+				glUniform1i(isAnimationLoc, isAnimation);
+
+				// Proceed with animation setup as before
+				animationControllerPtr->updateBoneTransformations(animationTime, modelPtr->rootNode, aiMatrix4x4());
+
+				// Prepare bone matrices for the shader
+				std::vector<glm::mat4> finalBoneTransforms;
+
+				// Convert aiMatrix4x4 to glm::mat4 and store them
+				for (const auto& boneTransform : animationControllerPtr->boneTransforms) {
+					const aiMatrix4x4& aiBoneMatrix = boneTransform.second;
+					glm::mat4 glmBoneMatrix = glm::transpose(glm::make_mat4(&aiBoneMatrix.a1)); // Convert Assimp matrix to GLM matrix
+					finalBoneTransforms.push_back(glmBoneMatrix);
+				}
+
+				// Debug: Display bone transforms
+				displayAnimationDebugWindow(finalBoneTransforms, animationControllerPtr->boneTransforms);
+
+				// Upload bone matrices to the shader (assume MAX_BONES = 100 in shader)
+				GLint boneMatricesLoc = glGetUniformLocation(this->shaderProgram->ID, "boneMatrices");
+				glUniformMatrix4fv(boneMatricesLoc, finalBoneTransforms.size(), GL_FALSE, glm::value_ptr(finalBoneTransforms[0]));
+			}
+			else {
+				// No bones, set isAnimation to 0
+				isAnimation = 0;
+				GLint isAnimationLoc = glGetUniformLocation(this->shaderProgram->ID, "isAnimation");
+				glUniform1i(isAnimationLoc, isAnimation);
+
+				// Log that no bones were found
+				logger.AddLog("No Bones Found");
+			}
+
+
+
+			for (auto& subMesh : modelPtr->subMeshes) {
 				// Set model matrix
 				GLint modelLoc = glGetUniformLocation(this->shaderProgram->ID, "model");
 				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelPtr->worldTransform));
@@ -683,13 +844,14 @@ void modelLoader::Render(unsigned int shaderProgram) {
 		glActiveTexture(GL_TEXTURE0);
 		if (boolRenderSubmesh) {
 			renderSubmesh(*submeshRendered, VAOtoRender);
-			
+
 		}
 	}
-	}
-	
 
 
+
+
+}
 
 
 
@@ -860,7 +1022,7 @@ void main() {
 )";
 
 		shaderProgram = new Shader("modelvertex.glsl", "modelfragment.glsl");
-
+		
 		//GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
 		//GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
 
@@ -964,7 +1126,7 @@ void modelLoader::showMaterialEditor(std::vector<std::unique_ptr<modelNew>>& mod
 
 	// Create a window in ImGui
 	ImGui::Begin("Material Editor");
-
+	ImGui::SliderFloat("Delta Time Global", &deltaTimeGlobal, 0.0, 3000.0);
 	// Step 1: Create a dropdown to select the active model
 	std::vector<std::string> modelNames;
 	for (int i = 0; i < modelNewVector.size(); ++i) {
@@ -1009,7 +1171,7 @@ void modelLoader::showMaterialEditor(std::vector<std::unique_ptr<modelNew>>& mod
 	}
 
 	ImGui::Checkbox("Render Selected Submesh Separately", &boolRenderSubmesh);
-
+	ImGui::Checkbox("Dislay Extra Animation Data", &boolDisplayExtraAnimationData);
 
 	// Get the active submesh and its material
 // Assuming activeModel is a pointer to modelNew
@@ -1103,13 +1265,13 @@ MeshNew* activeSubMesh = activeModel.subMeshes[activeSubMeshIndex].get(); // Acc
 	ImGui::Text("Animation Information");
 
 	// Assuming `animations` is a vector containing all animations for the model
-	if (animations.empty()) {
+	if (animationsNew.empty()) {
 		ImGui::Text("No animations available.");
 	}
 	else {
-		ImGui::Text("Total Animations: %d", (int)animations.size());
-		for (int i = 0; i < animations.size(); ++i) {
-			const AnimationData& animData = animations[i];
+		ImGui::Text("Total Animations: %d", (int)animationsNew.size());
+		for (int i = 0; i < animationsNew.size(); ++i) {
+			const AnimationData& animData = animationsNew[i];
 			ImGui::Text("Animation %d: Duration: %.2f, Ticks Per Second: %.2f", i + 1, animData.duration, animData.ticksPerSecond);
 			ImGui::Text("Bone Animations: %d", (int)animData.boneAnimations.size());
 			for (int j = 0; j < animData.boneAnimations.size(); ++j) {
@@ -1124,4 +1286,14 @@ MeshNew* activeSubMesh = activeModel.subMeshes[activeSubMeshIndex].get(); // Acc
 
 	ImGui::End(); // End the ImGui window
 
+}
+
+
+bool AnimationController::isValidForAnimation(const aiNode* rootNode) {
+	// Perform checks specific to the animation controller to ensure validity
+	if (rootNode == nullptr || boneTransforms.empty()) {
+		return false;
+	}
+	// Additional logic can be added here
+	return true;
 }

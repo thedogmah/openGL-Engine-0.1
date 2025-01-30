@@ -53,7 +53,122 @@ public:
 	float frequency = 3.0f; // Adjust this to control the scale of details
 	float amplitude = 12.0f;
 
+
+	//Function for serialising Vectors to save engine data to file and to load up.
+
+	void saveVectorToFile(const std::vector <GLfloat>& vec, const std::string& filename) {
 	
+		std::ofstream file(filename);
+		if (file.is_open()) {
+			for (const auto& value : vec)
+			{
+				file << value << " ";
+			
+			}
+			file.close();
+		
+		}
+
+		else {
+		
+			std::cout << "Unabe to open file for saving Vertices of terrain (Engine.H)";
+		}
+
+	}
+	void saveVec3ToFile(const std::vector<glm::vec3>& vec, const std::string& filename){
+
+		std::ofstream file(filename);
+		if (file.is_open()) {
+		
+			for (const auto& value : vec) {
+			
+				file << value.x << " " << value.y << " " << value.z << " ";
+			}
+			file.close();
+		}
+	
+		
+		else {
+
+			std::cout << "Unabe to open file for saving Normals of terrain (Engine.H)";
+		} 
+	
+	}
+	void saveIndicesToFile(const std::vector<GLuint>& vec, const std::string& filename)
+		{
+		std::ofstream file(filename);
+		if (file.is_open()) {
+
+			for (const auto& value : vec)
+			{
+				file << value << " ";
+
+			}
+			file.close();
+		}
+		else
+		{
+			std::cout << "Unable to open indices file within engine.h";
+			logger.AddLog("Unable to Save Terrain to File", ImGuiLogger::LogType::Warning);
+		
+		}
+	}
+	
+	void loadVectorFromFile(std::vector<GLfloat>& vec, const std::string& filename) {
+	
+		std::ifstream file(filename);
+		if (file.is_open()) {
+			vec.clear();
+			GLfloat value;
+
+			while (file >> value)
+
+			{
+				vec.push_back(value);
+			}
+		
+			file.close();
+		}
+		else {
+
+			std::cout << "Unable to open file for loading terrain";
+
+		}
+	}
+
+
+	void loadVec3FromFile(std::vector<glm::vec3>& vec, const std::string& filename) {
+		std::ifstream file(filename);
+		if (file.is_open()) {
+			vec.clear();
+			GLfloat x, y, z;
+		
+			while (file >> x >> y >> z) {
+				vec.emplace_back(x, y, z);
+			}
+			file.close();
+		}
+		else {
+			std::cout << "Unable to open file for loading Normals of terrain (Engine.H)";
+					
+		}
+	}
+	void loadIndicesFromFile(std::vector<GLuint>& vec, const std::string& filename) {
+		std::ifstream file(filename);
+		if (file.is_open()) {
+			vec.clear();
+			GLuint value;
+			while (file >> value) {
+				vec.push_back(value);
+			}
+			file.close();
+		}
+		else {
+			std::cout << "Unable to open indices file within engine.h";
+			logger.AddLog("Unable to Load Terrain from File", ImGuiLogger::LogType::Warning);
+		}
+	}
+
 	Terrain();
 	unsigned int* shaderPtr = nullptr;
 	//Do I need destructor for parent class?
@@ -184,7 +299,8 @@ public:
 
 	//GL members
 	//std::vector<Vertex> vertices;
-	std::vector<glm::vec3> normals;
+
+	std::vector<glm::vec3> Normals;
 	std::vector<glm::vec2> uvs;
 	GLuint VAO, VBO, EBO, normalBuffer, colorBuffer, uvVBO, terrainVBO, verticesIDVBO, TerrainClickedRGB_VBO;
 	GLuint terrainPickFBO, terrainPickTexture, terrainPickDepthBuffer, terrainPickPickingBuffer; //Frame buffer for color / mouse picking / or ray cast solution.
@@ -248,6 +364,23 @@ public:
 	std::vector<GLuint> indices; //for vertices of terrain
 	int currentHistoryIndex = -1;  // -1 means active terrain
 
+	void saveTerrainData()
+	{
+
+		saveVectorToFile(vertices, "vertices.txt");//save vertices to file
+		saveVec3ToFile(Normals, "normals.txt");
+		saveIndicesToFile(indices, "indices.txt");
+	}
+
+	void loadTerrainData()
+	{
+
+		loadVectorFromFile(vertices, "vertices.txt");//save vertices to file
+		loadVec3FromFile(Normals, "normals.txt");
+		loadIndicesFromFile(indices, "indices.txt");
+	}
+
+
 	std::vector<std::vector<GLfloat>> verticesHistory;
 	
 	std::vector<TerrainInfo> terrainInfoVector;
@@ -256,8 +389,23 @@ public:
 	 float translationY = 0.0f;
 	 float translationZ = 0.0f;
 	 float yScale = 1.0f; // Initialize the Y-axis scale factor
+	 
+	 float previousYScale = 1.0f;//scaling tterrain via UI. Necessary for sliding.
 	 btDiscreteDynamicsWorld* dynamicsWorldUniversalPtr = NULL;
 	 bool init = false;
+	 bool boolDrawTerrainAlways = true; //created a UI tool to not draw terrain for debugging
+	 bool renderSkyBox = true; 
+	
+
+	 //switches for fog and extra weather effects.
+	 bool enableFog = false;
+	 bool enableFog2 = false;
+	 bool enableHighWinds = false;
+	 float fogStart = 30.0;
+	 float fogEnd = 50.0;
+	 glm::vec3 fogColor;
+
+
 	 int numIterations = 3;
 	 float kernelPoint = 9.0;
 

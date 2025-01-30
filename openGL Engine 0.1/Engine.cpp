@@ -12,7 +12,6 @@
 Terrain::Terrain() 
 {
 	
-	
 	//GLuint VAO;
 	
 //	glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -33,8 +32,8 @@ void Terrain::render()
 {
 
 	//Create a variable that only draws the IMGUI once.
-	
-	
+
+
 	//
 	// 
 	// 
@@ -42,11 +41,11 @@ void Terrain::render()
 	// Define a random number generator and initialize it with a seed
 
 
-		 	GLenum error;
-			while ((error = glGetError()) != GL_NO_ERROR) {
-				std::cout << "OpenGL Error at engine::render start: " << error << std::endl;
+	GLenum error;
+	while ((error = glGetError()) != GL_NO_ERROR) {
+		std::cout << "OpenGL Error at engine::render start: " << error << std::endl;
 
-			}
+	}
 
 	//rng.seed(123);     // Set a fixed seed for repeatability (change this for variability)
 	//set time for shader functions
@@ -54,28 +53,37 @@ void Terrain::render()
 	double currentTime = glfwGetTime();
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
-//	glUseProgram(*this->shaderPtr);
+	//	glUseProgram(*this->shaderPtr);
 	renderTextureLoader();
 	if (UIdrawn == false) {
-		
+
 		if (drawIMGUI) {
 			ImGui::Begin("Terrain Settings");
 
-
+			//Scales the whole terrain by looping the terrain vector and passing data to the GPU/
+			//However there may be a bug in that it sends the data too often.
 			ImGui::Begin("Scale");
+
 			if (ImGui::SliderFloat("Y Scale", &yScale, 0.5f, 10.0f)) {
+				// This condition checks if the user has stopped editing the slider (released it)
+				if (!ImGui::IsItemDeactivatedAfterEdit()) {
+					// Calculate the scale factor change
+					float scaleFactor = yScale / previousYScale;
 
-				for (int i = 1; i < vertices.size(); i += 3) {
-					// Update the Y-coordinate by scaling it
-					vertices[i] *= yScale;
+					// Update the Y-coordinates in-place
+					for (int i = 1; i < vertices.size(); i += 3) {
+						vertices[i] *= scaleFactor; // Apply the relative scale change
+					}
 
+					// Update the GPU buffer here after the slider is released
 					glBindBuffer(GL_ARRAY_BUFFER, VBO);
 					glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
 					glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+					// Update the previous scale value for future scaling
+					previousYScale = yScale;
 				}
-			}		// Update the Y-axis scale factor when the slider changes
-
+			}
 			while ((error = glGetError()) != GL_NO_ERROR) {
 				std::cout << "OpenGL Error at ::render after binding buffer: " << error << std::endl;
 			}
@@ -101,10 +109,12 @@ void Terrain::render()
 				// Call terrain generation function with the updated values
 				//
 				//GenerateFractalTerrain(vertices, terrainIterations, terrainHeight, terrainMinDelta, terrainMaxDelta);
+				//Delete physics engines representation of the terrain model (Bullet )
 				dynamicsWorldUniversalPtr->removeCollisionObject(this->getTerrainMesh());
 
 				createTerrainMesh();
 			}
+			ImGui::Checkbox("Show Terrain", &boolDrawTerrainAlways);
 			ImGui::End();
 
 			ImGui::Checkbox("Use Normal Map", &useNormalMap);
@@ -123,11 +133,12 @@ void Terrain::render()
 			glUniform1i(riverPathIndicesSizeLocation, riverPath.size());
 
 			// ...
-			GLint useNormalMapLocation = glGetUniformLocation(*this->shaderPtr, "useNormalMap");
-			GLint useDetailMapLocation = glGetUniformLocation(*this->shaderPtr, "useDetailMap");
+			
+			//GLint useNormalMapLocation = glGetUniformLocation(*this->shaderPtr, "useNormalMap");
+			//GLint useDetailMapLocation = glGetUniformLocation(*this->shaderPtr, "useDetailMap");
 			// Later in your rendering code where you set the uniform
-			glUniform1i(useNormalMapLocation, useNormalMap);
-			glUniform1i(useDetailMapLocation, useDetailMap);
+			//glUniform1i(useNormalMapLocation, useNormalMap);
+			//glUniform1i(useDetailMapLocation, useDetailMap);
 
 			GLint radiansTimeLocation = glGetUniformLocation(*this->shaderPtr, "radian");
 			glUniform1f(radiansTimeLocation, radiansTime);
@@ -192,7 +203,7 @@ void Terrain::render()
 				glUseProgram(*shaderPtr);
 				glUniform1f(riverBedLocation, riverBedValue);
 			}
-			if (ImGui::SliderFloat("Slope Threshold", &slopeThreshold, -1.0f, 1.0f)) {		// Update the shader uniform
+			if (ImGui::SliderFloat("Slope Threshold", &slopeThreshold, -1.0f, 10.0f)) {		// Update the shader uniform
 				glUniform1f(slopeThresholdLocation, slopeThreshold);
 			}
 
@@ -237,7 +248,7 @@ void Terrain::render()
 				glUniform1f(shininessLocation, shininess);
 
 			}
-			if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 2.0f)) {
+			if (ImGui::SliderFloat("Sun Brightness", &sunBrightness, 0.1, 3.0f)) {
 				glUniform1f(sunBrightnessLocation, sunBrightness);
 				sun.Brightness = sunBrightness;
 			}
@@ -316,131 +327,161 @@ void Terrain::render()
 			ImGui::End();
 		}
 	}
-	ImGui::Begin("Terrain Controls");
+	if (drawIMGUI) {
 
-	// Input fields for X, Y, and Z coordinates
-	GLint applyModelTransform = glGetUniformLocation(*this->shaderPtr, "applyModelTransform");
-	glUniform1i(applyModelTransform, 1);//this variable tells shader its terain
-	ImGui::InputFloat("Translate X", &translationX);
-	ImGui::InputFloat("Translate Y", &translationY);
-	ImGui::InputFloat("Translate Z", &translationZ);
-	GLuint modelLoc = glGetUniformLocation(*this->shaderPtr, "model");
-	// Button to apply the translation
 	
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-	if (ImGui::Button("Apply Translation")) {
-		// Update the model matrix with the typed-in values
-		 // Identity matrix, no initial transformation
-		//modelMatrix = glm::translate(modelMatrix, glm::vec3(translationX, translationY, translationZ));
+		ImGui::Begin("Weather Controls"); // Create ImGui panel
 
+		ImGui::Text("Toggle Weather Effects");
 
-		for (size_t i = 0; i < vertices.size(); i += 3) {
-			vertices[i] += translationX;
-			vertices[i + 1] += translationY;
-			vertices[i + 2] += translationZ;
+		
+		ImGui::Checkbox("Fog", &enableFog);
+		GLint fogUniform = glGetUniformLocation(*this->shaderPtr, "enableFog");
+		GLint fogStartUniform = glGetUniformLocation(*this->shaderPtr, "fogStart");
+		GLint fogEndUniform = glGetUniformLocation(*this->shaderPtr, "fogEnd");
+		glUniform1i(fogUniform, enableFog);
+		if(ImGui::SliderFloat("Fog Start", &fogStart, -128.0f, 128.0f)){
+			glUniform1f(fogStartUniform, fogStart);
 		}
-		//delete terrainMesh;
-
-
-		btTransform currentTransform = terrainMeshRigidBody->getWorldTransform();
-
-		// Calculate the new position by adding the translations
-		btVector3 currentPosition = currentTransform.getOrigin();
-		btVector3 newPosition = btVector3(currentPosition.x() + translationX, currentPosition.y() + translationY, currentPosition.z() + translationZ);
-
-		// Set the new position in the transformation
-		currentTransform.setOrigin(newPosition);
-
-		// Update the rigid body's world transform
-		terrainMeshRigidBody->setWorldTransform(currentTransform);
-
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		translationX = 0.0;
-
-		translationY = 0.0;
-
-		translationZ = 0.0;
-
-
-
-		// Pass the updated model matrix to the shader
-
-	}
-
-	if (ImGui::Button("Center Terrain")) {
-		glUniform1i(applyModelTransform, 1);
-		glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
-		for (size_t i = 0; i < vertices.size(); i += 3) {
-			center.x += vertices[i];
-			center.y += vertices[i + 1];
-			center.z += vertices[i + 2];
+		if (ImGui::SliderFloat("Fog End", &fogEnd, -128.0f, 128.0f)) {
+			glUniform1f(fogEndUniform, fogEnd);
 		}
-		center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
-
-		// Calculate the translation needed to move the center to the local origin
-		float translationX = -center.x;
-		float translationY = -center.y;
-		float translationZ = -center.z;
-
-		// Apply the translation to all the vertices
-		for (size_t i = 0; i < vertices.size(); i += 3) {
-			vertices[i] += translationX;
-			vertices[i + 1] += translationY;
-			vertices[i + 2] += translationZ;
+		if (ImGui::Checkbox("High Winds", &enableHighWinds)) {
+			// Here, you might update a physics or wind system in your engine
+			std::cout << (enableHighWinds ? "High Winds Enabled" : "High Winds Disabled") << std::endl;
 		}
-		modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
+		if (ImGui::Checkbox("Alternate Fog", &enableFog2)) {
+		
+		}
+
+		ImGui::End();
+
+		ImGui::Begin("Terrain Controls");
+
+		// Input fields for X, Y, and Z coordinates
+		GLint applyModelTransform = glGetUniformLocation(*this->shaderPtr, "applyModelTransform");
+		glUniform1i(applyModelTransform, 1);//this variable tells shader its terain
+		ImGui::InputFloat("Translate X", &translationX);
+		ImGui::InputFloat("Translate Y", &translationY);
+		ImGui::InputFloat("Translate Z", &translationZ);
+		GLuint modelLoc = glGetUniformLocation(*this->shaderPtr, "model");
+		// Button to apply the translation
+
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+		if (ImGui::Button("Apply Translation")) {
+			// Update the model matrix with the typed-in values
+			 // Identity matrix, no initial transformation
+			//modelMatrix = glm::translate(modelMatrix, glm::vec3(translationX, translationY, translationZ));
 
-		btTransform currentTransform = terrainMeshRigidBody->getWorldTransform();
 
-		// Calculate the new position by adding the translations
-		btVector3 currentPosition = currentTransform.getOrigin();
-		btVector3 newPosition = btVector3(currentPosition.x() + translationX, currentPosition.y() + translationY, currentPosition.z() + translationZ);
+			for (size_t i = 0; i < vertices.size(); i += 3) {
+				vertices[i] += translationX;
+				vertices[i + 1] += translationY;
+				vertices[i + 2] += translationZ;
+			}
+			//delete terrainMesh;
 
-		// Set the new position in the transformation
-		currentTransform.setOrigin(newPosition);
 
-		// Update the rigid body's world transform
-		terrainMeshRigidBody->setWorldTransform(currentTransform);
+			btTransform currentTransform = terrainMeshRigidBody->getWorldTransform();
 
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+			// Calculate the new position by adding the translations
+			btVector3 currentPosition = currentTransform.getOrigin();
+			btVector3 newPosition = btVector3(currentPosition.x() + translationX, currentPosition.y() + translationY, currentPosition.z() + translationZ);
 
-		translationX = 0.0;
+			// Set the new position in the transformation
+			currentTransform.setOrigin(newPosition);
 
-		translationY = 0.0;
+			// Update the rigid body's world transform
+			terrainMeshRigidBody->setWorldTransform(currentTransform);
 
-		translationZ = 0.0;
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			translationX = 0.0;
+
+			translationY = 0.0;
+
+			translationZ = 0.0;
+
+
+
+			// Pass the updated model matrix to the shader
+
+		}
+
+		if (ImGui::Button("Center Terrain")) {
+			glUniform1i(applyModelTransform, 1);
+			glm::vec3 center(0.0f, 0.0f, 0.0f); // Initialize a vector to store the center
+			for (size_t i = 0; i < vertices.size(); i += 3) {
+				center.x += vertices[i];
+				center.y += vertices[i + 1];
+				center.z += vertices[i + 2];
+			}
+			center /= (vertices.size() / 3); // Divide by the number of vertices to get the average position
+
+			// Calculate the translation needed to move the center to the local origin
+			float translationX = -center.x;
+			float translationY = -center.y;
+			float translationZ = -center.z;
+
+			// Apply the translation to all the vertices
+			for (size_t i = 0; i < vertices.size(); i += 3) {
+				vertices[i] += translationX;
+				vertices[i + 1] += translationY;
+				vertices[i + 2] += translationZ;
+			}
+			modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+
+			btTransform currentTransform = terrainMeshRigidBody->getWorldTransform();
+
+			// Calculate the new position by adding the translations
+			btVector3 currentPosition = currentTransform.getOrigin();
+			btVector3 newPosition = btVector3(currentPosition.x() + translationX, currentPosition.y() + translationY, currentPosition.z() + translationZ);
+
+			// Set the new position in the transformation
+			currentTransform.setOrigin(newPosition);
+
+			// Update the rigid body's world transform
+			terrainMeshRigidBody->setWorldTransform(currentTransform);
+
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			translationX = 0.0;
+
+			translationY = 0.0;
+
+			translationZ = 0.0;
+		}
+		if (ImGui::Button("Reset ")) {
+			// Update the model matrix with the typed-in values
+			  // Identity matrix, no initial transformation
+
+
+
+
+
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0, 0.0, 0.0));
+
+			glUniform1i(applyModelTransform, 1);
+
+			// Pass the updated model matrix to the shader
+
+
+		}
+
+		ImGui::End();
 	}
-	if (ImGui::Button("Reset ")) {
-		// Update the model matrix with the typed-in values
-		  // Identity matrix, no initial transformation
-
-
-	
-
-	
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0, 0.0, 0.0));
-
-		glUniform1i(applyModelTransform, 1);
-
-		// Pass the updated model matrix to the shader
-
-
-	}
-
-	ImGui::End();
-
 	static int inputX = 0;
-	static int inputZ = 0;	
+	static int inputZ = 0;
 	static bool showHeight = false;
 	static unsigned char heightValue = 0;
-
-	ImGui::Begin("Height Check");
+	if (drawIMGUI){
+		ImGui::Begin("Height Check");
 
 	// Input fields for (x, z) coordinates
 	ImGui::InputInt("X", &inputX);
@@ -459,7 +500,7 @@ void Terrain::render()
 	}
 
 	ImGui::End();
-
+}
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, normalMapTexture);
 
@@ -490,14 +531,10 @@ void Terrain::render()
 
 
 
-	if (heightmapData.heights.size() > 0) {
+	if (heightmapData.heights.size() > 0 && boolDrawTerrainAlways) {
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
-
-	
-
-	
 		//loop through the Z axis of the terrain
 
 			//loop through the X axis of the terrain
@@ -832,9 +869,9 @@ bool Terrain::createTerrainMesh()
 	// Free the image data
 	stbi_image_free(detailMapData);
 	vertices.clear();
-	normals.clear();
+	Normals.clear();
 	indices.clear();
-	terrainInfoVector.clear();
+	terrainInfoVector.clear();// Previouly contained colour data for vertices 
 	verticesID.clear();//Unique IDs for terrain picking
 
 	
@@ -929,7 +966,7 @@ bool Terrain::createTerrainMesh()
 			indices.push_back(bottomLeft);
 		}
 	}
-	std::vector<glm::vec3> Normals(vertices.size(), glm::vec3(0.0f));
+	Normals.resize(vertices.size() / 3, glm::vec3(0.0f));
 
 	
 
@@ -1085,6 +1122,8 @@ bool Terrain::createTerrainMesh()
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+
+	
 		std::vector<float> normalizedHeights;
 		normalizedHeights.reserve(heightmapData.heights.size());
 
@@ -1111,10 +1150,10 @@ bool Terrain::createTerrainMesh()
 		for (int i = 1; i < vertices.size(); i += 3) {
 			heightData2.push_back(vertices[i]);
 		}
-		 terrainMesh = new btTriangleMesh();
+		// Initialize terrain mesh pointer
+		btTriangleMesh* terrainMesh = new btTriangleMesh();
 
 		// Populate the btTriangleMesh with your vertex and index data
-		 
 		for (size_t i = 0; i < indices.size(); i += 3) {
 			// Get the vertices of the current triangle
 			btVector3 vertex1(vertices[indices[i] * 3], vertices[indices[i] * 3 + 1], vertices[indices[i] * 3 + 2]);
@@ -1124,46 +1163,38 @@ bool Terrain::createTerrainMesh()
 			// Add the triangle to the btTriangleMesh
 			terrainMesh->addTriangle(vertex1, vertex2, vertex3);
 		}
-		terrainMesh = new btTriangleMesh();
 
-		// Populate the btTriangleMesh with your vertex and index data
-		// Create the btHeightfieldTerrainShape using your heightmap data
-		terrainShapePtr = new btHeightfieldTerrainShape(
-			size,                 // Width of the heightmap (number of points along X axis)
-			size,                 // Length of the heightmap (number of points along Z axis)
-			&heightmapData.heights,      // Pointer to your heightmap height data
-			1.0f,                           // Height scale (usually 1.0f, adjust as needed)
-			0,                      // Minimum height value
-			12,                      // Maximum height value
-			1,                              // Up axis (Y-axis in this case, so it's 1)
-			PHY_FLOAT,                      // Data type of height (here, float)
-			false                           // FlipQuadEdges (usually false)
-		);
+		// Now, create the btBvhTriangleMeshShape for the terrain collision
+		btBvhTriangleMeshShape* terrainShape = new btBvhTriangleMeshShape(terrainMesh, true);  // True for optimizing the mesh
 
-		// Optionally set scaling if needed (adjust this as per your terrain size)
-		btVector3 localScaling(1.0, 1.0f, 1.0);  // Scale for X, Z axes (Y scale is managed by heightmap heights)
-		terrainShapePtr->setLocalScaling(localScaling);
-		logger.AddLog(std::to_string(minHeight),ImGuiLogger::LogType::Physics );
-		logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
-		// Now create the rigid body for the terrain
+		// Optionally set scaling if needed
+		btVector3 localScaling(1.0, 1.0f, 1.0);  // Scale for X, Z axes
+		terrainShape->setLocalScaling(localScaling);
+
+		// Create the transform for the rigid body
 		btTransform startTransform;
 		startTransform.setIdentity();
-		startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));  // Position the terrain at origin
+		startTransform.setOrigin(btVector3(0.0, 0.0, 0.0));  // Position at origin
 
 		btDefaultMotionState* terrainMotionState = new btDefaultMotionState(startTransform);
 
-		// Create the rigid body construction info
+		// Rigid body construction info (static, mass = 0)
 		btRigidBody::btRigidBodyConstructionInfo terrainRigidBodyCI(
-			0.0f,  // Mass of 0, because it's static
-			terrainMotionState,
-			terrainShapePtr,
-			btVector3(0, 0, 0)  // Local inertia is zero for static objects
+			0.0f,                  // Mass = 0 for static
+			terrainMotionState,    // Motion state
+			terrainShape,          // Collision shape (the populated mesh)
+			btVector3(0, 0, 0)     // Local inertia (0 for static objects)
 		);
 
-		// Create the terrain rigid body
-		terrainMeshRigidBody = new btRigidBody(terrainRigidBodyCI);
-		dynamicsWorldUniversalPtr->addRigidBody(terrainMeshRigidBody);
-		// Set any additional properties for the terrainRigidBody if needed
+		// Create the rigid body
+		btRigidBody* terrainRigidBody = new btRigidBody(terrainRigidBodyCI);
+
+		// Add to the dynamics world
+		dynamicsWorldUniversalPtr->addRigidBody(terrainRigidBody);
+
+		// Log information (as needed)
+		logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
+		logger.AddLog(std::to_string(minHeight), ImGuiLogger::LogType::Physics);
 
 		// Mark your terrain as ready
 		ready = true;
@@ -1646,141 +1677,141 @@ void Terrain::renderTextureLoader()
 {
 
 
+	if (drawIMGUI) {
+		ImGui::Begin("Rivers and Paths");
 
-	ImGui::Begin("Rivers and Paths");
+		if ((ImGui::Button("Generate River"))) {
+			//riverPath.clear();
+			std::srand(std::time(0));
 
-	if ((ImGui::Button("Generate River"))){
-		//riverPath.clear();
-		std::srand(std::time(0));
+			// Initialize terrain vertices
+			if (vertices.size() > 0) {
+				// Generate a river from the highest point to a logical final point
+				int startPointIndex = findHighestPoint(vertices);
 
-		// Initialize terrain vertices
-		if (vertices.size() > 0) {
-			// Generate a river from the highest point to a logical final point
-			int startPointIndex = findHighestPoint(vertices);
+				// Set the final point to the maximum height vertex
+				//int finalPointIndex = findMaxHeightPoint(vertices);
 
-			// Set the final point to the maximum height vertex
-			//int finalPointIndex = findMaxHeightPoint(vertices);
+				// Adjust the number of midpoints as needed
+				int numMidPoints = 10;
 
-			// Adjust the number of midpoints as needed
-			int numMidPoints = 10;
+				generateRiver(vertices, startPointIndex, 1, numMidPoints);
+			}
 
-			generateRiver(vertices, startPointIndex, 1, numMidPoints);
+
 		}
-	
 
-	}
+		if ((ImGui::Button("Widen River"))) {
+			size_t ss = riverPath.size();
+			for (size_t i = 0; i < ss; ++i) {
+				// Add the original float
+				float originalFloat = riverPath[i];
 
-	if ((ImGui::Button("Widen River"))) {
-		size_t ss = riverPath.size();
-		for (size_t i = 0; i < ss; ++i) {
-			// Add the original float
-			float originalFloat = riverPath[i];
-
-			// Add the second float (original + givenNumber)
-			terrainInfoVector[i + this->size].isWater = 1;
-			riverPath.push_back(originalFloat + this->size);
-		}
-	}
-	ImGui::Text("River Path Indices:");
-	/*for (int index : riverPath) {
-		ImGui::Text("%d", index);
-	}*/
-
-
-
-	ImGui::End();
-	ImGui::Begin("Texture Manager");
-	
-	// Load Texture button
-	ImGui::InputText("File Name", fileNameBuffer, sizeof(fileNameBuffer));
-	//printf("File Name Buffer Contents: %s\n", fileNameBuffer);
-	// Load Texture button
-	if (ImGui::Button("Load Texture")) {
-		// Get the file name from the input field
-		const char* texturePath = fileNameBuffer;
-
-		if (strlen(texturePath) > 0) {
-			GLuint newTexture = loadTexture(texturePath);
-			if (newTexture != 0 && boolTextureLoadSuccess) {
-				textureIDs.push_back(newTexture);
-				textureNames.push_back(texturePath);
-				selectedTextureIndex = textureIDs.size() - 1;
+				// Add the second float (original + givenNumber)
+				terrainInfoVector[i + this->size].isWater = 1;
+				riverPath.push_back(originalFloat + this->size);
 			}
 		}
-	}
+		ImGui::Text("River Path Indices:");
+		/*for (int index : riverPath) {
+			ImGui::Text("%d", index);
+		}*/
 
-	if (ImGui::Button("Clear Texture")) { textureIDs.clear(); textureNames.clear(); }
 
-	// List of currently loaded textures
-	for (int i = 0; i < textureIDs.size(); i++) {
-		ImGui::Separator();
-		ImGui::Text("Texture %d: %s", i, textureNames[i].c_str());
 
-		// Display a thumbnail (you need to implement this part)
-		// You can use ImGui::Image to display thumbnails here
+		ImGui::End();
+		ImGui::Begin("Texture Manager");
 
-		// Checkbox to select the texture
-		bool isSelected = (i == selectedTextureIndex);
-		if (ImGui::Checkbox(("Select##" + std::to_string(i)).c_str(), &isSelected)) {
-			if (isSelected) {
-				selectedTextureIndex = i;
+		// Load Texture button
+		ImGui::InputText("File Name", fileNameBuffer, sizeof(fileNameBuffer));
+		//printf("File Name Buffer Contents: %s\n", fileNameBuffer);
+		// Load Texture button
+		if (ImGui::Button("Load Texture")) {
+			// Get the file name from the input field
+			const char* texturePath = fileNameBuffer;
+
+			if (strlen(texturePath) > 0) {
+				GLuint newTexture = loadTexture(texturePath);
+				if (newTexture != 0 && boolTextureLoadSuccess) {
+					textureIDs.push_back(newTexture);
+					textureNames.push_back(texturePath);
+					selectedTextureIndex = textureIDs.size() - 1;
+				}
 			}
-			else if (selectedTextureIndex == i) {
-				selectedTextureIndex = -1; // Deselect the texture
+		}
+
+		if (ImGui::Button("Clear Texture")) { textureIDs.clear(); textureNames.clear(); }
+
+		// List of currently loaded textures
+		for (int i = 0; i < textureIDs.size(); i++) {
+			ImGui::Separator();
+			ImGui::Text("Texture %d: %s", i, textureNames[i].c_str());
+
+			// Display a thumbnail (you need to implement this part)
+			// You can use ImGui::Image to display thumbnails here
+
+			// Checkbox to select the texture
+			bool isSelected = (i == selectedTextureIndex);
+			if (ImGui::Checkbox(("Select##" + std::to_string(i)).c_str(), &isSelected)) {
+				if (isSelected) {
+					selectedTextureIndex = i;
+				}
+				else if (selectedTextureIndex == i) {
+					selectedTextureIndex = -1; // Deselect the texture
+				}
 			}
 		}
+
+		if (textureIDs.size() > 0) {
+			if (textureIDs.size() > 0 && textureIDs[0] != 0) {
+				logger.AddLog("inside texture function");
+				std::cout << "inside texture functdion";
+				int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txGrass");
+				glActiveTexture(GL_TEXTURE2); // Texture unit 0
+				glBindTexture(GL_TEXTURE_2D, textureIDs[0]);
+				glUniform1i(uniformTexture, 2);
+			}
+
+			if (textureIDs.size() > 1 && textureIDs[1] != 0) {
+				int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighGrass");
+				glActiveTexture(GL_TEXTURE3); // Texture unit 1
+				glBindTexture(GL_TEXTURE_2D, textureIDs[1]);
+				glUniform1i(uniformTexture, 3);
+			}
+
+			if (textureIDs.size() > 2 && textureIDs[2] != 0) {
+				int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txRock");
+				glActiveTexture(GL_TEXTURE4); // Texture unit 2
+				glBindTexture(GL_TEXTURE_2D, textureIDs[2]);
+				glUniform1i(uniformTexture, 4);
+			}
+
+			if (textureIDs.size() > 3 && textureIDs[3] != 0) {
+				int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighRock");
+				glActiveTexture(GL_TEXTURE5); // Texture unit 3
+				glBindTexture(GL_TEXTURE_2D, textureIDs[3]);
+				glUniform1i(uniformTexture, 5);
+			}
+
+			if (textureIDs.size() > 4 && textureIDs[4] != 0) {
+				int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txPeak");
+				glActiveTexture(GL_TEXTURE6); // Texture unit 4
+				glBindTexture(GL_TEXTURE_2D, textureIDs[4]);
+				glUniform1i(uniformTexture, 6);
+
+			}
+		}
+		// Activate texture unit 0 (you can choose a different one if needed)
+		glActiveTexture(GL_TEXTURE7);
+
+		// Bind the water texture to texture unit 0
+		glBindTexture(GL_TEXTURE_2D, waterTextureID);
+
+		// Set the waterTexture uniform in the shader to use texture unit 0
+		GLint waterTextureLoc = glGetUniformLocation(*this->shaderPtr, "waterTexture");
+		glUniform1i(waterTextureLoc, 0);
+		ImGui::End(); // Texture Manager window
 	}
-
-	if (textureIDs.size() > 0) {
-		if (textureIDs.size() > 0 && textureIDs[0] != 0) {
-			logger.AddLog("inside texture function");
-			std::cout << "inside texture functdion";
-			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txGrass");
-			glActiveTexture(GL_TEXTURE2); // Texture unit 0
-			glBindTexture(GL_TEXTURE_2D, textureIDs[0]);
-			glUniform1i(uniformTexture, 2);
-		}
-
-		if (textureIDs.size() > 1 && textureIDs[1] != 0) {
-			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighGrass");
-			glActiveTexture(GL_TEXTURE3); // Texture unit 1
-			glBindTexture(GL_TEXTURE_2D, textureIDs[1]);
-			glUniform1i(uniformTexture, 3);
-		}
-
-		if (textureIDs.size() > 2 && textureIDs[2] != 0) {
-			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txRock");
-			glActiveTexture(GL_TEXTURE4); // Texture unit 2
-			glBindTexture(GL_TEXTURE_2D, textureIDs[2]);
-			glUniform1i(uniformTexture, 4);
-		}
-
-		if (textureIDs.size() > 3 && textureIDs[3] != 0) {
-			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txHighRock");
-			glActiveTexture(GL_TEXTURE5); // Texture unit 3
-			glBindTexture(GL_TEXTURE_2D, textureIDs[3]);
-			glUniform1i(uniformTexture,5);
-		}
-
-		if (textureIDs.size() > 4 && textureIDs[4] != 0) {
-			int uniformTexture = glGetUniformLocation(*this->shaderPtr, "txPeak");
-			glActiveTexture(GL_TEXTURE6); // Texture unit 4
-			glBindTexture(GL_TEXTURE_2D, textureIDs[4]);
-			glUniform1i(uniformTexture, 6);
-
-		}
-	}
-	// Activate texture unit 0 (you can choose a different one if needed)
-	glActiveTexture(GL_TEXTURE7);
-
-	// Bind the water texture to texture unit 0
-	glBindTexture(GL_TEXTURE_2D, waterTextureID);
-
-	// Set the waterTexture uniform in the shader to use texture unit 0
-	GLint waterTextureLoc = glGetUniformLocation(*this->shaderPtr, "waterTexture");
-	glUniform1i(waterTextureLoc, 0);
-	ImGui::End(); // Texture Manager window
-
 }
 
 GLuint Terrain::loadTexture(const char* path)
@@ -2029,7 +2060,7 @@ GLuint Terrain::loadTexture(const char* path)
 			// Free the image data
 			stbi_image_free(detailMapData);
 		//	vertices.clear();
-			normals.clear();
+			Normals.clear();
 			indices.clear();
 			terrainInfoVector.clear();
 			verticesID.clear();//Unique IDs for terrain picking

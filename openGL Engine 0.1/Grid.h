@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include "Shader.h"
 #include "imgui.h"  // Assuming ImGui is integrated into your project
-
+#include "globals.h"
 class WorldGrid : public Shader {
 public:
 
@@ -26,7 +26,7 @@ public:
     float gridSize = 100.0f;                                              // Size of the grid (can be adjusted based on the scene)
     float gridMinPixelsBetweenCells = 14.0f;                              // Minimum pixels between grid cells
     float gridCellSize = 0.1f;                                         // Size of each grid cell
-    bool boolShowGrid = true;
+    
     // Draws the grid, activates the shader, and calls glDrawArrays
     void draw(glm::mat4 proj);
 

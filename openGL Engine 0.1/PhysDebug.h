@@ -88,6 +88,7 @@ uniform mat4 view;
 uniform mat4 model;
 
 flat out vec3 pickedRGBData;
+out vec3 fragCameraPosition; // Declare the out variable to send camera position to fragment shader
 
 uniform int applyModelTransform;
 uniform float heightScale; // Scale factor for height map
@@ -108,7 +109,10 @@ flat out int isRiverVertex;
 
 void main()
 {
-
+//output camera position from view matrix
+ // fragCameraPosition = -mat3(view) * vec3(view[3].x, view[3].y, view[3].z);
+   fragCameraPosition = vec3(inverse(view)[3]);
+ 
 pickedRGBData = pickedRGB;
 verticesUniqueID =verticesID;
 fragResolution = vec2(2560.0, 1440.0);
@@ -199,6 +203,13 @@ flat in vec3 vecIDs;
 
 layout(location = 0) out vec4 FragColor;
 layout(location = 1) out vec4 FragColor2;
+
+uniform int enableFog;
+ vec3 fogColor;
+uniform float fogStart;
+uniform float fogEnd;
+
+in vec3 fragCameraPosition; // Declare the out variable to send camera position to fragment shader
 
 
 //mouse picking RGB data
@@ -344,15 +355,16 @@ originalColor  = texture(mudTexture, uvsOut * 5).rgb;
     float specularIntensity = pow(max(dot(viewDirection, reflectDirection), 0.0), shininess);
 
     // Combine the sun's color and intensity with your existing lighting model
-    vec3 ambient = (ambientColor * 0.1);
-    vec3 diffuse = (sunIntensity * sunBrightness) *( sunColor *0.3); // Use sunColor for sunlight and apply sampled texture color
+  
+    vec3 diffuse = (sunIntensity * sunBrightness) *( sunColor *0.6); // Use sunColor for sunlight and apply sampled texture color
     vec3 specular = (specularIntensity * 0.05) * specularColor; // Use specular color directly
 
     // Final color output
     vec3 blendedColor = mix(sampledColor, mudColor, smoothstep(slopeThreshold - 0.6, slopeThreshold, slopeFactor));
+  vec3 ambient = (blendedColor * 0.3 );
 // Adjust the factors as needed
-float ambientFactor = 0.5; // Lower factor for ambient
-float diffuseFactor =0.2; // Full influence from diffuse
+float ambientFactor = 1.0; // Lower factor for ambient
+float diffuseFactor =1.0; // Full influence from diffuse
 float specularFactor = 0.5; // Moderate influence from specular
 
 // Calculate the final color
@@ -360,7 +372,7 @@ finalColor = blendedColor * diffuse * diffuseFactor + ambient * ambientFactor + 
 
 // Optionally clamp the final color
 //finalColor = clamp(finalColor, 0.0, 1.0);
-     finalColor = blendedColor+ ambient + diffuse + specular;
+    // finalColor = blendedColor+ ambient + diffuse + specular;
     //finalColor 
     // Untag for HRD range method - Reinhard method. (balances ultra-bright colors)
     // finalColor = finalColor / (finalColor + vec3(1.0)); // Simple tone mapping operator (Reinhard tone mapping)
@@ -417,13 +429,35 @@ if (terrainEditMode == 1)
         FragColor = vec4(finalColor, 1.0);
     }
 
+      // Compute fog factor (distance-based linear interpolation)
+  
+    // Apply fog effect if enabled
+   if (enableFog == 1) {
+    // Convert fragPosition to vec3 by discarding the w component (assuming fragPosition is a vec4)
+    vec3 fragPos = fragPosition.xyz;
 
+    // Calculate the distance between the fragment position and the camera position
+    float fragDistance = length(fragPos - fragCameraPosition);
 
-    //if(vecIDs.x == pickedRGBData.x && vecIDs.z == pickedRGBData.z)
-    //{
-    //FragColor = vec4(0.1,1.0,0.5,0.0);
-    //}
-    //cannot divide a
+    // Fog starts at a fixed near distance to the camera (fogStart) and ends at a further distance (fogEnd)
+    // Adjust fogStart and fogEnd relative to the camera position
+    float fogStartAdjusted = fogStart; // Camera-relative fog start distance
+    float fogEndAdjusted = fogEnd;     // Camera-relative fog end distance
+
+    // Calculate the fog factor based on the fragment distance relative to fogStart and fogEnd
+    float fogFactor = clamp((fragDistance - fogStartAdjusted) / (fogEndAdjusted - fogStartAdjusted), 0.0, 1.0);
+
+    // Define the fog color (can be adjusted as needed)
+    vec3 fogColor = vec3(0.5, 0.5, 0.5);  // Gray fog, can be changed to any color you want
+
+    // Use the calculated fogFactor to blend the final color with the fog color
+    finalColor = mix(fogColor, finalColor, fogFactor);
+
+    // Output the final color with fog applied
+    FragColor = vec4(finalColor, 1.0);
+}
+
+  
     
 
 }

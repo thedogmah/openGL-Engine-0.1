@@ -12,7 +12,7 @@ namespace World {
 		float pad1;          // Padding to align to 16 bytes
 
 		glm::vec3 direction;  // vec3 (12 bytes) -> Needs to be aligned to 16 bytes
-		float isDirectional =0.0;                  // Padding to align to 16 bytes
+		float isDirectional =0.;                  // Padding to align to 16 bytes
 
 		glm::vec3 startingPosition;
 		float pad2;
