@@ -129,6 +129,9 @@
     <ClCompile Include="Animation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Gizmo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cube.h">
@@ -269,6 +272,15 @@
     <ClInclude Include="poly2tri\common\utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="text_fonts_glyphs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Gizmo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Docs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="basic.frag">
@@ -305,6 +317,18 @@
       <Filter>Header Files\Shaders</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="shader_text.vert">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
+    <None Include="shader_text.frag">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
+    <None Include="gizmo.vert">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
+    <None Include="gizmo.frag">
+      <Filter>Header Files\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Desktop\me.jpg">

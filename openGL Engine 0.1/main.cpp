@@ -20,15 +20,15 @@
 #include "CallbackFunctions.h"
 #include <random>
 #include <iostream>
-#include <istream>
-#include "ObjImporter.h"
+#include <istream>//Do I need both?
+#include "ObjImporter.h"//should be this included after assimp below?
 #include <assimp/config.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "ImGuiVariables.h"
 #include <glm/gtx/compatibility.hpp> // for glm::lerp
-#include <glm/gtx/compatibility.hpp> // for glm::lerp
+
 #include <cstdlib> // for rand
 //Bullet libraries for PHYSICS
 #include "C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\include\bullet\BulletDynamics\btBulletDynamicsCommon.h"
@@ -52,6 +52,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 #include "Camera.h"
 #include "worldObject.h"
 #include "cubeData.h"
@@ -74,8 +75,12 @@
 #include "tinyfiledialogs.h"
 #include "Grid.h"
 #include "Animation.h"
-bool boolShowGrid = true;
-bool boolShowWater = true;
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include "text_fonts_glyphs.h"
+#include "Gizmo.h"
+bool boolShowGrid = true;//Engine renders 3d axis grid
+bool boolShowWater = true;//Engine ui renders water
 //char const* lTheOpenFileName;
 #include "ImGuiLogger.h"
 #include "ModelLoader.h"
@@ -107,6 +112,7 @@ std::vector<std::string> shaderIDStrings; //strings for shader IDs in drop down 
   GLuint terrainPickingSwitch = 0;
   bool boolToolResized = false;
    bool loadModelTwo = false;
+   modelNew* activeModelPtr = nullptr;
   int brushSize;
   std::vector <WaterTile> waterTileVector;
   std::set<std::pair<float, float>> waterBounds;//locations for not creating land objects
@@ -395,7 +401,7 @@ int main()
 	// Cleanup Assimp logger
 	
 	   // Cleanup Assimp logger
-	Assimp::DefaultLogger::kill();
+	Assimp::DefaultLogger::kill();//why is open dialog crashing
 
 // Replace with your model file path
 	//const aiScene* scene = aiImportFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -553,8 +559,8 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	int count;
 	GLFWmonitor** monitors = glfwGetMonitors(&count);
-	GLFWmonitor* monitor = monitors[0];
-	GLFWwindow* window = glfwCreateWindow(2560, 1440, "Barcelona Engine",NULL, NULL);
+	GLFWmonitor* monitor = monitors[0];//Make thi dynamic or add options?
+	GLFWwindow* window = glfwCreateWindow(2560, 1440, "Sevilla Engine",NULL, NULL);
 	
 	//GLFWmonitor 
 	//int width, height;
@@ -1372,6 +1378,7 @@ SetupImGuiStyle2();
 	
 	
 	//passing character start locations
+	//initalise function for engine takes characters XYZ and window.
 	initialise(43.0, 53.0, 37.0, window);
 
 		//fps details
@@ -1383,7 +1390,8 @@ SetupImGuiStyle2();
 	globalWaterShader = &watershade.ID;
 
 
-
+	Gizmo gizmo;
+	gizmo.window = window;
 	WaterTile watertile(0, 0, -1);
 	WaterTile watertile2(-20, 0,-1); 
 	WaterTile watertile3(25, 50, -1);
@@ -1402,8 +1410,8 @@ waterTileVector.push_back(watertile3);
 	waterTileVector.push_back(watertile8);
 	uimanager = new UIManager(window_width, window_height, true);
 	objimporter = new ObjImporter;
-	uimanager->addTextureFromFBO(waterFBOS.getReflectionTexture(), 100, 100, -0.7,0.85, 0.35, 0.35);
-	uimanager->addTextureFromFBO(waterFBOS.getRefractionTexture(), 100, 100, 0.4, 0.85, 0.45, 0.45);
+	uimanager->addTextureFromFBO(waterFBOS.getReflectionTexture(), 5000, 5000, -0.7,0.85, 0.35, 0.35);
+	uimanager->addTextureFromFBO(waterFBOS.getRefractionTexture(), 5000, 5000, 0.4, 0.85, 0.45, 0.45);
 //	uimanager->addTextureFromFBO(waterFBOS.getReflectionBufferID(), 100, 100, 0.4, 0.85, 0.45, 0.45);
 	waterRendererProgram.reflectionTextureID = waterFBOS.getReflectionTexture();
 	waterRendererProgram.refractionTextureID = waterFBOS.getRefractionTexture();
@@ -1438,8 +1446,59 @@ waterTileVector.push_back(watertile3);
 
 	animationControllerPtr = &animationController;
 	float lastFrame = 0.0;
+	Shader text_shader("shader_text.vert", "shader_text.frag");
+	text_shader.use();
+	std::vector<Text>screenText;
+
+	//text matrices
+	glm::mat4 spinning_mat(1.0f); 
+
+	FT_Library free_type;
+	FT_Error error_code = FT_Init_FreeType(&free_type);
+	if (error_code)
+	{
+		std::cout << "\n Error Code: " << error_code << " -- " << "An error occurred with FT_Library";
+		int keep_console_open;
+		std::cin >> keep_console_open;
+
+	}
+
+	Text text_object1(free_type, window_width, window_height, "1234567890&.-abcdefghijklmnopqrstuvwxyz:_ABCDEFGHIJKLMNOPQRSTUVWXYZ ");
+	text_object1.create_text_message("Adding Text to the Seville Engine", 400, 400, "arial.ttf", 30, false);
+	text_object1.create_text_message("Welcome", 400, 700, "arial.ttf", 80, false);
+
+
+	glUniform1i(glGetUniformLocation(text_shader.ID, "alphabet_texture"), 31);
+	 
+	glm::vec3 RGB = glm::vec3(10.0f, 120.0f, 105.0f);
+	unsigned int font_colour_loc = glGetUniformLocation(text_shader.ID, "font_colour");
+	glUniform3fv(font_colour_loc, 1, glm::value_ptr(RGB));
+	//srand((unsigned)time(NULL)); // Initialise random seed.
+
+	float x_spin = 1.0f / (rand() % 10 + 1); // Generate random number between 1 and 10
+	float y_spin = 1.0f / (rand() % 10 + 1);
+	float z_spin = 1.0f / (rand() % 10 + 1);
+	float spin_speed = (float)(rand() % 5 + 1);
+
+	float spin_vary = 0.0f;
+	int spin_dir = 1;
+
 	while (!glfwWindowShouldClose(window))
 	{
+
+		//SPIN ANIMATION TEXT MATRIX
+		spin_vary += 0.05f * spin_dir;
+
+		if (spin_vary > 6 || spin_vary < 0)
+		{
+			spin_dir = -spin_dir; // Reverse the spinning direction.
+
+			x_spin = 1.0f / (rand() % 10 + 1);
+			y_spin = 1.0f / (rand() % 10 + 1);
+			z_spin = 1.0f / (rand() % 10 + 1);
+			spin_speed = (float)(rand() % 50 + 1) / 40;
+		}
+		spinning_mat = glm::rotate(spinning_mat, glm::radians(spin_speed), glm::normalize(glm::vec3(x_spin, y_spin, z_spin)));
 		//Get frame time
 		currentTime = glfwGetTime();
 		// Calculate the elapsed time since the start of the loop
@@ -1865,6 +1924,35 @@ waterTileVector.push_back(watertile3);
 		//ImGui::End();
 
 		if (drawIMGUI) {
+
+
+			static char message_buffer[256] = "";
+			static char font_path_buffer[256] = "arial.ttf";
+			static int text_start_x = 100;
+			static int text_start_y = 100;
+			static int font_size = 24;
+			static bool dynamic_static = true;
+
+			ImGui::Begin("Text Message Editor");
+
+			ImGui::InputText("Message", message_buffer, IM_ARRAYSIZE(message_buffer));
+			ImGui::InputInt("Start X", &text_start_x);
+			ImGui::InputInt("Start Y", &text_start_y);
+			ImGui::InputText("Font Path", font_path_buffer, IM_ARRAYSIZE(font_path_buffer));
+			ImGui::InputInt("Font Size", &font_size);
+			ImGui::Checkbox("Dynamic", &dynamic_static);
+
+			if (ImGui::Button("Create Message")) {
+				Text text_object(free_type, window_width, window_height, "1234567890&.-abcdefghijklmnopqrstuvwxyz:_ABCDEFGHIJKLMNOPQRSTUVWXYZ ");
+				text_object.create_text_message(message_buffer, text_start_x, text_start_y, font_path_buffer, font_size, false);
+				screenText.push_back(text_object);
+			}
+			if (ImGui::Button("Delete Messages")) {
+				screenText.clear();
+			}
+			ImGui::End();
+
+
 			ImGui::Begin("Add Lighting");
 			ImGui::Selectable("Draw Debug Lights", &boolDebugLights);
 			// Control for scene exposure
@@ -2139,7 +2227,7 @@ waterTileVector.push_back(watertile3);
 		
 		//	mesh.SetWorldTransform(modelMatrix);
 			mesh->Render(shaderProgram);
-
+			
 			//Here the object is drwing correctly using a different 
 			//process. I'm rewriting the process
 		}
@@ -2445,7 +2533,23 @@ waterTileVector.push_back(watertile3);
 			glUseProgram(0);
 		}
 
+		text_shader.use();
+		unsigned int view_mat_text_loc = glGetUniformLocation(text_shader.ID, "view");
+		unsigned int proj_mat_text_loc = glGetUniformLocation(text_shader.ID, "projection");
+		unsigned int anim_text_loc = glGetUniformLocation(text_shader.ID, "animate");
+		glUniformMatrix4fv(view_mat_text_loc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		glUniformMatrix4fv(proj_mat_text_loc, 1, GL_FALSE, glm::value_ptr(projection));
 
+		glUniformMatrix4fv(anim_text_loc, 1, GL_FALSE, glm::value_ptr(spinning_mat)); 
+		text_object1.draw_messages(0);	
+		text_object1.draw_messages(1);
+
+		for (int i = 0; i < screenText.size(); i++) {
+			screenText[i].draw_messages(0);
+				}
+
+		//text_object1.draw_alphabets();  
+		gizmo.Draw();
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
 			 UIdrawn = false;

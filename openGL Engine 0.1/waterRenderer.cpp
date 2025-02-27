@@ -116,7 +116,7 @@ void WaterRenderer::setUpVAO(Loader& loader) {
                                   1, -1, -1, 1, 1, 1 };  // Second triangle (clockwise)
 
 //std::vector<GLfloat> vertices = { -1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, 1 };
-    quad = new RawModel(loader.loadToVao(vertices, 2), vertices.size() / 2,0,0,0,0);
+    quad = new   RawModel(loader.loadToVao(vertices, 2), vertices.size() / 2,0,0,0,0);
     checkGLError("setUpVAO");
     shader.bindAttributes();
 }

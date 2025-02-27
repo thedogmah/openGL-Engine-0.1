@@ -1149,7 +1149,7 @@ void modelLoader::showMaterialEditor(std::vector<std::unique_ptr<modelNew>>& mod
 	}
 
 	modelNew& activeModel = *modelNewVector[activeModelIndex];
-
+	static modelNew* activeModelPtr = modelNewVector[activeModelIndex].get();
 	// Step 2: Create a dropdown for the submeshes of the active model
 	std::vector<std::string> subMeshNames;
 	for (int i = 0; i < activeModel.subMeshes.size(); ++i) {

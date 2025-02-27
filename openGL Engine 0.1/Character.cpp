@@ -87,13 +87,12 @@ void Character::update()
 
 	handleInput();
 	applyMovement();
-	
 	debug();
 }
 
 void Character::debug()
 {
-	if (ImGui::GetCurrentContext()) {
+	if (ImGui::GetCurrentContext()) {//not sure why an if that is true alway
 		if (drawIMGUI) {
 			ImGui::Begin("Character Debugging");
 			if (ImGui::SliderFloat("Friction", &frictionValue, 0.0f, 1.0f)) // Adjust the range as needed
@@ -103,7 +102,7 @@ void Character::debug()
 			if (ImGui::SliderFloat("Linear Damping", &linearDamping, 0.01f, 5.0f)) {
 				rigidBody->setDamping(linearDamping, angularDamping);
 			}
-			if (ImGui::SliderFloat("Angular Damping", &angularDamping, 0.01f, 5.0f)) {
+			if (ImGui::SliderFloat("Angular Damping", &angularDamping, 0.02f, 5.0f)) {
 				rigidBody->setDamping(linearDamping, angularDamping);
 			}
 			// Apply the updated friction value to the character's rigid body

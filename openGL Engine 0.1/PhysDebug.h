@@ -104,21 +104,21 @@ uniform sampler2D mudNormals;
 out vec2 TexCoord;  // Output texture coordinates for fragment shader
 uniform vec4 plane;
 flat out int isRiverVertex;
-
-
+uniform vec3 viewPos;
+out vec4 worldPosition;
 
 void main()
 {
 //output camera position from view matrix
  // fragCameraPosition = -mat3(view) * vec3(view[3].x, view[3].y, view[3].z);
-   fragCameraPosition = vec3(inverse(view)[3]);
+   fragCameraPosition = viewPos;
  
 pickedRGBData = pickedRGB;
 verticesUniqueID =verticesID;
 fragResolution = vec2(2560.0, 1440.0);
 modifiedY = 0;
   isRiverVertex = 0;
-  vec4 worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
+  worldPosition = model * vec4(position.x, position.y, position.z, 1.0);
 vec4 clipspace =  projection * view * model * vec4(position, 1.0f);
 vec4 IDpass = projection * view * model * vec4(position, 1.0f);
 
@@ -151,7 +151,8 @@ uvsOut = uvs;
    // fragPosition = projection * vec4(position,1.0f); 
 float mudDisplacement = texture(mudHeight, uvs.xy).r * 2.0;
 
- if (applyModelTransform == 1) {
+ if (applyModelTransform == 1) { //I think this variable tells shader its terrain being rendered, not a 3d model. but there arent other clauses anyway
+
 
      float heightMapValue = texture(detailMap, uvs).r;
 
@@ -205,10 +206,10 @@ layout(location = 0) out vec4 FragColor;
 layout(location = 1) out vec4 FragColor2;
 
 uniform int enableFog;
- vec3 fogColor;
+uniform vec3 fogColor;
 uniform float fogStart;
 uniform float fogEnd;
-
+in vec4 worldPosition;
 in vec3 fragCameraPosition; // Declare the out variable to send camera position to fragment shader
 
 
@@ -431,30 +432,39 @@ if (terrainEditMode == 1)
 
       // Compute fog factor (distance-based linear interpolation)
   
-    // Apply fog effect if enabled
-   if (enableFog == 1) {
-    // Convert fragPosition to vec3 by discarding the w component (assuming fragPosition is a vec4)
-    vec3 fragPos = fragPosition.xyz;
+   // Apply fog effect if enabled
+   if (enableFog == 1 && terrainEditMode == 0) {
+        vec3 fragPos =  worldPosition.xyz;
 
-    // Calculate the distance between the fragment position and the camera position
-    float fragDistance = length(fragPos - fragCameraPosition);
+        // Distance from camera to fragment
+        float fragDistance = length(fragPos - fragCameraPosition);
 
-    // Fog starts at a fixed near distance to the camera (fogStart) and ends at a further distance (fogEnd)
-    // Adjust fogStart and fogEnd relative to the camera position
-    float fogStartAdjusted = fogStart; // Camera-relative fog start distance
-    float fogEndAdjusted = fogEnd;     // Camera-relative fog end distance
+        // Calculate fog range
+        float fogRange = fogEnd - fogStart;
 
-    // Calculate the fog factor based on the fragment distance relative to fogStart and fogEnd
-    float fogFactor = clamp((fragDistance - fogStartAdjusted) / (fogEndAdjusted - fogStartAdjusted), 0.0, 1.0);
+        // Calculate fog distance
+        float fogDist = fogEnd - fragDistance;
 
-    // Define the fog color (can be adjusted as needed)
-    vec3 fogColor = vec3(0.5, 0.5, 0.5);  // Gray fog, can be changed to any color you want
+        //exponentfogvariables
+        float fogDensity = 1.0 / (fogEnd - fogStart);
 
-    // Use the calculated fogFactor to blend the final color with the fog color
-    finalColor = mix(fogColor, finalColor, fogFactor);
+        // Compute the fog factor for basic fog
+        //float fogFactor = clamp(fogDist / fogRange, 0.0, 1.0);
+        //alternative factor
+        float fogFactor = clamp(exp(-fogDensity * fragDistance), 0.0, 0.9);
 
-    // Output the final color with fog applied
-    FragColor = vec4(finalColor, 1.0);
+        //height based fog factor
+        //float fogFactor = clamp(exp(-pow(fogDensity * (fragPos.y - 10), 2.0)), 0.0, 0.9);
+
+        // Define the fog color (can be adjusted as needed)
+        //vec3 fogColor = vec3(0.5, 0.5, 0.5);  // Gray fog, can be changed to any color you want
+
+        // Use the calculated fogFactor to blend the final color with the fog color
+        finalColor = mix(fogColor, finalColor, fogFactor);
+
+        // Output the final color with fog applied
+        FragColor = vec4(finalColor, 1.0);
+
 }
 
   

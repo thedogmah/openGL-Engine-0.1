@@ -10,7 +10,8 @@ void checkGLError(const char* functionName);
 class RawModel {
 public:
     RawModel(GLuint vaoID, GLsizei vertexCount, float x, float y, float width, float height)
-        : vaoID(vaoID), vertexCount(vertexCount), x(x), y(y), width(width), height(height) {}
+        : vaoID(vaoID), vertexCount(vertexCount), x(x), y(y), width(width), height(height)
+    {}
    
     GLuint getVaoID() const { return vaoID; }
     GLsizei getVertexCount() const { return vertexCount; }

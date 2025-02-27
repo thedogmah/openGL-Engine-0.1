@@ -403,6 +403,7 @@ public:
 	 bool enableHighWinds = false;
 	 float fogStart = 30.0;
 	 float fogEnd = 50.0;
+	 
 	 glm::vec3 fogColor;
 
 

@@ -146,7 +146,7 @@
       <AdditionalLibraryDirectories>C:\Program Files (x86)\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link\;C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.29.30133\lib\spectre\onecore\x64;C:\Program Files\Microsoft Visual Studio\2022\Community\SDK\ScopeCppSDK\vc15\SDK\lib;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\debug\lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib;C:\Users\ryanb\Desktop\openGL Engine 0.1\openGL Engine 0.1\libraries\lib;C:\Program Files %28x86%29\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshToolsd.lib;OpenMeshCored.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\Bullet3Common_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletSoftBody_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletInverseDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletCollision_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\LinearMath_Debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshToolsd.lib;OpenMeshCored.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\Bullet3Common_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletSoftBody_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletInverseDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletCollision_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\BulletDynamics_Debug.lib;C:\Users\ryanb\vcpkg\vcpkg\packages\bullet3_x64-windows\debug\lib\LinearMath_Debug.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
@@ -168,7 +168,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshTools.lib;OpenMeshCore.lib;BulletDynamics_vs2010_x64_release.lib;BulletCollision_vs2010_x64_release.lib;LinearMath_vs2010_x64_release.lib;Bullet3Common_vs2010_x64_release.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;OpenMeshTools.lib;OpenMeshCore.lib;BulletDynamics_vs2010_x64_release.lib;BulletCollision_vs2010_x64_release.lib;LinearMath_vs2010_x64_release.lib;Bullet3Common_vs2010_x64_release.lib;assimp-vc143-mt.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <AdditionalLibraryDirectories>C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.29.30133\lib\spectre\onecore\x64;C:\Program Files %28x86%29\Microsoft SDKs\UWPNuGetPackages\runtime.win10-arm64.microsoft.net.native.compiler\2.2.12-rel-31116-00\tools\arm64\ilc\tools\link;C:\Users\ryanb\Desktop\openGL-Engine-0.1\openGL Engine 0.1\libraries\lib;C:\Users\ryanb\Downloads\2024.07.12 source code\microsoft-vcpkg-1de2026\packages\assimp_x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -188,6 +188,7 @@
     <ClCompile Include="cubeData.cpp" />
     <ClCompile Include="CubeMap.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="Gizmo.cpp" />
     <ClCompile Include="Grid.cpp" />
     <ClCompile Include="libraries\include\glad\src\glad.c" />
     <ClCompile Include="Lights.cpp" />
@@ -227,8 +228,10 @@
     <ClInclude Include="Cube.h" />
     <ClInclude Include="cubeData.h" />
     <ClInclude Include="CubeMap.h" />
+    <ClInclude Include="Docs.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="frameBufferObject.h" />
+    <ClInclude Include="Gizmo.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="Grid.h" />
     <ClInclude Include="ImGuiLogger.h" />
@@ -251,6 +254,7 @@
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SSBO.h" />
     <ClInclude Include="Texture.h" />
+    <ClInclude Include="text_fonts_glyphs.h" />
     <ClInclude Include="UIManager.h" />
     <ClInclude Include="waterFrameBuffer.h" />
     <ClInclude Include="waterRenderer.h" />
@@ -261,11 +265,15 @@
   <ItemGroup>
     <None Include="basic.frag" />
     <None Include="basic.vert" />
+    <None Include="gizmo.frag" />
+    <None Include="gizmo.vert" />
     <None Include="modelfragment.glsl" />
     <None Include="modelvertex.glsl" />
     <None Include="packages.config" />
     <None Include="PhysDebug.vert" />
     <None Include="PhysDebut.frag" />
+    <None Include="shader_text.frag" />
+    <None Include="shader_text.vert" />
     <None Include="skybox.frag" />
     <None Include="skybox.vert" />
     <None Include="UIfrag.glsl" />

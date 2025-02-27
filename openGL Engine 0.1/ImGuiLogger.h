@@ -18,7 +18,8 @@ class ImGuiLogger {
             OpenGL,
             Assimp,
             Shader,
-            Physics
+            Physics,
+            RayCasting
         };
 
 public:
@@ -31,7 +32,9 @@ public:
     bool showAssimp = false;    // Filter for Assimp logs
     bool showShader = true;
     bool showPhysics = true;
+    bool showRayCasting = false;
     bool pauseLogging = true;
+    
 
     float fontScale = 1.40; //change size of font within program
 
@@ -107,11 +110,12 @@ public:
             ImGui::Checkbox("Show Assimp", &showAssimp); ImGui::SameLine();
             ImGui::Checkbox("Show Shader", &showShader); ImGui::SameLine();
             ImGui::Checkbox("Show Physics", &showPhysics); ImGui::SameLine();
+            ImGui::Checkbox("Show Rays", &showRayCasting); ImGui::SameLine();
             // Options
             ImGui::Checkbox("Auto-scroll", &autoScroll); ImGui::SameLine();
             ImGui::Checkbox("Pause Logging", &pauseLogging);
             ImGui::PushItemWidth(100.0f);
-            ImGui::SliderFloat("Text Size", &fontScale, 0.9, 2.0);
+            ImGui::SliderFloat("Text Size", &fontScale, 0.9, 2.5);
             
             ImGui::PopItemWidth();
             ImGui::BeginChild("LogOutput", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
@@ -127,7 +131,8 @@ public:
                     (log.type == LogType::OpenGL && !showOpenGL) ||
                     (log.type == LogType::Assimp && !showAssimp) ||
                     (log.type == LogType::Shader && !showShader) ||
-                    (log.type == LogType::Physics && !showPhysics)
+                    (log.type == LogType::Physics && !showPhysics || 
+                        log.type == LogType::RayCasting && !showRayCasting)
                     ) {
                     continue;
                 }
@@ -155,6 +160,9 @@ public:
                 }
                 else if (log.type == LogType::Physics) {
                     ImGui::TextColored(ImVec4(0.7f, 0.8f, 0.0f, 1.0f), "%s[Physics] %s", prefix.c_str(), log.message.c_str());
+                }
+                else if (log.type == LogType::RayCasting) {
+                    ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.9f, 1.0f), "%s[Ray Casting] %s", prefix.c_str(), log.message.c_str());
                 }
                 else {
                     ImGui::Text("%s[Info] %s", prefix.c_str(), log.message.c_str());

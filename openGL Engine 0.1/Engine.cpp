@@ -49,12 +49,14 @@ void Terrain::render()
 
 	//rng.seed(123);     // Set a fixed seed for repeatability (change this for variability)
 	//set time for shader functions
-	static double previousTime = glfwGetTime();
+	static double previousTime = glfwGetTime();//A static. not an error
 	double currentTime = glfwGetTime();
 	float deltaTime = static_cast<float>(currentTime - previousTime);
 	previousTime = currentTime;
 	//	glUseProgram(*this->shaderPtr);
 	renderTextureLoader();
+	GLint viewPosLoc = glGetUniformLocation(*this->shaderPtr, "viewPos");
+	glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.getPosition()));
 	if (UIdrawn == false) {
 
 		if (drawIMGUI) {
@@ -196,6 +198,9 @@ void Terrain::render()
 			GLint heightOffsetLocation = glGetUniformLocation(*this->shaderPtr, "heightOffset");
 			GLint slopeThresholdLocation = glGetUniformLocation(*this->shaderPtr, "slopeThreshold");
 
+			GLint viewPosLoc = glGetUniformLocation(*this->shaderPtr, "viewPos");
+			glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.getPosition()));
+
 			// Control for heightScale
 			if (ImGui::SliderFloat("River Bed", &riverBedValue, -10.0f, 10.0f)) {
 				// Assuming shaderPtr is your shader program pointer
@@ -330,32 +335,39 @@ void Terrain::render()
 	if (drawIMGUI) {
 
 	
-		ImGui::Begin("Weather Controls"); // Create ImGui panel
-
-		ImGui::Text("Toggle Weather Effects");
-
 		
-		ImGui::Checkbox("Fog", &enableFog);
-		GLint fogUniform = glGetUniformLocation(*this->shaderPtr, "enableFog");
-		GLint fogStartUniform = glGetUniformLocation(*this->shaderPtr, "fogStart");
-		GLint fogEndUniform = glGetUniformLocation(*this->shaderPtr, "fogEnd");
-		glUniform1i(fogUniform, enableFog);
-		if(ImGui::SliderFloat("Fog Start", &fogStart, -128.0f, 128.0f)){
-			glUniform1f(fogStartUniform, fogStart);
-		}
-		if (ImGui::SliderFloat("Fog End", &fogEnd, -128.0f, 128.0f)) {
-			glUniform1f(fogEndUniform, fogEnd);
-		}
-		if (ImGui::Checkbox("High Winds", &enableHighWinds)) {
-			// Here, you might update a physics or wind system in your engine
-			std::cout << (enableHighWinds ? "High Winds Enabled" : "High Winds Disabled") << std::endl;
-		}
+		if (UIdrawn == false) {
+			ImGui::Begin("Weather Controls"); // Create ImGui panel
 
-		if (ImGui::Checkbox("Alternate Fog", &enableFog2)) {
-		
-		}
+			ImGui::Text("Toggle Weather Effects");
 
-		ImGui::End();
+			ImGui::Checkbox("Fog", &enableFog);
+			GLint fogUniform = glGetUniformLocation(*this->shaderPtr, "enableFog");
+			GLint fogStartUniform = glGetUniformLocation(*this->shaderPtr, "fogStart");
+			GLint fogEndUniform = glGetUniformLocation(*this->shaderPtr, "fogEnd");
+			glUniform1i(fogUniform, enableFog);
+			ImGui::ColorEdit3("Fog Colour", glm::value_ptr(fogColor));    // Control for new light color
+			//send fog colour to the GPU / shaders
+			GLint fogColourLoc = glGetUniformLocation(*this->shaderPtr, "fogColor");
+			glUniform3fv(fogColourLoc, 1, &fogColor.x);
+
+			if (ImGui::SliderFloat("Fog Start", &fogStart, -1128.0f, 2128.0f)) {
+				glUniform1f(fogStartUniform, fogStart);
+			}
+			if (ImGui::SliderFloat("Fog End", &fogEnd, -128.0f, 2128.0f)) {
+				glUniform1f(fogEndUniform, fogEnd);
+			}
+			if (ImGui::Checkbox("High Winds", &enableHighWinds)) {
+				// Here, you might update a physics or wind system in your engine
+				std::cout << (enableHighWinds ? "High Winds Enabled" : "High Winds Disabled") << std::endl;
+			}
+
+			if (ImGui::Checkbox("Alternate Fog", &enableFog2)) {
+
+			}
+
+			ImGui::End();
+		}
 
 		ImGui::Begin("Terrain Controls");
 
