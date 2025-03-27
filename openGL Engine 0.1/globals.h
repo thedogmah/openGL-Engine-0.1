@@ -18,10 +18,13 @@
 #include <assimp/scene.h>
 #include "ImGuiLogger.h"
 #include "ObjImporter.h"
+//#include <memory>  // For std::unique_ptr
 
 
+struct MeshNew;
+struct modelNew;
 
-
+extern modelNew* activeModelPtr;
 
 extern float deltaTimeGlobal;
 //#include "Camera.h"

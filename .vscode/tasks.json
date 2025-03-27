@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "cl.exe",
+            "args": [
+                "/Zi",
+                "/EHsc",
+                "/Fe:",
+                "${workspaceFolder}\\build\\main.exe",
+                "${workspaceFolder}\\main.cpp",
+                "/I${workspaceFolder}\\include",
+                "/link",
+                "opengl32.lib",
+                "glfw3.lib",
+                "assimp-vc143-mt.lib",
+                "BulletDynamics.lib",
+                "BulletCollision.lib",
+                "LinearMath.lib",
+                "/LIBPATH:${workspaceFolder}\\lib"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": "$msCompile"
+        }
+    ]
+} 

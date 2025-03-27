@@ -34,7 +34,7 @@ bool ObjImporter::loadOBJ(const std::string& filename) {
     objFile.close();
 
 
-    std::string mtlFilename = filename.substr(0, filename.find_last_of(".")) + ".mtl";
+    std::string mtlFilename;// = filename.substr(0, filename.find_last_of(".")) + ".mtl";
     std::ifstream mtlFile(mtlFilename);
 
     if (mtlFile.is_open()) {

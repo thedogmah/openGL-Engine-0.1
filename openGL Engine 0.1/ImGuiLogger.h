@@ -27,10 +27,10 @@ public:
     bool logWindowOpen = true;
     bool showInfo = true;    // Filter for Info logs
     bool showWarning = true; // Filter for Warning logs
-    bool showError = true;   // Filter for Error logs
+    bool showError = false;   // Filter for Error logs
     bool showOpenGL = false;  // Filter for OpenGL logs
     bool showAssimp = false;    // Filter for Assimp logs
-    bool showShader = true;
+    bool showShader = false;
     bool showPhysics = true;
     bool showRayCasting = false;
     bool pauseLogging = true;

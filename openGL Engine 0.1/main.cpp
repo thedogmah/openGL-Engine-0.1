@@ -79,6 +79,7 @@
 #include FT_FREETYPE_H
 #include "text_fonts_glyphs.h"
 #include "Gizmo.h"
+#include <algorithm>
 bool boolShowGrid = true;//Engine renders 3d axis grid
 bool boolShowWater = true;//Engine ui renders water
 //char const* lTheOpenFileName;
@@ -1341,7 +1342,6 @@ SetupImGuiStyle2();
 			std::cout << "before terrain " << error << std::endl;
 
 
-
 		}
 	}
 
@@ -1450,7 +1450,7 @@ waterTileVector.push_back(watertile3);
 	text_shader.use();
 	std::vector<Text>screenText;
 
-	//text matrices
+	//text matrices/
 	glm::mat4 spinning_mat(1.0f); 
 
 	FT_Library free_type;
@@ -1464,8 +1464,8 @@ waterTileVector.push_back(watertile3);
 	}
 
 	Text text_object1(free_type, window_width, window_height, "1234567890&.-abcdefghijklmnopqrstuvwxyz:_ABCDEFGHIJKLMNOPQRSTUVWXYZ ");
-	text_object1.create_text_message("Adding Text to the Seville Engine", 400, 400, "arial.ttf", 30, false);
-	text_object1.create_text_message("Welcome", 400, 700, "arial.ttf", 80, false);
+	text_object1.create_text_message("The Sevilla Engine", 400, 400, "arial.ttf", 320, false);
+	text_object1.create_text_message("Welcome", 400, 700, "arial.ttf", 180, false);
 
 
 	glUniform1i(glGetUniformLocation(text_shader.ID, "alphabet_texture"), 31);
@@ -1760,7 +1760,7 @@ waterTileVector.push_back(watertile3);
 		}
 		if (drawIMGUI) {
 			ImGui::Begin("Camera Location");
-			if (ImGui::Button("Snap to World Origin")) {
+			if (ImGui::Button("Move to World Origin")) {
 				glm::mat4 worldOrigin = glm::mat4(1.0f); // Identity matrix
 				btRigidBody* player1 = character->getRigidBody();
 				btVector3 newPosition(0.0f, 15.0f, 0.0f);
@@ -2549,7 +2549,8 @@ waterTileVector.push_back(watertile3);
 				}
 
 		//text_object1.draw_alphabets();  
-		gizmo.Draw();
+		if (activeModelPtr != nullptr) 
+			gizmo.Draw();
 			ImGui::Render();
 			//boolean is responsible for only drawing the UI once.
 			 UIdrawn = false;

@@ -20,6 +20,7 @@
 #include "Shader.h"
 #include "poly2tri/poly2tri.h"
 #include <unordered_map>
+#include <algorithm>
 struct VertexNew;
 struct TextureNew;
 struct MeshNew;
@@ -37,10 +38,10 @@ public:
     glm::mat4 worldTransform;        // World transformation matrix
     glm::mat4 GetModelMatrix() const {
         // Extract the position from the worldTransform matrix
-        return worldTransform; // Return the position as a vec3
+        return worldTransform; //Return the position as a vec3
         std::vector<Material> materials;
     }
-     aiScene* getScene()  {
+     aiScene* getScene()  { 
         return loadedScene;
     }
     void SetPosition(const glm::vec3& position) {

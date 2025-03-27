@@ -3,7 +3,7 @@
 #define TEXTURE_LOCATION 1
 #define NORMAL_LOCATION 2
 #define COLOUR_TEXTURE_UNIT 3
-
+#include <algorithm> //(for std::search and std::find_last_of).
 #include <vector>
 #include <iostream>
 #include "globals.h"

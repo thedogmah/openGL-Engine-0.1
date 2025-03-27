@@ -165,7 +165,7 @@ void Camera::Camera::updatePosition() {
 			if (this->cameraActive)
 				this->cameraActive = false;
 			if (this->cameraActive)
-				this->cameraActive = true;
+				this->cameraActive = true;//lol
 			if (lMouseClicked == true) { lMouseClicked = false; }
 			if (lMouseClicked == false) { lMouseClicked = true; }
 		}
