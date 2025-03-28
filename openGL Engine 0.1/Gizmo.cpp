@@ -265,7 +265,7 @@ void Gizmo::handleInput(GLFWwindow* window, const glm::mat4& view, const glm::ma
         newRay.origin = glm::vec3(worldCoords) / worldCoords.w;
         newRay.direction = glm::normalize(newRay.origin - camera.getPosition());
         newRay.end = newRay.origin + newRay.direction * rayLength;
-        newRay.color = glm::vec3(1.0f, 0.0f, 0.5f);  // Set your desired color
+        newRay.color = glm::vec3(0.4f, 0.4f, 0.8f);  // Set your desired color
 
         rays.push_back(newRay);  // Add it to the vector
         if (rays.size() > 5)
@@ -273,7 +273,7 @@ void Gizmo::handleInput(GLFWwindow* window, const glm::mat4& view, const glm::ma
             rays.pop_front();
 
         }
-        renderRay = true;
+      //  renderRay = true;
         glm::vec2 P_screen(static_cast<float>(mouseX), static_cast<float>(mouseY));
         glm::mat4 model = activeModelPtr->GetModelMatrix();
         float minDistance = std::numeric_limits<float>::max();
@@ -294,7 +294,7 @@ void Gizmo::handleInput(GLFWwindow* window, const glm::mat4& view, const glm::ma
             }
         }
 
-        float threshold = 5.0f;
+        float threshold = 20.0f;
         if (minDistance > threshold) {
             selectedAxis = -1;
         }
@@ -349,7 +349,7 @@ void Gizmo::handleInput(GLFWwindow* window, const glm::mat4& view, const glm::ma
     }
     else if (!isClicked && wasClicked) {
         selectedAxis = -1;
-        renderRay = true;
+      //  renderRay = true;
     }
 
     wasClicked = isClicked;

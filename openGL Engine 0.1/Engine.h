@@ -54,6 +54,9 @@ public:
 	float amplitude = 12.0f;
 
 
+	void RenderCameraControls(Camera& camera);
+	
+
 	//Function for serialising Vectors to save engine data to file and to load up.
 
 	void saveVectorToFile(const std::vector <GLfloat>& vec, const std::string& filename) {

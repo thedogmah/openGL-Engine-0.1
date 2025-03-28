@@ -1206,32 +1206,32 @@ MeshNew* activeSubMesh = activeModel.subMeshes[activeSubMeshIndex].get(); // Acc
 	// Step 6: Draw a window for world transform
 	ImGui::Begin("World Transform", NULL, ImGuiWindowFlags_NoTitleBar |  ImGuiWindowFlags_NoBackground);
 
-	// Step 7: Display 3 sliders for XYZ translation of the world transform
-	glm::vec3 translation = activeModel.GetPosition(); // Access the translation part of the transform matrix
-	glm::vec3 originalTranslation = translation;
-	ImGui::Text("Move Model:");
-	if (ImGui::SliderFloat("Move X", &translation.x, -200.0f, 200.0f) ||
-		ImGui::SliderFloat("Move Y", &translation.y, -200.0f, 200.0f) ||
-		ImGui::SliderFloat("Move Z", &translation.z, -200.0f, 200.0f)) {
+	//// Step 7: Display 3 sliders for XYZ translation of the world transform
+	//glm::vec3 translation = activeModel.GetPosition(); // Access the translation part of the transform matrix
+	//glm::vec3 originalTranslation = translation;
+	//ImGui::Text("Move Model:");
+	//if (ImGui::SliderFloat("Move X", &translation.x, -200.0f, 200.0f) ||
+	//	ImGui::SliderFloat("Move Y", &translation.y, -200.0f, 200.0f) ||
+	//	ImGui::SliderFloat("Move Z", &translation.z, -200.0f, 200.0f)) {
 
-		// Set the modified translation back to the model's world transform matrix
-		activeModel.SetPosition(translation);
-	}
-	ImGui::Text("Rotate Model");
-	float currentXRotation = activeModel.GetXRotation(); // Get current X rotation
-	float currentYRotation = activeModel.GetYRotation(); // Get current Y rotation
-	float currentZRotation = activeModel.GetZRotation(); // Get current Z rotation
-	if (ImGui::SliderFloat("Rotate X", &currentXRotation, -2.0f, 2.0f)) {
-		activeModel.SetXRotation(currentXRotation); // Set new X rotation
-	}
+	//	// Set the modified translation back to the model's world transform matrix
+	//	activeModel.SetPosition(translation);
+	//}
+	//ImGui::Text("Rotate Model");
+	//float currentXRotation = activeModel.GetXRotation(); // Get current X rotation
+	//float currentYRotation = activeModel.GetYRotation(); // Get current Y rotation
+	//float currentZRotation = activeModel.GetZRotation(); // Get current Z rotation
+	//if (ImGui::SliderFloat("Rotate X", &currentXRotation, -2.0f, 2.0f)) {
+	//	activeModel.SetXRotation(currentXRotation); // Set new X rotation
+	//}
 
-	if (ImGui::SliderFloat("Rotate Y", &currentYRotation, -2.0f, 2.0f)) {
-		activeModel.SetYRotation(currentYRotation); // Set new Y rotation
-	}
+	//if (ImGui::SliderFloat("Rotate Y", &currentYRotation, -2.0f, 2.0f)) {
+	//	activeModel.SetYRotation(currentYRotation); // Set new Y rotation
+	//}
 
-	if (ImGui::SliderFloat("Rotate Z", &currentZRotation, -2.0f, 2.0f)) {
-		activeModel.SetZRotation(currentZRotation); // Set new Z rotation
-	}
+	//if (ImGui::SliderFloat("Rotate Z", &currentZRotation, -2.0f, 2.0f)) {
+	//	activeModel.SetZRotation(currentZRotation); // Set new Z rotation
+	//}
 	
 	// Create variables to hold the Euler angles
 

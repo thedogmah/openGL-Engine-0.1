@@ -27,6 +27,52 @@ Terrain::Terrain()
 
 
 }
+void Terrain::RenderCameraControls(Camera& camera)
+{
+	ImGui::Begin("Camera Controls");
+
+	if (ImGui::Button("Top-Down View")) {
+		// Set camera pitch/yaw for a downward view
+		camera.mPitch = -90.0f;
+		camera.mYaw = 0.0f;     // or any yaw you want
+		camera.update(); // Recompute mFront and mUp
+
+		// Adjust position to a desired height
+		//camera.mPosition.x = someX; // or camera.mPosition.x if you want to preserve X
+		camera.mPosition.y = 10.0f;
+		//camera.mPosition.z = someZ; // or camera.mPosition.z if you want to preserve Z
+
+		camera.setViewMatrix();
+	}
+
+	if (ImGui::Button("Origin View")) {
+		camera.mPosition = { 0.0f, 0.0f, 0.0f };
+		camera.mFront = { 0.0f, 0.0f, -1.0f };
+		camera.mUp = { 0.0f, 1.0f, 0.0f };
+		camera.setViewMatrix();
+	}
+
+	if (ImGui::Button("Flatten Y")) {
+		camera.mPosition.y = 0.0f;
+		camera.setViewMatrix();
+	}
+
+	if (ImGui::Button("Isometric View")) {
+		camera.mPosition = { 10.0f, 10.0f, 10.0f };
+		camera.mFront = glm::normalize(glm::vec3(-1.0f, -1.0f, -1.0f));
+		camera.mUp = { 0.0f, 1.0f, 0.0f };
+		camera.setViewMatrix();
+	}
+
+	if (ImGui::Button("Orbit Reset")) {
+		camera.mPosition = { 0.0f, 5.0f, -10.0f };
+		camera.mFront = glm::normalize(glm::vec3(0.0f, -0.5f, 1.0f));
+		camera.mUp = { 0.0f, 1.0f, 0.0f };
+		camera.setViewMatrix();
+	}
+
+	ImGui::End();
+}
 
 void Terrain::render()
 {
@@ -60,6 +106,8 @@ void Terrain::render()
 	if (UIdrawn == false) {
 
 		if (drawIMGUI) {
+
+			RenderCameraControls(camera);
 			ImGui::Begin("Terrain Settings");
 
 			//Scales the whole terrain by looping the terrain vector and passing data to the GPU/
